@@ -13,21 +13,29 @@ import (
 func InitServiceDiscovery(microServiceId string, microServiceAddress string, endpoints []string) error {
 	// create model
 	routers := make(map[string]models.Router)
+	seenEndpoints := make(map[string]bool) // Track unique endpoints
+
 	pattern := regexp.MustCompile(`^(/api/v1/[^/]+/[^/]+)(/.*)?$`)
 
 	for i, endpoint := range endpoints {
-		key := fmt.Sprintf("%s-router-%d", microServiceId, i)
-
 		// Extract base path up to the first segment after /:app/
 		match := pattern.FindStringSubmatch(endpoint)
-		truncatedEndpoint := endpoint
+		truncatedEndpoint := endpoint // Default to full endpoint if no match
 		if len(match) > 1 {
-			// keep only first segment "/api/v1/:app/{first-segment}"
-			truncatedEndpoint = match[1]
+			truncatedEndpoint = match[1] // Keep only "/api/v1/:app/{first-segment}"
 		}
 
+		// Skip if endpoint is already seen
+		if seenEndpoints[truncatedEndpoint] {
+			continue
+		}
+
+		// Mark endpoint as seen
+		seenEndpoints[truncatedEndpoint] = true
+
+		key := fmt.Sprintf("%s-router-%d", microServiceId, i)
 		routers[key] = models.Router{
-			Rule:        fmt.Sprintf("PathRegexp(`^%s/.*$`)", truncatedEndpoint),
+			Rule:        fmt.Sprintf("PathRegexp(`^%s.*$`)", truncatedEndpoint),
 			Service:     microServiceId,
 			EntryPoints: []string{"web"},
 		}
