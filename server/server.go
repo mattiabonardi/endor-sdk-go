@@ -11,9 +11,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Init(microExecutorId string, handlers []models.Handler) {
+func Init(microExecutorId string, handlers []models.Handler, callback func()) {
 	// load configuration
 	config := configuration.Load()
+
+	// call the callback function if provided
+	if callback != nil {
+		callback()
+	}
+
 	// create router
 	router := gin.New()
 	// create handlers

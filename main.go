@@ -23,5 +23,5 @@ func (h TestHandler) ping(c *gin.Context) {
 func main() {
 	handlers := []models.Handler{}
 	handlers = append(handlers, TestHandler{})
-	server.Init("endor-test", handlers)
+	server.Init("endor-test", handlers, nil)
 }
