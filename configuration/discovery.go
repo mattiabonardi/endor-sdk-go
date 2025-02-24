@@ -1,20 +1,33 @@
-package managers
+package configuration
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/mattiabonardi/endor-sdk-go/models"
 	"gopkg.in/yaml.v3"
 )
 
-func NewDiscoveryConfiguration(microServiceId string, microServiceAddress string, endpoints []string) models.DiscoveryConfiguration {
+func InitServiceDiscovery(microServiceId string, microServiceAddress string, endpoints []string) error {
+	// create model
 	routers := make(map[string]models.Router)
+	pattern := regexp.MustCompile(`^(/api/v1/[^/]+/[^/]+)(/.*)?$`)
+
 	for i, endpoint := range endpoints {
 		key := fmt.Sprintf("%s-router-%d", microServiceId, i)
+
+		// Extract base path up to the first segment after /:app/
+		match := pattern.FindStringSubmatch(endpoint)
+		truncatedEndpoint := endpoint
+		if len(match) > 1 {
+			// keep only first segment "/api/v1/:app/{first-segment}"
+			truncatedEndpoint = match[1]
+		}
+
 		routers[key] = models.Router{
-			Rule:        fmt.Sprintf("PathRegexp(`^%s$`)", endpoint),
+			Rule:        fmt.Sprintf("PathRegexp(`^%s/.*$`)", truncatedEndpoint),
 			Service:     microServiceId,
 			EntryPoints: []string{"web"},
 		}
@@ -29,15 +42,13 @@ func NewDiscoveryConfiguration(microServiceId string, microServiceAddress string
 		},
 	}
 
-	return models.DiscoveryConfiguration{
+	discoveryConfiguration := models.DiscoveryConfiguration{
 		HTTP: models.HTTPConfig{
 			Routers:  routers,
 			Services: services,
 		},
 	}
-}
 
-func RegisterDiscoveryConfiguration(discoveryConfiguration models.DiscoveryConfiguration, microServiceId string) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
