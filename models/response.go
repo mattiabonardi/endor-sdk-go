@@ -1,33 +1,44 @@
 package models
 
-type Response struct {
+// Response with Generics
+type Response[T any] struct {
 	Messages []Message `json:"messages"`
-	Data     any       `json:"data"`
+	Data     T         `json:"data"`
 }
 
-type ResponseBuilder struct {
-	response Response
+// ResponseBuilder with Generics
+type ResponseBuilder[T any] struct {
+	response Response[T]
 }
 
-func NewResponseBuilder() *ResponseBuilder {
-	return &ResponseBuilder{
-		response: Response{
+// NewResponseBuilder initializes ResponseBuilder with generics
+func NewResponseBuilder[T any]() *ResponseBuilder[T] {
+	return &ResponseBuilder[T]{
+		response: Response[T]{
 			Messages: []Message{},
-			Data:     nil,
 		},
 	}
 }
 
-func (h *ResponseBuilder) AddMessage(message Message) *ResponseBuilder {
+// NewResponseBuilder initializes ResponseBuilder with generics
+func NewDefaultResponseBuilder() *ResponseBuilder[map[string]any] {
+	return &ResponseBuilder[map[string]any]{
+		response: Response[map[string]any]{
+			Messages: []Message{},
+		},
+	}
+}
+
+func (h *ResponseBuilder[T]) AddMessage(message Message) *ResponseBuilder[T] {
 	h.response.Messages = append(h.response.Messages, message)
 	return h
 }
 
-func (h *ResponseBuilder) AddData(data interface{}) *ResponseBuilder {
+func (h *ResponseBuilder[T]) AddData(data T) *ResponseBuilder[T] {
 	h.response.Data = data
 	return h
 }
 
-func (h *ResponseBuilder) Build() *Response {
+func (h *ResponseBuilder[T]) Build() *Response[T] {
 	return &h.response
 }

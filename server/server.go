@@ -43,7 +43,7 @@ func Init(microExecutorId string, handlers []models.Handler) {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		response := models.NewResponseBuilder()
+		response := models.NewDefaultResponseBuilder()
 		response.AddMessage(models.NewMessage(models.Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
 		c.JSON(http.StatusNotFound, response.Build())
 	})

@@ -65,14 +65,13 @@ func AuthorizationMiddleware(c *gin.Context) {
 		e.ThrowInternalServerError(c, err)
 		return
 	}
-	r := models.Response{}
+	r := models.Response[models.Session]{}
 	err = json.Unmarshal([]byte(jsonData), &r)
 	if err != nil {
 		e.ThrowInternalServerError(c, err)
 		return
 	}
 	// return user session to next route
-	session := r.Data.(map[string]any)
-	c.Set(models.USER_SESSION_CONTEXT_KEY, session)
+	c.Set(models.USER_SESSION_CONTEXT_KEY, r.Data)
 	c.Next()
 }

@@ -18,11 +18,11 @@ func (h TestHandler1) Route(r *gin.RouterGroup) {
 }
 
 func (h TestHandler1) ping(c *gin.Context) {
-	c.JSON(http.StatusOK, models.NewResponseBuilder().AddData("pong").Build())
+	c.JSON(http.StatusOK, models.NewResponseBuilder[string]().AddData("pong").Build())
 }
 
 func (h TestHandler1) pong(c *gin.Context) {
-	c.JSON(http.StatusOK, models.NewResponseBuilder().AddData("ping").Build())
+	c.JSON(http.StatusOK, models.NewResponseBuilder[string]().AddData("ping").Build())
 }
 
 type TestHandler2 struct{}
@@ -34,11 +34,11 @@ func (h TestHandler2) Route(r *gin.RouterGroup) {
 }
 
 func (h TestHandler2) ping(c *gin.Context) {
-	c.JSON(http.StatusOK, models.NewResponseBuilder().AddData("pong").Build())
+	c.JSON(http.StatusOK, models.NewResponseBuilder[string]().AddData("pong").Build())
 }
 
 func (h TestHandler2) pong(c *gin.Context) {
-	c.JSON(http.StatusOK, models.NewResponseBuilder().AddData("ping").Build())
+	c.JSON(http.StatusOK, models.NewResponseBuilder[string]().AddData("ping").Build())
 }
 
 func main() {
