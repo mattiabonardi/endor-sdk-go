@@ -65,7 +65,7 @@ func AuthorizationMiddleware(c *gin.Context) {
 		e.ThrowInternalServerError(c, err)
 		return
 	}
-	r := models.Response[models.Session]{}
+	r := models.Response[map[string]string]{}
 	err = json.Unmarshal([]byte(jsonData), &r)
 	if err != nil {
 		e.ThrowInternalServerError(c, err)
