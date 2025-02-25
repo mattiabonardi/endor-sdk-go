@@ -2,8 +2,8 @@ package managers
 
 import "github.com/mattiabonardi/endor-sdk-go/models"
 
-func SessionToMap(session models.Session) map[string]any {
-	sessionMap := make(map[string]any)
+func SessionToMap(session models.Session) map[string]string {
+	sessionMap := make(map[string]string)
 	sessionMap["id"] = session.Id
 	sessionMap["user"] = session.User
 	sessionMap["email"] = session.Email
@@ -11,11 +11,11 @@ func SessionToMap(session models.Session) map[string]any {
 	return sessionMap
 }
 
-func SessionFromMap(sessionMap map[string]any) models.Session {
+func SessionFromMap(sessionMap map[string]string) models.Session {
 	session := models.Session{}
-	session.Id = sessionMap["id"].(string)
-	session.User = sessionMap["user"].(string)
-	session.Email = sessionMap["email"].(string)
-	session.App = sessionMap["app"].(string)
+	session.Id = sessionMap["id"]
+	session.User = sessionMap["user"]
+	session.Email = sessionMap["email"]
+	session.App = sessionMap["app"]
 	return session
 }
