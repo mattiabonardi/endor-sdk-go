@@ -25,7 +25,7 @@ func AuthorizationMiddleware(c *gin.Context) {
 			Id:    uuid.New().String(),
 			User:  "659f27cce7fd9277b3cc4ef7",
 			Email: "endor@endor.com",
-			App:   c.Param("app"),
+			App:   "",
 		}
 		// set token data to context
 		c.Set(models.USER_SESSION_CONTEXT_KEY, managers.SessionToMap(userSession))

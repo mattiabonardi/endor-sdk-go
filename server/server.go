@@ -29,7 +29,7 @@ func Init(microExecutorId string, handlers []models.Handler) {
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// api
-	api := router.Group("api").Group("v1").Group(":app")
+	api := router.Group("api").Group("v1")
 	// register endpoints
 	for _, h := range handlers {
 		h.Route(api)
