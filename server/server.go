@@ -53,7 +53,7 @@ func Init(microExecutorId string, handlers []models.Handler) {
 	if config.ServerDNS != "" {
 		serverAddr = config.ServerDNS // Dereference pointer
 	} else {
-		serverAddr = fmt.Sprintf("https://localhost:%s", config.ServerPort)
+		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
 	err := configuration.InitServiceDiscovery(microExecutorId, serverAddr, routes)

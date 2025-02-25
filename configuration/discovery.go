@@ -5,40 +5,50 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/models"
 	"gopkg.in/yaml.v3"
 )
 
 func InitServiceDiscovery(microServiceId string, microServiceAddress string, endpoints []string) error {
-	// create model
+	// Create model
 	routers := make(map[string]models.Router)
 	seenEndpoints := make(map[string]bool) // Track unique endpoints
 
-	pattern := regexp.MustCompile(`^(/api/v1/[^/]+/[^/]+)(/.*)?$`)
+	// Updated regex to capture the first segment after /api/v1/:app/
+	pattern := regexp.MustCompile(`^/api/v1/[^/]+/([^/]+)`)
 
-	for i, endpoint := range endpoints {
-		// Extract base path up to the first segment after /:app/
+	for _, endpoint := range endpoints {
 		match := pattern.FindStringSubmatch(endpoint)
-		truncatedEndpoint := endpoint // Default to full endpoint if no match
+		var lastSegment string
+
 		if len(match) > 1 {
-			truncatedEndpoint = match[1] // Keep only "/api/v1/:app/{first-segment}"
+			lastSegment = match[1] // Extract the first segment after /api/v1/:app/
+		} else {
+			lastSegment = endpoint // Fallback to full endpoint if no match
 		}
 
 		// Skip if endpoint is already seen
-		if seenEndpoints[truncatedEndpoint] {
+		if seenEndpoints[lastSegment] {
 			continue
 		}
 
 		// Mark endpoint as seen
-		seenEndpoints[truncatedEndpoint] = true
+		seenEndpoints[lastSegment] = true
+	}
+	// create the pattern to match all endpoing
+	var segments []string
+	for key := range seenEndpoints {
+		segments = append(segments, key)
+	}
+	endpointRegex := strings.Join(segments, "|")
 
-		key := fmt.Sprintf("%s-router-%d", microServiceId, i)
-		routers[key] = models.Router{
-			Rule:        fmt.Sprintf("PathRegexp(`^%s.*$`)", truncatedEndpoint),
-			Service:     microServiceId,
-			EntryPoints: []string{"web"},
-		}
+	key := fmt.Sprintf("%s-router", microServiceId)
+	routers[key] = models.Router{
+		Rule:        fmt.Sprintf("PathRegexp(`^/api/v1/[^/]+/(%s)/.*$`)", endpointRegex),
+		Service:     microServiceId,
+		EntryPoints: []string{"web"},
 	}
 
 	services := make(map[string]models.Service)
