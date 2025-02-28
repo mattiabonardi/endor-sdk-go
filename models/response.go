@@ -4,6 +4,8 @@ package models
 type Response[T any] struct {
 	Messages []Message `json:"messages"`
 	Data     T         `json:"data"`
+	Schema   Schema    `json:"schema"`
+	Meta     Meta      `json:"meta"`
 }
 
 // ResponseBuilder with Generics
@@ -36,6 +38,16 @@ func (h *ResponseBuilder[T]) AddMessage(message Message) *ResponseBuilder[T] {
 
 func (h *ResponseBuilder[T]) AddData(data T) *ResponseBuilder[T] {
 	h.response.Data = data
+	return h
+}
+
+func (h *ResponseBuilder[T]) AddSchema(schema Schema) *ResponseBuilder[T] {
+	h.response.Schema = schema
+	return h
+}
+
+func (h *ResponseBuilder[T]) AddMeta(meta Meta) *ResponseBuilder[T] {
+	h.response.Meta = meta
 	return h
 }
 
