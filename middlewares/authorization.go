@@ -18,6 +18,7 @@ import (
 // get access token and verify user session
 func AuthorizationMiddleware(c *gin.Context) {
 	config := configuration.Load()
+	app := c.Param("app")
 
 	if config.Env == "DEVELOPMENT" {
 		// create dummy userSession
@@ -25,7 +26,7 @@ func AuthorizationMiddleware(c *gin.Context) {
 			Id:    uuid.New().String(),
 			User:  "659f27cce7fd9277b3cc4ef7",
 			Email: "endor@endor.com",
-			App:   "",
+			App:   app,
 		}
 		// set token data to context
 		c.Set(models.USER_SESSION_CONTEXT_KEY, managers.SessionToMap(userSession))
@@ -41,7 +42,7 @@ func AuthorizationMiddleware(c *gin.Context) {
 	}
 	// request authorization to identity provider
 	payload := []byte(fmt.Sprintf(`{"path": "%s"}`, c.FullPath()))
-	path := fmt.Sprintf("%s/api/v1/authentication/authorize", config.EndorAuthenticationServiceUrl)
+	path := fmt.Sprintf("%s/api/%s/v1/authentication/authorize", config.EndorAuthenticationServiceUrl, app)
 	request, err := http.NewRequest("POST", path, bytes.NewBuffer(payload))
 	if err != nil {
 		e.ThrowInternalServerError(c, err)

@@ -12,9 +12,10 @@ import (
 type TestHandler1 struct{}
 
 func (h TestHandler1) Route(r *gin.RouterGroup) {
-	test := r.Group("test1")
-	test.GET("/ping", middlewares.NoPayloadDispatch(h.ping))
-	test.GET("/pong", middlewares.NoPayloadDispatch(h.pong))
+	testv1 := r.Group("v1").Group("test1")
+	testv2 := r.Group("v1").Group("test1")
+	testv1.GET("/ping", middlewares.NoPayloadDispatch(h.ping))
+	testv2.GET("/pong", middlewares.NoPayloadDispatch(h.pong))
 }
 
 func (h TestHandler1) ping(c *gin.Context) {
@@ -28,7 +29,7 @@ func (h TestHandler1) pong(c *gin.Context) {
 type TestHandler2 struct{}
 
 func (h TestHandler2) Route(r *gin.RouterGroup) {
-	test := r.Group("test2")
+	test := r.Group("v1").Group("test2")
 	test.GET("/ping", middlewares.NoPayloadDispatch(h.ping))
 	test.GET("/pong", middlewares.NoPayloadDispatch(h.pong))
 }

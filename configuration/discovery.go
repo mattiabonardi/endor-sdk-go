@@ -16,15 +16,15 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, end
 	routers := make(map[string]models.Router)
 	seenEndpoints := make(map[string]bool) // Track unique endpoints
 
-	// Updated regex to capture the first segment after /api/v1/:app/
-	pattern := regexp.MustCompile(`^/api/v1/([^/]+)`)
+	// Updated regex to capture the first segment after /api/:app/v1
+	pattern := regexp.MustCompile(`^/api/[^/]+/[^/]+/([^/]+)`)
 
 	for _, endpoint := range endpoints {
 		match := pattern.FindStringSubmatch(endpoint)
 		var lastSegment string
 
 		if len(match) > 1 {
-			lastSegment = match[1] // Extract the first segment after /api/v1/
+			lastSegment = match[1] // Extract the first segment after /api/:app/v1
 		} else {
 			lastSegment = endpoint // Fallback to full endpoint if no match
 		}
@@ -46,7 +46,7 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, end
 
 	key := fmt.Sprintf("%s-router", microServiceId)
 	routers[key] = models.Router{
-		Rule:        fmt.Sprintf("PathRegexp(`^/api/v1/(%s)/.*$`)", endpointRegex),
+		Rule:        fmt.Sprintf("PathRegexp(`^/api/[^/]+/[^/]+/(%s)/.*$`)", endpointRegex),
 		Service:     microServiceId,
 		EntryPoints: []string{"web"},
 	}
