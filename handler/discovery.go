@@ -1,4 +1,4 @@
-package configuration
+package handler
 
 import (
 	"fmt"
@@ -7,13 +7,39 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mattiabonardi/endor-sdk-go/models"
 	"gopkg.in/yaml.v3"
 )
 
+type DiscoveryConfiguration struct {
+	HTTP HTTPConfig `yaml:"http"`
+}
+
+type HTTPConfig struct {
+	Routers  map[string]Router  `yaml:"routers"`
+	Services map[string]Service `yaml:"services"`
+}
+
+type Router struct {
+	Rule        string   `yaml:"rule"`
+	Service     string   `yaml:"service"`
+	EntryPoints []string `yaml:"entryPoints"`
+}
+
+type Service struct {
+	LoadBalancer LoadBalancer `yaml:"loadBalancer"`
+}
+
+type LoadBalancer struct {
+	Servers []Server `yaml:"servers"`
+}
+
+type Server struct {
+	URL string `yaml:"url"`
+}
+
 func InitServiceDiscovery(microServiceId string, microServiceAddress string, endpoints []string) error {
 	// Create model
-	routers := make(map[string]models.Router)
+	routers := make(map[string]Router)
 	seenEndpoints := make(map[string]bool) // Track unique endpoints
 
 	// Updated regex to capture the first segment after /api/:app/v1
@@ -45,23 +71,23 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, end
 	endpointRegex := strings.Join(segments, "|")
 
 	key := fmt.Sprintf("%s-router", microServiceId)
-	routers[key] = models.Router{
+	routers[key] = Router{
 		Rule:        fmt.Sprintf("PathRegexp(`^/api/[^/]+/[^/]+/(%s)/.*$`)", endpointRegex),
 		Service:     microServiceId,
 		EntryPoints: []string{"web"},
 	}
 
-	services := make(map[string]models.Service)
-	services[microServiceId] = models.Service{
-		LoadBalancer: models.LoadBalancer{
-			Servers: []models.Server{
+	services := make(map[string]Service)
+	services[microServiceId] = Service{
+		LoadBalancer: LoadBalancer{
+			Servers: []Server{
 				{URL: microServiceAddress},
 			},
 		},
 	}
 
-	discoveryConfiguration := models.DiscoveryConfiguration{
-		HTTP: models.HTTPConfig{
+	discoveryConfiguration := DiscoveryConfiguration{
+		HTTP: HTTPConfig{
 			Routers:  routers,
 			Services: services,
 		},

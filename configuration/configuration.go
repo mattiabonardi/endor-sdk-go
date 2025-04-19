@@ -14,7 +14,7 @@ type ServerConfig struct {
 	Env                           string
 }
 
-func Load() ServerConfig {
+func LoadConfiguration() ServerConfig {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Printf("Error loading .env file: %s. Ignore this in production.", err)

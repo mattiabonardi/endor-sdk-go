@@ -54,3 +54,51 @@ func (h *ResponseBuilder[T]) AddMeta(meta Meta) *ResponseBuilder[T] {
 func (h *ResponseBuilder[T]) Build() *Response[T] {
 	return &h.response
 }
+
+type SchemaTypeName string
+
+const (
+	StringType  SchemaTypeName = "string"
+	NumberType  SchemaTypeName = "number"
+	BooleanType SchemaTypeName = "boolean"
+	ObjectType  SchemaTypeName = "object"
+	ArrayType   SchemaTypeName = "array"
+)
+
+type Schema struct {
+	Type       SchemaTypeName    `json:"type"`
+	Properties map[string]Schema `json:"properties,omitempty"`
+	Items      *Schema           `json:"items,omitempty"`
+}
+
+type Meta struct {
+	Default  Presentation            `json:"default"`
+	Elements map[string]Presentation `json:"elements"`
+}
+
+type Presentation struct {
+	Entity string `json:"entity"`
+	Icon   string `json:"icon"`
+}
+
+type Message struct {
+	Gravity MessageGravity `json:"gravity"`
+	Value   string         `json:"value"`
+}
+
+// Message Gravity
+type MessageGravity string
+
+const (
+	Info  MessageGravity = "Info"
+	Debug MessageGravity = "Debug"
+	Error MessageGravity = "Error"
+	Fatal MessageGravity = "Fatal"
+)
+
+func NewMessage(gravity MessageGravity, value string) Message {
+	return Message{
+		Gravity: gravity,
+		Value:   value,
+	}
+}
