@@ -30,13 +30,7 @@ func Init(microExecutorId string, services []models.EndorService) {
 
 	// api
 	api := router.Group("api").Group(":app")
-	// register endpoints
-	for _, s := range services {
-		resourceHandler := api.Group(s.Resource)
-		for key, method := range s.Methods {
-			resourceHandler.POST(key, handle(s.Resource, key, method))
-		}
-	}
+	handler.ResourceHandler(api, services)
 
 	var routes []string
 	for _, routeInfo := range router.Routes() {
@@ -66,37 +60,4 @@ func Init(microExecutorId string, services []models.EndorService) {
 
 	// start http server
 	router.Run()
-}
-
-func handle(resource string, methodKey string, method models.EndorServiceMethodHandler[any, any]) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		context := models.EndorServiceContext[any]{}
-
-		// validate payload
-		if method.Payload != nil {
-			payload := method.Payload // Assuming method.Payload is a pointer to a new struct
-			if err := c.ShouldBindJSON(payload); err != nil {
-				handler.ThrowBadRequest(c, err)
-				return
-			}
-			context.Payload = payload // Assuming context has a Payload field
-		}
-
-		// authorize request
-		if !method.Public {
-			session, err := handler.AuthorizeResource(c, resource, methodKey)
-			if err != nil {
-				handler.ThrowUnauthorize(c, err)
-				return
-			}
-			context.Session = session
-		}
-
-		// Here you might want to invoke method.Handler
-		response, err := method.HandlerFunc(context)
-		if err != nil {
-			handler.ThrowInternalServerError(c, err)
-		}
-		c.JSON(http.StatusOK, response)
-	}
 }
