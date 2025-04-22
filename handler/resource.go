@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/mattiabonardi/endor-sdk-go/models"
 )
@@ -11,13 +9,22 @@ func ResourceHandler(baseRoute *gin.RouterGroup, services []models.EndorService)
 	// register endpoints
 	for _, s := range services {
 		resourceGroup := baseRoute.Group(s.Resource)
-		for key, method := range s.Methods {
-			resourceGroup.POST(key, handle(s.Resource, key, method))
+		for key, handlers := range s.Methods {
+			resourceGroup.POST(key, func(c *gin.Context) {
+				ec := &models.EndorContext{
+					GinContext: c,
+					Handlers:   handlers,
+					Index:      -1,
+					Data:       make(map[string]interface{}),
+					Session:    models.Session{},
+				}
+				ec.Next()
+			})
 		}
 	}
 }
 
-func handle(resource string, methodKey string, method models.EndorServiceMethodHandler[any, any]) gin.HandlerFunc {
+/*func handle(resource string, methodKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		context := models.EndorServiceContext[any]{}
 
@@ -48,4 +55,4 @@ func handle(resource string, methodKey string, method models.EndorServiceMethodH
 		}
 		c.JSON(http.StatusOK, response)
 	}
-}
+}*/
