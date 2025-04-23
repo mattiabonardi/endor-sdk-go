@@ -5,27 +5,27 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mattiabonardi/endor-sdk-go/models"
+	"github.com/mattiabonardi/endor-sdk-go/internal"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type MongoRepository[T any] struct {
+type MongoResourceRepository[T any] struct {
 	collection *mongo.Collection
 }
 
-func NewMongoRepository[T any](client *mongo.Client, resource models.Resource) *MongoRepository[T] {
+func NewMongoResourceRepository[T any](client *mongo.Client, resource internal.Resource) *MongoResourceRepository[T] {
 	dbName := resource.Persistence.Options["database"]
 	collName := resource.Persistence.Options["collection"]
 
 	collection := client.Database(dbName).Collection(collName)
-	return &MongoRepository[T]{
+	return &MongoResourceRepository[T]{
 		collection: collection,
 	}
 }
 
 // Instance retrieves a document by ID
-func (r *MongoRepository[T]) Instance(id string, _ models.IntanceOptions) (T, error) {
+func (r *MongoResourceRepository[T]) Instance(id string, _ internal.IntanceOptions) (T, error) {
 	var result T
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -43,7 +43,7 @@ func (r *MongoRepository[T]) Instance(id string, _ models.IntanceOptions) (T, er
 }
 
 // List retrieves all documents in the collection
-func (r *MongoRepository[T]) List(_ models.ListOptions) ([]T, error) {
+func (r *MongoResourceRepository[T]) List(_ internal.ListOptions) ([]T, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -70,7 +70,7 @@ func (r *MongoRepository[T]) List(_ models.ListOptions) ([]T, error) {
 }
 
 // Create inserts a new document
-func (r *MongoRepository[T]) Create(resource T) (T, error) {
+func (r *MongoResourceRepository[T]) Create(resource T) (T, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -84,7 +84,7 @@ func (r *MongoRepository[T]) Create(resource T) (T, error) {
 }
 
 // Update replaces a document by ID
-func (r *MongoRepository[T]) Update(id string, resource T) (T, error) {
+func (r *MongoResourceRepository[T]) Update(id string, resource T) (T, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -101,7 +101,7 @@ func (r *MongoRepository[T]) Update(id string, resource T) (T, error) {
 }
 
 // Delete removes a document by ID
-func (r *MongoRepository[T]) Delete(id string) error {
+func (r *MongoResourceRepository[T]) Delete(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
