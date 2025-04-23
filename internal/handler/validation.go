@@ -1,0 +1,13 @@
+package handler
+
+import (
+	"github.com/mattiabonardi/endor-sdk-go/internal"
+)
+
+func ValidationHandler[T any](c *internal.EndorContext[T]) {
+	if err := c.GinContext.ShouldBindJSON(&c.Payload); err != nil {
+		c.BadRequest(err)
+		return
+	}
+	c.Next()
+}

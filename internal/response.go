@@ -1,4 +1,4 @@
-package models
+package internal
 
 // Response with Generics
 type Response[T any] struct {

@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"fmt"
@@ -6,31 +6,35 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mattiabonardi/endor-sdk-go/configuration"
-	"github.com/mattiabonardi/endor-sdk-go/handler"
-	"github.com/mattiabonardi/endor-sdk-go/models"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Init(microExecutorId string, services []models.EndorService) {
+func Init(microExecutorId string, services []EndorService) {
 	// load configuration
-	config := configuration.LoadConfiguration()
+	config := LoadConfiguration()
 	// create router
 	router := gin.New()
-	// create handlers
-	monitoring := new(handler.MonitoringHandler)
 
 	// swagger
 	router.StaticFS("/public/", http.Dir("public"))
 
 	// monitoring
-	router.GET("/readyz", monitoring.Status)
-	router.GET("/livez", monitoring.Status)
+	router.GET("/readyz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	router.GET("/livez", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// api
 	api := router.Group("api").Group(":app")
-	handler.ResourceHandler(api, services)
+	for _, s := range services {
+		resourceGroup := api.Group(s.Resource)
+		for methodPath, method := range s.Methods {
+			method.Register(resourceGroup, methodPath)
+		}
+	}
 
 	var routes []string
 	for _, routeInfo := range router.Routes() {
@@ -40,8 +44,8 @@ func Init(microExecutorId string, services []models.EndorService) {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		response := models.NewDefaultResponseBuilder()
-		response.AddMessage(models.NewMessage(models.Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
+		response := NewDefaultResponseBuilder()
+		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
@@ -53,7 +57,7 @@ func Init(microExecutorId string, services []models.EndorService) {
 		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
-	err := handler.InitServiceDiscovery(microExecutorId, serverAddr, routes)
+	err := InitServiceDiscovery(microExecutorId, serverAddr, routes)
 	if err != nil {
 		panic(err)
 	}

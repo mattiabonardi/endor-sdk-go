@@ -1,4 +1,4 @@
-package models
+package internal
 
 type Resource struct {
 	ID          string      `json:"id,omitempty" yaml:"id,omitempty"`
