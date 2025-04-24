@@ -51,6 +51,8 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, ser
 		// version
 		if service.Version != "" {
 			path += service.Version + "/"
+		} else {
+			path += "v1/"
 		}
 		// resource
 		path += service.Resource + "/.*$"

@@ -29,7 +29,13 @@ func Init(microExecutorId string, services []EndorService) {
 	// api
 	api := router.Group("api").Group(":app")
 	for _, s := range services {
-		resourceGroup := api.Group(s.Resource)
+		var versionGroup *gin.RouterGroup
+		if s.Version != "" {
+			versionGroup = api.Group(s.Version)
+		} else {
+			versionGroup = api.Group("v1")
+		}
+		resourceGroup := versionGroup.Group(s.Resource)
 		for methodPath, method := range s.Methods {
 			method.Register(resourceGroup, methodPath)
 		}
