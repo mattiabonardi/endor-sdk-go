@@ -13,6 +13,10 @@ type EndorServiceMethod interface {
 type EndorService struct {
 	Resource string
 	Methods  map[string]EndorServiceMethod
+
+	// optionals
+	Version string
+	Apps    []string
 }
 
 func NewMethod[T any](handlers ...EndorHandlerFunc[T]) EndorServiceMethod {

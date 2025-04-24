@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -37,48 +36,36 @@ type Server struct {
 	URL string `yaml:"url"`
 }
 
-func InitServiceDiscovery(microServiceId string, microServiceAddress string, endpoints []string) error {
+func InitServiceDiscovery(microServiceId string, microServiceAddress string, services []EndorService) error {
 	// Create model
 	routers := make(map[string]Router)
-	seenEndpoints := make(map[string]bool) // Track unique endpoints
 
-	// Updated regex to capture the first segment after /api/:app/v1
-	pattern := regexp.MustCompile(`^/api/[^/]+/[^/]+/([^/]+)`)
-
-	for _, endpoint := range endpoints {
-		match := pattern.FindStringSubmatch(endpoint)
-		var lastSegment string
-
-		if len(match) > 1 {
-			lastSegment = match[1] // Extract the first segment after /api/:app/v1
+	for _, service := range services {
+		// app
+		path := "^/api/"
+		if len(service.Apps) > 0 {
+			path += fmt.Sprintf("(%s)/", strings.Join(service.Apps, "|"))
 		} else {
-			lastSegment = endpoint // Fallback to full endpoint if no match
+			path += "[^/]+/"
 		}
-
-		// Skip if endpoint is already seen
-		if seenEndpoints[lastSegment] {
-			continue
+		// version
+		if service.Version != "" {
+			path += service.Version + "/"
 		}
+		// resource
+		path += service.Resource + "/.*$"
 
-		// Mark endpoint as seen
-		seenEndpoints[lastSegment] = true
-	}
-	// create the pattern to match all endpoing
-	var segments []string
-	for key := range seenEndpoints {
-		segments = append(segments, key)
-	}
-	endpointRegex := strings.Join(segments, "|")
-
-	key := fmt.Sprintf("%s-router", microServiceId)
-	routers[key] = Router{
-		Rule:        fmt.Sprintf("PathRegexp(`^/api/[^/]+/[^/]+/(%s)/.*$`)", endpointRegex),
-		Service:     microServiceId,
-		EntryPoints: []string{"web"},
+		// create router
+		key := fmt.Sprintf("%s-router-%s", microServiceId, service.Resource)
+		routers[key] = Router{
+			Rule:        path,
+			Service:     microServiceId,
+			EntryPoints: []string{"web"},
+		}
 	}
 
-	services := make(map[string]Service)
-	services[microServiceId] = Service{
+	discoveryServices := make(map[string]Service)
+	discoveryServices[microServiceId] = Service{
 		LoadBalancer: LoadBalancer{
 			Servers: []Server{
 				{URL: microServiceAddress},
@@ -89,7 +76,7 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, end
 	discoveryConfiguration := DiscoveryConfiguration{
 		HTTP: HTTPConfig{
 			Routers:  routers,
-			Services: services,
+			Services: discoveryServices,
 		},
 	}
 

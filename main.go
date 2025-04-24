@@ -21,6 +21,8 @@ func main() {
 	services := []internal.EndorService{
 		{
 			Resource: "users",
+			Version:  "v2",
+			Apps:     []string{"app1", "app2"},
 			Methods: map[string]internal.EndorServiceMethod{
 				"create": internal.NewMethod(
 					handler.AuthorizationHandler,

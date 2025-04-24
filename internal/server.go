@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,13 +35,6 @@ func Init(microExecutorId string, services []EndorService) {
 		}
 	}
 
-	var routes []string
-	for _, routeInfo := range router.Routes() {
-		if strings.Contains(routeInfo.Path, "/api/") {
-			routes = append(routes, routeInfo.Path)
-		}
-	}
-
 	router.NoRoute(func(c *gin.Context) {
 		response := NewDefaultResponseBuilder()
 		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
@@ -57,7 +49,7 @@ func Init(microExecutorId string, services []EndorService) {
 		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
-	err := InitServiceDiscovery(microExecutorId, serverAddr, routes)
+	err := InitServiceDiscovery(microExecutorId, serverAddr, services)
 	if err != nil {
 		panic(err)
 	}
