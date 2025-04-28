@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mattiabonardi/endor-sdk-go/internal"
+	"github.com/mattiabonardi/endor-sdk-go/sdk"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -14,7 +14,7 @@ type MongoResourceRepository[T any] struct {
 	collection *mongo.Collection
 }
 
-func NewMongoResourceRepository[T any](client *mongo.Client, resource internal.Resource) *MongoResourceRepository[T] {
+func NewMongoResourceRepository[T any](client *mongo.Client, resource sdk.Resource) *MongoResourceRepository[T] {
 	dbName := resource.Persistence.Options["database"]
 	collName := resource.Persistence.Options["collection"]
 
@@ -25,7 +25,7 @@ func NewMongoResourceRepository[T any](client *mongo.Client, resource internal.R
 }
 
 // Instance retrieves a document by ID
-func (r *MongoResourceRepository[T]) Instance(id string, _ internal.IntanceOptions) (T, error) {
+func (r *MongoResourceRepository[T]) Instance(id string, _ sdk.IntanceOptions) (T, error) {
 	var result T
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -43,7 +43,7 @@ func (r *MongoResourceRepository[T]) Instance(id string, _ internal.IntanceOptio
 }
 
 // List retrieves all documents in the collection
-func (r *MongoResourceRepository[T]) List(_ internal.ListOptions) ([]T, error) {
+func (r *MongoResourceRepository[T]) List(_ sdk.ListOptions) ([]T, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

@@ -3,14 +3,14 @@ package repository
 import (
 	"fmt"
 
-	"github.com/mattiabonardi/endor-sdk-go/internal"
+	"github.com/mattiabonardi/endor-sdk-go/sdk"
 )
 
 type RepositoryFactory struct {
-	adapters internal.RepositoryAdapters
+	adapters sdk.RepositoryAdapters
 }
 
-func (h *RepositoryFactory) Create(resource internal.Resource) (internal.Repository[any], error) {
+func (h *RepositoryFactory) Create(resource sdk.Resource) (sdk.Repository[any], error) {
 	if resource.Persistence.Type == "mongodb" {
 		r := NewMongoResourceRepository[any](h.adapters.MongoClient, resource)
 		return r, nil

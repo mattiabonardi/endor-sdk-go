@@ -1,4 +1,4 @@
-package internal
+package sdk
 
 import "go.mongodb.org/mongo-driver/mongo"
 

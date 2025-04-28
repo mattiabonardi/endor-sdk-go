@@ -1,4 +1,4 @@
-package internal
+package sdk
 
 // Response with Generics
 type Response[T any] struct {

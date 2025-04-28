@@ -1,4 +1,4 @@
-package internal
+package sdk
 
 import (
 	"github.com/gin-gonic/gin"
