@@ -60,7 +60,7 @@ func InitServiceDiscovery(microServiceId string, microServiceAddress string, ser
 		// create router
 		key := fmt.Sprintf("%s-router-%s", microServiceId, service.Resource)
 		routers[key] = Router{
-			Rule:        path,
+			Rule:        fmt.Sprintf("PathRegexp(`%s`)", path),
 			Service:     microServiceId,
 			EntryPoints: []string{"web"},
 		}
