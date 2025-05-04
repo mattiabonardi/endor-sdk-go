@@ -54,18 +54,23 @@ func AuthorizationHandler[T any](c *sdk.EndorContext[T]) {
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		c.Unauthorize(fmt.Errorf("Unhauthorized"))
+		return
+	}
+
 	// Read the response body
 	jsonData, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.InternalServerError(err)
 		return
 	}
-	r := sdk.Session{}
+	r := sdk.Response[sdk.Session]{}
 	err = json.Unmarshal([]byte(jsonData), &r)
 	if err != nil {
 		c.InternalServerError(err)
 		return
 	}
-	c.Session = r
+	c.Session = r.Data
 	c.Next()
 }
