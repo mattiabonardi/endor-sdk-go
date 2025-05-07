@@ -3,9 +3,9 @@ package sdk
 // Response with Generics
 type Response[T any] struct {
 	Messages []Message `json:"messages"`
-	Data     T         `json:"data"`
-	Schema   Schema    `json:"schema"`
-	Meta     Meta      `json:"meta"`
+	Data     *T        `json:"data"`
+	Schema   *Schema   `json:"schema"`
+	Meta     *Meta     `json:"meta"`
 }
 
 // ResponseBuilder with Generics
@@ -36,39 +36,23 @@ func (h *ResponseBuilder[T]) AddMessage(message Message) *ResponseBuilder[T] {
 	return h
 }
 
-func (h *ResponseBuilder[T]) AddData(data T) *ResponseBuilder[T] {
+func (h *ResponseBuilder[T]) AddData(data *T) *ResponseBuilder[T] {
 	h.response.Data = data
 	return h
 }
 
-func (h *ResponseBuilder[T]) AddSchema(schema Schema) *ResponseBuilder[T] {
+func (h *ResponseBuilder[T]) AddSchema(schema *Schema) *ResponseBuilder[T] {
 	h.response.Schema = schema
 	return h
 }
 
-func (h *ResponseBuilder[T]) AddMeta(meta Meta) *ResponseBuilder[T] {
+func (h *ResponseBuilder[T]) AddMeta(meta *Meta) *ResponseBuilder[T] {
 	h.response.Meta = meta
 	return h
 }
 
 func (h *ResponseBuilder[T]) Build() *Response[T] {
 	return &h.response
-}
-
-type SchemaTypeName string
-
-const (
-	StringType  SchemaTypeName = "string"
-	NumberType  SchemaTypeName = "number"
-	BooleanType SchemaTypeName = "boolean"
-	ObjectType  SchemaTypeName = "object"
-	ArrayType   SchemaTypeName = "array"
-)
-
-type Schema struct {
-	Type       SchemaTypeName    `json:"type"`
-	Properties map[string]Schema `json:"properties,omitempty"`
-	Items      *Schema           `json:"items,omitempty"`
 }
 
 type Meta struct {

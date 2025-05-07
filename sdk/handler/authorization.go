@@ -71,6 +71,6 @@ func AuthorizationHandler[T any](c *sdk.EndorContext[T]) {
 		c.InternalServerError(err)
 		return
 	}
-	c.Session = r.Data
+	c.Session = *r.Data
 	c.Next()
 }
