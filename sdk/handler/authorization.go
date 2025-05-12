@@ -19,10 +19,9 @@ func AuthorizationHandler[T any](c *sdk.EndorContext[T]) {
 	if config.Env == "DEVELOPMENT" {
 		// create dummy userSession
 		c.Session = sdk.Session{
-			Id:    uuid.New().String(),
-			User:  "659f27cce7fd9277b3cc4ef7",
-			Email: "endor@endor.com",
-			App:   app,
+			Id:       uuid.New().String(),
+			Username: "endor",
+			App:      app,
 		}
 		c.Next()
 		return
