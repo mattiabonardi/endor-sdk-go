@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +14,6 @@ func Init(microExecutorId string, services []EndorService) {
 	config := LoadConfiguration()
 	// create router
 	router := gin.New()
-
-	// swagger
-	router.StaticFS("/public/", http.Dir("public"))
 
 	// monitoring
 	router.GET("/readyz", func(c *gin.Context) {
@@ -55,10 +53,17 @@ func Init(microExecutorId string, services []EndorService) {
 		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
-	err := InitServiceDiscovery(microExecutorId, serverAddr, services)
+	err := InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	swaggerPath, err := InitializeSwaggerConfiguration(microExecutorId, serverAddr, services, api.BasePath())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// swagger
+	router.StaticFS("/swagger", http.Dir(swaggerPath))
 
 	// start http server
 	router.Run()
