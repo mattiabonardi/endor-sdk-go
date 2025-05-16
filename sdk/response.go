@@ -74,10 +74,10 @@ type Message struct {
 type MessageGravity string
 
 const (
-	Info  MessageGravity = "Info"
-	Debug MessageGravity = "Debug"
-	Error MessageGravity = "Error"
-	Fatal MessageGravity = "Fatal"
+	Info    MessageGravity = "Info"
+	Warning MessageGravity = "Warning"
+	Error   MessageGravity = "Error"
+	Fatal   MessageGravity = "Fatal"
 )
 
 func NewMessage(gravity MessageGravity, value string) Message {

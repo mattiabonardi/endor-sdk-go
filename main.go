@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/sdk/handler"
+	services_test "github.com/mattiabonardi/endor-sdk-go/test/services"
 )
 
 type Payload struct {
@@ -12,18 +12,7 @@ type Payload struct {
 }
 
 func main() {
-	testService := sdk.EndorService{
-		Resource: "test",
-		Methods: map[string]sdk.EndorServiceMethod{
-			"method": sdk.NewMethod(
-				handler.ValidationHandler,
-				func(ec *sdk.EndorContext[Payload]) {
-					ec.End(sdk.NewResponseBuilder[Payload]().AddData(&ec.Payload))
-				},
-			),
-		},
-	}
 	sdk.Init("endor-sdk-service", []sdk.EndorService{
-		testService,
+		services_test.NewService1(),
 	})
 }

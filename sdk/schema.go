@@ -17,30 +17,61 @@ const (
 )
 
 type Schema struct {
-	Type       SchemaTypeName    `json:"type"`
-	Properties map[string]Schema `json:"properties,omitempty"`
-	Items      *Schema           `json:"items,omitempty"`
+	Reference  string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
+	Type       SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
+	Properties *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
+	Items      *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
+	Enum       *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
 }
 
-func NewSchema(model any) *Schema {
-	t := reflect.TypeOf(model)
+type RootSchema struct {
+	Schema
+	Definitions map[string]Schema `json:"$defs,omitempty" yaml:"$defs,omitempty"`
+}
 
+func NewSchema(model any) *RootSchema {
+	t := reflect.TypeOf(model)
+	return NewSchemaByType(t)
+}
+
+func NewSchemaByType(t reflect.Type) *RootSchema {
+	defs := make(map[string]Schema)
+	refSchema := buildSchemaWithDefs(t, defs)
+
+	return &RootSchema{
+		Schema:      refSchema,
+		Definitions: defs,
+	}
+}
+
+func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 	// Dereference pointer types
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
+
+	typeName := getTypeName(t)
+	if _, ok := defs[typeName]; ok {
+		return Schema{
+			Reference: "#/$defs/" + typeName,
+		}
+	}
+
 	if t.Kind() != reflect.Struct {
-		panic("NewSchema: input must be a struct or pointer to struct")
+		panic("buildSchemaWithDefs: input must be a struct or pointer to struct")
 	}
 
 	schema := Schema{
 		Type:       ObjectType,
-		Properties: map[string]Schema{},
+		Properties: &map[string]Schema{},
 	}
+
+	// Prevent infinite recursion
+	defs[typeName] = schema
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if field.PkgPath != "" { // skip unexported fields
+		if field.PkgPath != "" {
 			continue
 		}
 
@@ -53,13 +84,18 @@ func NewSchema(model any) *Schema {
 			continue
 		}
 
-		schema.Properties[name] = newFieldSchema(field.Type)
+		(*schema.Properties)[name] = resolveFieldSchema(field.Type, defs)
 	}
 
-	return &schema
+	// Update the schema now that it's fully constructed
+	defs[typeName] = schema
+
+	return Schema{
+		Reference: "#/$defs/" + typeName,
+	}
 }
 
-func newFieldSchema(t reflect.Type) Schema {
+func resolveFieldSchema(t reflect.Type, defs map[string]Schema) Schema {
 	// Dereference pointers
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -79,15 +115,22 @@ func newFieldSchema(t reflect.Type) Schema {
 	case reflect.Bool:
 		return Schema{Type: BooleanType}
 	case reflect.Slice, reflect.Array:
-		itemSchema := newFieldSchema(t.Elem())
+		itemSchema := resolveFieldSchema(t.Elem(), defs)
 		return Schema{
 			Type:  ArrayType,
 			Items: &itemSchema,
 		}
 	case reflect.Struct:
-		s := NewSchema(reflect.New(t).Interface())
-		return *s
+		return buildSchemaWithDefs(t, defs)
 	default:
 		return Schema{Type: StringType}
 	}
+}
+
+func getTypeName(t reflect.Type) string {
+	// Dereference pointer types
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.Name()
 }

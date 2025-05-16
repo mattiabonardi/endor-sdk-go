@@ -17,49 +17,93 @@ type Car struct {
 }
 
 type User struct {
-	ID      primitive.ObjectID `json:"id"`
-	Name    string             `json:"name"`
-	Email   string             `json:"email"`
-	Age     int                `json:"age"`
-	Active  bool               `json:"active"`
-	Hobbies []string           `json:"hobbies"`
-	Address Address            `json:"address"`
-	Cars    []Car              `json:"cars"`
+	ID         primitive.ObjectID `json:"id"`
+	Name       string             `json:"name"`
+	Email      string             `json:"email"`
+	Age        int                `json:"age"`
+	Active     bool               `json:"active"`
+	Hobbies    []string           `json:"hobbies"`
+	Address    Address            `json:"address"`
+	Cars       []Car              `json:"cars"`
+	CurrentCar Car                `json:"car"`
+}
+
+type CarTreeNode struct {
+	Value    *Car          `json:"value"`
+	Children []CarTreeNode `json:"children"`
 }
 
 func TestSchemaTypes(t *testing.T) {
 	schema := sdk.NewSchema(&User{})
-	if schema.Type != sdk.ObjectType {
+	if schema.Reference != "#/$defs/User" {
+		t.Fatalf("Received %v", schema.Reference)
+	}
+	if len(schema.Definitions) != 3 {
+		t.Fatalf("Received %v", schema.Definitions)
+	}
+	userSchema := schema.Definitions["User"]
+	userSchemaProperties := *userSchema.Properties
+	if userSchema.Type != sdk.ObjectType {
 		t.Fatalf("Received %v", schema.Type)
 	}
-	if len(schema.Properties) != 8 {
-		t.Fatalf("Received %v", len(schema.Properties))
+	if len(userSchemaProperties) != 9 {
+		t.Fatalf("Received %v", len(userSchemaProperties))
 	}
-	if schema.Properties["id"].Type != sdk.StringType {
-		t.Fatalf("Received %v", schema.Properties["id"].Type)
+	if userSchemaProperties["id"].Type != sdk.StringType {
+		t.Fatalf("Received %v", userSchemaProperties["id"].Type)
 	}
-	if schema.Properties["age"].Type != sdk.IntegerType {
-		t.Fatalf("Received %v", schema.Properties["age"].Type)
+	if userSchemaProperties["age"].Type != sdk.IntegerType {
+		t.Fatalf("Received %v", userSchemaProperties["age"].Type)
 	}
-	if schema.Properties["active"].Type != sdk.BooleanType {
-		t.Fatalf("Received %v", schema.Properties["active"].Type)
+	if userSchemaProperties["active"].Type != sdk.BooleanType {
+		t.Fatalf("Received %v", userSchemaProperties["active"].Type)
 	}
-	if schema.Properties["hobbies"].Type != sdk.ArrayType {
-		t.Fatalf("Received %v", schema.Properties["hobbies"].Type)
+	if userSchemaProperties["hobbies"].Type != sdk.ArrayType {
+		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Type)
 	}
-	if schema.Properties["hobbies"].Items.Type != sdk.StringType {
-		t.Fatalf("Received %v", schema.Properties["hobbies"].Items.Type)
+	if userSchemaProperties["hobbies"].Items.Type != sdk.StringType {
+		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Items.Type)
 	}
-	if schema.Properties["address"].Type != sdk.ObjectType {
-		t.Fatalf("Received %v", schema.Properties["address"].Type)
+	// object --> ref
+	if userSchemaProperties["address"].Reference != "#/$defs/Address" {
+		t.Fatalf("Received %v", userSchemaProperties["address"].Reference)
 	}
-	if schema.Properties["cars"].Type != sdk.ArrayType {
-		t.Fatalf("Received %v", schema.Properties["cars"].Type)
+	addressSchema := schema.Definitions["Address"]
+	addressSchemaProperties := *addressSchema.Properties
+	if len(addressSchemaProperties) != 2 {
+		t.Fatalf("Received %v", len(addressSchemaProperties))
 	}
-	if schema.Properties["cars"].Items.Type != sdk.ObjectType {
-		t.Fatalf("Received %v", schema.Properties["cars"].Items.Type)
+	// object array --> items ref
+	if userSchemaProperties["cars"].Type != sdk.ArrayType {
+		t.Fatalf("Received %v", userSchemaProperties["cars"].Type)
 	}
-	if schema.Properties["cars"].Items.Properties["id"].Type != sdk.StringType {
-		t.Fatalf("Received %v", schema.Properties["cars"].Items.Properties["id"].Type)
+	if userSchemaProperties["cars"].Items.Reference != "#/$defs/Car" {
+		t.Fatalf("Received %v", userSchemaProperties["cars"].Items.Reference)
+	}
+	carSchema := schema.Definitions["Car"]
+	carSchemaProperties := *carSchema.Properties
+	if len(carSchemaProperties) != 1 {
+		t.Fatalf("Received %v", len(carSchemaProperties))
+	}
+}
+
+func TestRicorsionTypes(t *testing.T) {
+	schema := sdk.NewSchema(&CarTreeNode{})
+	carTreeNodeSchema := schema.Definitions["CarTreeNode"]
+	carTreeNodeSchemaProperties := *carTreeNodeSchema.Properties
+	if len(schema.Definitions) != 2 {
+		t.Fatalf("Received %v", schema.Definitions)
+	}
+	if schema.Reference != "#/$defs/CarTreeNode" {
+		t.Fatalf("Received %v", schema.Reference)
+	}
+	if carTreeNodeSchemaProperties["value"].Reference != "#/$defs/Car" {
+		t.Fatalf("Received %v", carTreeNodeSchemaProperties["value"].Reference)
+	}
+	if carTreeNodeSchemaProperties["children"].Type != sdk.ArrayType {
+		t.Fatalf("Received %v", carTreeNodeSchemaProperties["children"].Type)
+	}
+	if carTreeNodeSchemaProperties["children"].Items.Reference != "#/$defs/CarTreeNode" {
+		t.Fatalf("Received %v", carTreeNodeSchemaProperties["children"].Items.Reference)
 	}
 }

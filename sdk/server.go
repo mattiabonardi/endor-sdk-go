@@ -57,7 +57,7 @@ func Init(microExecutorId string, services []EndorService) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := InitializeSwaggerConfiguration(microExecutorId, serverAddr, services, api.BasePath())
+	swaggerPath, err := CreateSwaggerConfiguration(microExecutorId, serverAddr, services, api.BasePath())
 	if err != nil {
 		log.Fatal(err)
 	}

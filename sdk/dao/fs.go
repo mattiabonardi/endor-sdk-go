@@ -36,6 +36,26 @@ func (dao *FileSystemDAO) List() ([]string, error) {
 	return files, err
 }
 
+// ListFolders returns a list of all folders (not files) in the base directory (recursive)
+func (dao *FileSystemDAO) ListFolders() ([]string, error) {
+	var folders []string
+	err := filepath.Walk(dao.BaseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Skip the base directory itself if you don't want it in the list
+			if path == dao.BaseDir {
+				return nil
+			}
+			relPath, _ := filepath.Rel(dao.BaseDir, path)
+			folders = append(folders, relPath)
+		}
+		return nil
+	})
+	return folders, err
+}
+
 // GetFileContent returns the content of the given relative file path
 func (dao *FileSystemDAO) Instace(fileName string) (string, error) {
 	fullPath := filepath.Join(dao.BaseDir, fileName)

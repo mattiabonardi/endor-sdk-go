@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
+	"github.com/mattiabonardi/endor-sdk-go/sdk/dao"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,7 +18,7 @@ type OpenAPIConfiguration struct {
 	Info       OpenAPIInfo                `json:"info" yaml:"info"`
 	Servers    []OpenAPIServer            `json:"servers" yaml:"servers"`
 	Paths      map[string]OpenAPIPathItem `json:"paths" yaml:"paths"`
-	Components OpenApiSecuritySchemes     `json:"components" yaml:"components"`
+	Components OpenApiComponents          `json:"components" yaml:"components"`
 }
 
 type OpenAPIInfo struct {
@@ -40,6 +42,7 @@ type OpenAPIPathItem struct {
 type OpenAPIOperation struct {
 	Summary     string                       `json:"summary,omitempty" yaml:"summary,omitempty"`
 	Description string                       `json:"description,omitempty" yaml:"description,omitempty"`
+	Tags        []string                     `json:"tags,omitempty" yaml:"tags,omitempty"`
 	OperationID string                       `json:"operationId,omitempty" yaml:"operationId,omitempty"`
 	Parameters  []OpenApiParameter           `json:"parameters" yaml:"parameters"`
 	RequestBody *OpenAPIRequestBody          `json:"requestBody,omitempty" yaml:"requestBody,omitempty"`
@@ -68,8 +71,9 @@ type OpenAPIMediaType struct {
 	Schema Schema `json:"schema" yaml:"schema"`
 }
 
-type OpenApiSecuritySchemes struct {
-	SecuritySchemes map[string]OpenApiAuth `json:"securitySchemes" yaml:"secutorySchemes"`
+type OpenApiComponents struct {
+	SecuritySchemas map[string]OpenApiAuth `json:"securitySchemas" yaml:"securitySchemas"`
+	Schemas         map[string]Schema      `json:"schemas" yaml:"schemas"`
 }
 
 type OpenApiAuth struct {
@@ -80,94 +84,31 @@ type OpenApiAuth struct {
 
 type OpenApiResponse struct {
 	Description string `yaml:"description" json:"description"`
+	Content     map[string]OpenAPIMediaType
 }
 
 type OpenApiResponses map[string]OpenApiResponse
 
-func InitializeSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
-	swaggerConfiguration := OpenAPIConfiguration{
-		OpenAPI: "3.0.0",
-		Info: OpenAPIInfo{
-			Title:       microServiceId,
-			Description: fmt.Sprintf("%s docs", microServiceId),
-		},
-		Servers: []OpenAPIServer{
-			{
-				URL: "/",
-			},
-		},
-		Components: OpenApiSecuritySchemes{
-			SecuritySchemes: map[string]OpenApiAuth{
-				"cookieAuth": {
-					Type: "apiKey",
-					In:   "cookie",
-					Name: "sessionId",
-				},
-			},
-		},
+var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
+var configurationFileName = "openapi.yaml"
+
+func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
+	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
+	if err != nil {
+		return "", err
 	}
-
-	paths := map[string]OpenAPIPathItem{}
-	for _, service := range services {
-		for methodKey, method := range service.Methods {
-			path := OpenAPIPathItem{
-				Post: &OpenAPIOperation{
-					OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
-					Parameters: []OpenApiParameter{
-						{
-							Name:        "app",
-							In:          "path",
-							Required:    true,
-							Default:     "",
-							Description: "app",
-							Schema: map[string]string{
-								"type": "string",
-							},
-						},
-					},
-					Responses: OpenApiResponses{
-						"default": OpenApiResponse{
-							Description: "no description",
-						},
-					},
-				},
-			}
-			// find payload using reflection
-			payload, err := resolvePayloadType(method)
-			if err != nil {
-				return "", err
-			}
-			path.Post.RequestBody = &OpenAPIRequestBody{
-				Content: map[string]OpenAPIMediaType{
-					"application/json": {
-						Schema: newFieldSchema(payload),
-					},
-				},
-			}
-			//TODO: check authorization handler
-
-			version := service.Version
-			if version == "" {
-				version = "v1"
-			}
-			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
-		}
-	}
-
-	swaggerConfiguration.Paths = paths
-
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	swaggerFolder := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/swagger/%s", microServiceId))
+	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, microServiceId)
 
 	// copy swagger files
 	copyDir("./swagger", swaggerFolder)
 	// serialize openapi file
-	filePath := filepath.Join(swaggerFolder, "openapi.yaml")
+	filePath := filepath.Join(swaggerFolder, configurationFileName)
 
-	data, err := yaml.Marshal(swaggerConfiguration)
+	data, err := yaml.Marshal(definition)
 	if err != nil {
 		return "", err
 	}
@@ -184,6 +125,170 @@ func InitializeSwaggerConfiguration(microServiceId string, microServiceAddress s
 
 	_, err = file.Write(data)
 	return swaggerFolder, err
+}
+
+func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
+	configs := []OpenAPIConfiguration{}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return configs, err
+	}
+	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder)
+	baseFolderDao, err := dao.NewFileSystemDAO(swaggerFolder)
+	if err != nil {
+		return configs, err
+	}
+	folders, err := baseFolderDao.ListFolders()
+	if err != nil {
+		return configs, err
+	}
+	// cicle folder and unmarshal configuration
+	for _, folder := range folders {
+		configFilePath := filepath.Join(swaggerFolder, folder)
+		configFsDao, err := dao.NewFileSystemDAO(configFilePath)
+		if err != nil {
+			return configs, err
+		}
+		content, err := configFsDao.Instace(configurationFileName)
+		if err != nil {
+			return configs, err
+		}
+		var cfg OpenAPIConfiguration
+		err = yaml.Unmarshal([]byte(content), &cfg)
+		if err != nil {
+			return configs, err
+		}
+		configs = append(configs, cfg)
+	}
+	return configs, nil
+}
+
+func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
+	swaggerConfiguration := OpenAPIConfiguration{
+		OpenAPI: "3.1.0",
+		Info: OpenAPIInfo{
+			Title:       microServiceId,
+			Description: fmt.Sprintf("%s docs", microServiceId),
+		},
+		Servers: []OpenAPIServer{
+			{
+				URL: "/",
+			},
+		},
+		Components: OpenApiComponents{
+			SecuritySchemas: map[string]OpenApiAuth{
+				"cookieAuth": {
+					Type: "apiKey",
+					In:   "cookie",
+					Name: "sessionId",
+				},
+			},
+			Schemas: map[string]Schema{
+				"DefaultEndorResponse": {
+					Type: ObjectType,
+					Properties: &map[string]Schema{
+						"messages": {
+							Items: &Schema{
+								Type: ObjectType,
+								Properties: &map[string]Schema{
+									"gravity": {
+										Type: StringType,
+										Enum: &[]string{string(Info), string(Warning), string(Error), string(Fatal)},
+									},
+									"value": {
+										Type: StringType,
+									},
+								},
+							},
+						},
+						"data": {
+							Type: ObjectType,
+						},
+						"schema": {
+							Type: ObjectType,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	paths := map[string]OpenAPIPathItem{}
+	for _, service := range services {
+		for methodKey, method := range service.Methods {
+			path := OpenAPIPathItem{
+				Post: &OpenAPIOperation{
+					OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
+					Tags:        []string{service.Resource},
+					Parameters: []OpenApiParameter{
+						{
+							Name:        "app",
+							In:          "path",
+							Required:    true,
+							Default:     "",
+							Description: "app",
+							Schema: map[string]string{
+								"type": "string",
+							},
+						},
+					},
+					Responses: OpenApiResponses{
+						"default": OpenApiResponse{
+							Description: "Default response",
+							Content: map[string]OpenAPIMediaType{
+								"application/json": {
+									Schema: Schema{
+										Reference: "#/components/schemas/DefaultEndorResponse",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			// find payload using reflection
+			payload, err := resolvePayloadType(method)
+			if err != nil {
+				return swaggerConfiguration, err
+			}
+			requestSchema := NewSchemaByType(payload)
+			originalRef := requestSchema.Reference
+			// put all payload schemas to components
+			for schemaName, schema := range requestSchema.Definitions {
+				if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
+					swaggerConfiguration.Components.Schemas[schemaName] = schema
+				}
+			}
+			// add payload
+			if originalRef != "" {
+				parts := strings.Split(originalRef, "/")
+				last := parts[len(parts)-1]
+				path.Post.RequestBody = &OpenAPIRequestBody{
+					Content: map[string]OpenAPIMediaType{
+						"application/json": {
+							Schema: Schema{
+								// calculate reference
+								Reference: fmt.Sprintf("#/components/schemas/%s", last),
+							},
+						},
+					},
+				}
+			}
+
+			//TODO: check authorization handler
+
+			version := service.Version
+			if version == "" {
+				version = "v1"
+			}
+			apiPath := strings.ReplaceAll(baseApiPath, ":app", "{app}")
+			paths[fmt.Sprintf("%s/%s/%s/%s", apiPath, version, service.Resource, methodKey)] = path
+		}
+	}
+
+	swaggerConfiguration.Paths = paths
+
+	return swaggerConfiguration, nil
 }
 
 // CopyDir copies the src directory to dst, overwriting dst if it already exists.
