@@ -33,6 +33,10 @@ type CarTreeNode struct {
 	Children []CarTreeNode `json:"children"`
 }
 
+type GenericCar[T any] struct {
+	Value T
+}
+
 func TestSchemaTypes(t *testing.T) {
 	schema := sdk.NewSchema(&User{})
 	if schema.Reference != "#/$defs/User" {
@@ -105,5 +109,17 @@ func TestRicorsionTypes(t *testing.T) {
 	}
 	if carTreeNodeSchemaProperties["children"].Items.Reference != "#/$defs/CarTreeNode" {
 		t.Fatalf("Received %v", carTreeNodeSchemaProperties["children"].Items.Reference)
+	}
+}
+
+func TestNoPayload(t *testing.T) {
+	schema := sdk.NewSchema(sdk.NoPayload{})
+	noPayloadSchema := schema.Definitions["NoPayload"]
+	noPayloadSchemaProperties := *noPayloadSchema.Properties
+	if noPayloadSchema.Type != sdk.ObjectType {
+		t.Fatalf("Received %v", schema.Type)
+	}
+	if len(noPayloadSchemaProperties) != 0 {
+		t.Fatalf("Received %v", len(noPayloadSchemaProperties))
 	}
 }

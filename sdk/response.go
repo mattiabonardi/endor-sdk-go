@@ -2,10 +2,10 @@ package sdk
 
 // Response with Generics
 type Response[T any] struct {
-	Messages []Message `json:"messages"`
-	Data     *T        `json:"data"`
-	Schema   *Schema   `json:"schema"`
-	Meta     *Meta     `json:"meta"`
+	Messages []Message   `json:"messages"`
+	Data     *T          `json:"data"`
+	Schema   *RootSchema `json:"schema"`
+	Meta     *Meta       `json:"meta"`
 }
 
 // ResponseBuilder with Generics
@@ -41,7 +41,7 @@ func (h *ResponseBuilder[T]) AddData(data *T) *ResponseBuilder[T] {
 	return h
 }
 
-func (h *ResponseBuilder[T]) AddSchema(schema *Schema) *ResponseBuilder[T] {
+func (h *ResponseBuilder[T]) AddSchema(schema *RootSchema) *ResponseBuilder[T] {
 	h.response.Schema = schema
 	return h
 }

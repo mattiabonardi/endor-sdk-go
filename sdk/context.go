@@ -23,6 +23,8 @@ type EndorContext[T any] struct {
 	GinContext *gin.Context
 }
 
+type NoPayload struct{}
+
 // Continue to next middleware
 func (c *EndorContext[T]) Next() {
 	c.Index++
