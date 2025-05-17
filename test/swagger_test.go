@@ -37,3 +37,22 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 		t.Fatalf("Received %v", len(def.Paths))
 	}
 }
+
+func TestAdaptSwaggerSchemaToSchema(t *testing.T) {
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api/:app")
+	if err != nil {
+		t.Fail()
+	}
+	// test payload 1
+	path := def.Paths["/api/{app}/v1/test/test1"].Post.RequestBody.Content["application/json"].Schema
+	payload1 := sdk.AdaptSwaggerSchemaToSchema(def.Components, &path)
+	if len(payload1.Definitions) != 1 {
+		t.Fatalf("Received %v", len(payload1.Definitions))
+	}
+	if payload1.Reference != "#/$defs/Test1Payload" {
+		t.Fatalf("Received %v", payload1.Reference)
+	}
+	if payload1.Definitions["Test1Payload"].Type != sdk.ObjectType {
+		t.Fatalf("Received %v", payload1.Type)
+	}
+}

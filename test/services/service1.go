@@ -38,7 +38,7 @@ func NewService1() sdk.EndorService {
 	return sdk.EndorService{
 		Resource: "test",
 		Methods: map[string]sdk.EndorServiceMethod{
-			"tes1": sdk.NewMethod(
+			"test1": sdk.NewMethod(
 				handler.AuthorizationHandler,
 				Service1.test1,
 			),

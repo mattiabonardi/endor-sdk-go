@@ -291,6 +291,77 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 	return swaggerConfiguration, nil
 }
 
+func AdaptSwaggerSchemaToSchema(openApiComponents OpenApiComponents, schema *Schema) RootSchema {
+	visited := make(map[string]bool)
+	defs := make(map[string]Schema)
+
+	// resolve root schema
+	root := resolveSchema(schema, openApiComponents, defs, visited)
+
+	return RootSchema{
+		Schema:      *root,
+		Definitions: defs,
+	}
+}
+
+func resolveSchema(s *Schema, components OpenApiComponents, defs map[string]Schema, visited map[string]bool) *Schema {
+	if s == nil {
+		return nil
+	}
+
+	if s.Reference != "" {
+		refName := extractRefName(s.Reference)
+		if visited[refName] {
+			// Already visited
+			return &Schema{Reference: "#/$defs/" + refName}
+		}
+
+		refSchema, ok := components.Schemas[refName]
+		if !ok {
+			// Reference not found
+			return &Schema{}
+		}
+
+		// Mark as visited before resolving to prevent circular recursion
+		visited[refName] = true
+
+		// Recursively resolve referenced schema
+		resolved := resolveSchema(&refSchema, components, defs, visited)
+
+		// Add to $defs
+		defs[refName] = *resolved
+
+		// Return a $ref to the definition
+		return &Schema{
+			Reference: "#/$defs/" + refName,
+		}
+	}
+
+	// Deep copy of the schema
+	result := &Schema{
+		Type:  s.Type,
+		Enum:  s.Enum,
+		Items: resolveSchema(s.Items, components, defs, visited),
+	}
+
+	if s.Properties != nil {
+		props := make(map[string]Schema)
+		for key, prop := range *s.Properties {
+			resolvedProp := resolveSchema(&prop, components, defs, visited)
+			props[key] = *resolvedProp
+		}
+		result.Properties = &props
+	}
+
+	return result
+}
+
+func extractRefName(ref string) string {
+	// assuming refs look like "#/components/schemas/ModelName"
+	parts := strings.Split(ref, "/")
+	return parts[len(parts)-1]
+}
+
 // CopyDir copies the src directory to dst, overwriting dst if it already exists.
 func copyDir(src string, dst string) error {
 	// Remove destination if it exists
