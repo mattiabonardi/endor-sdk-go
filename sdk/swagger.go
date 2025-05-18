@@ -1,8 +1,8 @@
 package sdk
 
 import (
+	"embed"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,6 +12,9 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/sdk/dao"
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed swagger/*
+var swaggerFS embed.FS
 
 type OpenAPIConfiguration struct {
 	OpenAPI    string                     `json:"openapi" yaml:"openapi"` // should be "3.0.0"
@@ -104,7 +107,10 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, microServiceId)
 
 	// copy swagger files
-	copyDir("./swagger", swaggerFolder)
+	err = copySwagger(swaggerFolder)
+	if err != nil {
+		return "", err
+	}
 	// serialize openapi file
 	filePath := filepath.Join(swaggerFolder, configurationFileName)
 
@@ -362,58 +368,38 @@ func extractRefName(ref string) string {
 	return parts[len(parts)-1]
 }
 
-// CopyDir copies the src directory to dst, overwriting dst if it already exists.
-func copyDir(src string, dst string) error {
-	// Remove destination if it exists
-	if _, err := os.Stat(dst); err == nil {
-		err = os.RemoveAll(dst)
-		if err != nil {
-			return fmt.Errorf("failed to remove existing destination: %w", err)
-		}
+func copySwagger(toDir string) error {
+	// Remove the target directory if it exists
+	if err := os.RemoveAll(toDir); err != nil {
+		return err
 	}
 
-	// Create the destination root directory
-	err := os.MkdirAll(dst, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create destination: %w", err)
+	// Recreate the target directory
+	if err := os.MkdirAll(toDir, 0755); err != nil {
+		return err
 	}
 
-	// Walk and copy files
-	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+	// Walk and copy embedded Swagger files
+	return fs.WalkDir(swaggerFS, "swagger", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		relPath, err := filepath.Rel(src, path)
+		relPath := strings.TrimPrefix(path, "swagger")
+		relPath = strings.TrimPrefix(relPath, string(os.PathSeparator)) // Remove leading slash if any
+		dstPath := filepath.Join(toDir, relPath)
+
+		if d.IsDir() {
+			return os.MkdirAll(dstPath, 0755)
+		}
+
+		data, err := swaggerFS.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		targetPath := filepath.Join(dst, relPath)
 
-		if info.IsDir() {
-			return os.MkdirAll(targetPath, info.Mode())
-		}
-
-		return copyFile(path, targetPath, info.Mode())
+		return os.WriteFile(dstPath, data, 0644)
 	})
-}
-
-// copyFile copies a single file from src to dst
-func copyFile(src, dst string, perm fs.FileMode) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, srcFile)
-	return err
 }
 
 func resolvePayloadType(method EndorServiceMethod) (reflect.Type, error) {
