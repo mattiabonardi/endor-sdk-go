@@ -29,7 +29,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 		t.Fatalf("Received %v", len(def.Components.SecuritySchemas))
 	}
 	// check definitions
-	if len(def.Components.Schemas) != 3 {
+	if len(def.Components.Schemas) != 4 {
 		t.Fatalf("Received %v", len(def.Components.Schemas))
 	}
 	// check paths
@@ -43,16 +43,20 @@ func TestAdaptSwaggerSchemaToSchema(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	// test payload 1
-	path := def.Paths["/api/{app}/v1/test/test1"].Post.RequestBody.Content["application/json"].Schema
+	// test payload 2
+	path := def.Paths["/api/{app}/v1/test/test2"].Post.RequestBody.Content["application/json"].Schema
 	payload1 := sdk.AdaptSwaggerSchemaToSchema(def.Components, &path)
-	if len(payload1.Definitions) != 1 {
+	if len(payload1.Definitions) != 2 {
 		t.Fatalf("Received %v", len(payload1.Definitions))
 	}
-	if payload1.Reference != "#/$defs/Test1Payload" {
+	if payload1.Reference != "#/$defs/Test2Payload" {
 		t.Fatalf("Received %v", payload1.Reference)
 	}
-	if payload1.Definitions["Test1Payload"].Type != sdk.ObjectType {
+	if payload1.Definitions["Test2Payload"].Type != sdk.ObjectType {
 		t.Fatalf("Received %v", payload1.Type)
+	}
+	prop := *payload1.Definitions["Test2Payload"].Properties
+	if prop["objectArray"].Items.Reference != "#/$defs/Test2PayloadArrayIteam" {
+		t.Fatalf("Received %v", prop["objectArray"].Items.Reference)
 	}
 }

@@ -11,7 +11,12 @@ type Test1Payload struct {
 }
 
 type Test2Payload struct {
-	Array []string `json:"array" yaml:"array"`
+	Array       []string                 `json:"array" yaml:"array"`
+	ObjectArray []Test2PayloadArrayIteam `json:"objectArray" yaml:"objectArray"`
+}
+
+type Test2PayloadArrayIteam struct {
+	String string `json:"string" yaml:"string"`
 }
 
 type Service1 struct {
