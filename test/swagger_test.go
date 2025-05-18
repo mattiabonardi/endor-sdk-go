@@ -29,12 +29,21 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 		t.Fatalf("Received %v", len(def.Components.SecuritySchemas))
 	}
 	// check definitions
-	if len(def.Components.Schemas) != 4 {
+	if len(def.Components.Schemas) != 6 {
 		t.Fatalf("Received %v", len(def.Components.Schemas))
 	}
 	// check paths
-	if len(def.Paths) != 3 {
+	if len(def.Paths) != 4 {
 		t.Fatalf("Received %v", len(def.Paths))
+	}
+	// check generics
+	if def.Paths["/api/{app}/v1/test/test4"].Post.RequestBody.Content["application/json"].Schema.Reference != "#/components/schemas/Test4Payload_GenericPayload" {
+		t.Fatalf("Received %v", def.Paths["/api/{app}/v1/test/test4"].Post.RequestBody.Content["application/json"].Schema.Reference)
+	}
+	test4Payload := def.Components.Schemas["Test4Payload_GenericPayload"]
+	test4PayloadProperties := *test4Payload.Properties
+	if test4PayloadProperties["value"].Reference != "#/components/schemas/GenericPayload" {
+		t.Fatalf("Received %v", test4PayloadProperties["value"].Reference)
 	}
 }
 

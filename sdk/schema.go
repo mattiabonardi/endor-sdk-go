@@ -132,5 +132,26 @@ func getTypeName(t reflect.Type) string {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	return t.Name()
+	originalName := t.Name()
+	if strings.Contains(originalName, "[") {
+		// Extract the part before the brackets
+		leftBracket := strings.LastIndex(originalName, "[")
+
+		// Get last segment before `[`
+		before := originalName[:leftBracket]
+		beforeParts := strings.Split(before, "/")
+		nameBefore := beforeParts[len(beforeParts)-1]
+
+		// Extract the part inside the brackets
+		rightBracket := strings.LastIndex(originalName, "]")
+
+		inside := originalName[leftBracket+1 : rightBracket]
+		insideParts := strings.FieldsFunc(inside, func(r rune) bool {
+			return r == '/' || r == '.'
+		})
+		nameInside := insideParts[len(insideParts)-1]
+
+		return nameBefore + "_" + nameInside
+	}
+	return originalName
 }

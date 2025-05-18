@@ -263,12 +263,28 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			for schemaName, schema := range requestSchema.Definitions {
 				if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
 					swaggerConfiguration.Components.Schemas[schemaName] = schema
+					// normalize attributes references
+					for propertyname, property := range *swaggerConfiguration.Components.Schemas[schemaName].Properties {
+						if property.Reference != "" {
+							propertyName := extractRefName(property.Reference)
+							// set reference to the schema
+							prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+							prop.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+							(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+						}
+						if property.Items != nil && property.Items.Reference != "" {
+							propertyName := extractRefName(property.Items.Reference)
+							// set reference to the schema
+							prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+							prop.Items.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+							(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+						}
+					}
 				}
 			}
 			// add payload
 			if originalRef != "" {
-				parts := strings.Split(originalRef, "/")
-				last := parts[len(parts)-1]
+				last := extractFinalSegment(originalRef)
 				path.Post.RequestBody = &OpenAPIRequestBody{
 					Content: map[string]OpenAPIMediaType{
 						"application/json": {
@@ -438,4 +454,30 @@ func resolvePayloadType(method EndorServiceMethod) (reflect.Type, error) {
 	}
 
 	return payloadField.Type, nil
+}
+
+// extractFinalSegment extracts the final segment of a string after the last slash
+func extractFinalSegment(input string) string {
+	var lastSlashOutsideBrackets = -1
+	bracketDepth := 0
+
+	for i, r := range input {
+		switch r {
+		case '[':
+			bracketDepth++
+		case ']':
+			if bracketDepth > 0 {
+				bracketDepth--
+			}
+		case '/':
+			if bracketDepth == 0 {
+				lastSlashOutsideBrackets = i
+			}
+		}
+	}
+
+	if lastSlashOutsideBrackets != -1 && lastSlashOutsideBrackets+1 < len(input) {
+		return input[lastSlashOutsideBrackets+1:]
+	}
+	return input
 }

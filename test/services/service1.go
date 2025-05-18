@@ -19,6 +19,14 @@ type Test2PayloadArrayIteam struct {
 	String string `json:"string" yaml:"string"`
 }
 
+type GenericPayload struct {
+	String string `json:"string" yaml:"string"`
+}
+
+type Test4Payload[T any] struct {
+	Value T `json:"value" yaml:"value"`
+}
+
 type Service1 struct {
 }
 
@@ -34,6 +42,12 @@ func (h *Service1) test2() func(c *sdk.EndorContext[Test2Payload]) {
 
 func (h *Service1) test3() func(c *sdk.EndorContext[Test2Payload]) {
 	return func(c *sdk.EndorContext[Test2Payload]) {
+		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
+	}
+}
+
+func (h *Service1) test4() func(c *sdk.EndorContext[Test4Payload[GenericPayload]]) {
+	return func(c *sdk.EndorContext[Test4Payload[GenericPayload]]) {
 		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
 	}
 }
@@ -54,6 +68,10 @@ func NewService1() sdk.EndorService {
 			"test3": sdk.NewMethod(
 				handler.AuthorizationHandler,
 				Service1.test3(),
+			),
+			"test4": sdk.NewMethod(
+				handler.AuthorizationHandler,
+				Service1.test4(),
 			),
 		},
 	}

@@ -34,7 +34,7 @@ type CarTreeNode struct {
 }
 
 type GenericCar[T any] struct {
-	Value T
+	Value T `json:"value"`
 }
 
 func TestSchemaTypes(t *testing.T) {
@@ -121,5 +121,20 @@ func TestNoPayload(t *testing.T) {
 	}
 	if len(noPayloadSchemaProperties) != 0 {
 		t.Fatalf("Received %v", len(noPayloadSchemaProperties))
+	}
+}
+
+func TestWithGenerics(t *testing.T) {
+	schema := sdk.NewSchema(&GenericCar[Car]{})
+	if len(schema.Definitions) != 2 {
+		t.Fatalf("Received %v", len(schema.Definitions))
+	}
+	if schema.Reference != "#/$defs/GenericCar_Car" {
+		t.Fatalf("Received %v", schema.Reference)
+	}
+	genericCarSchema := schema.Definitions["GenericCar_Car"]
+	genericCarSchemaProperties := *genericCarSchema.Properties
+	if genericCarSchemaProperties["value"].Reference != "#/$defs/Car" {
+		t.Fatalf("Received %v", genericCarSchemaProperties["value"].Reference)
 	}
 }
