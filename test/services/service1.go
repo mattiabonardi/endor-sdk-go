@@ -6,25 +6,25 @@ import (
 )
 
 type Test1Payload struct {
-	String  string `json:"string" yaml:"string"`
-	Boolean bool   `json:"boolean" yaml:"boolean"`
+	String  string `json:"string"`
+	Boolean bool   `json:"boolean"`
 }
 
 type Test2Payload struct {
-	Array       []string                 `json:"array" yaml:"array"`
-	ObjectArray []Test2PayloadArrayIteam `json:"objectArray" yaml:"objectArray"`
+	Array       []string                 `json:"array"`
+	ObjectArray []Test2PayloadArrayIteam `json:"objectArray"`
 }
 
 type Test2PayloadArrayIteam struct {
-	String string `json:"string" yaml:"string"`
+	String string `json:"string"`
 }
 
 type GenericPayload struct {
-	String string `json:"string" yaml:"string"`
+	String string `json:"string"`
 }
 
 type Test4Payload[T any] struct {
-	Value T `json:"value" yaml:"value"`
+	Value T `json:"value"`
 }
 
 type Service1 struct {
@@ -55,7 +55,8 @@ func (h *Service1) test4() func(c *sdk.EndorContext[Test4Payload[GenericPayload]
 func NewService1() sdk.EndorService {
 	Service1 := Service1{}
 	return sdk.EndorService{
-		Resource: "test",
+		Resource:    "test",
+		Description: "Testing resource",
 		Methods: map[string]sdk.EndorServiceMethod{
 			"test1": sdk.NewMethod(
 				handler.AuthorizationHandler,

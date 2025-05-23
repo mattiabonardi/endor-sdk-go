@@ -24,6 +24,10 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	if def.Servers[0].URL != "/" {
 		t.Fatalf("Received %v", def.Servers[0].URL)
 	}
+	// endor resources
+	if def.EndorResources["test"].Description != "Testing resource" {
+		t.Fatalf("Received %v", def.EndorResources["test"].Description)
+	}
 	// security scheme
 	if len(def.Components.SecuritySchemas) != 1 {
 		t.Fatalf("Received %v", len(def.Components.SecuritySchemas))
@@ -44,6 +48,21 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	test4PayloadProperties := *test4Payload.Properties
 	if test4PayloadProperties["value"].Reference != "#/components/schemas/GenericPayload" {
 		t.Fatalf("Received %v", test4PayloadProperties["value"].Reference)
+	}
+}
+
+func TestCreateSwaggerDefinitionWithDefinedApp(t *testing.T) {
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService2()}, "/api/:app")
+	if err != nil {
+		t.Fail()
+	}
+	// check apps
+	schemaEnum := *def.Paths["/api/{app}/v1/test2/test1"].Post.Parameters[0].Schema.Enum
+	if schemaEnum[0] != "app1" {
+		t.Fatalf("Received %v", schemaEnum[0])
+	}
+	if schemaEnum[1] != "app2" {
+		t.Fatalf("Received %v", schemaEnum[1])
 	}
 }
 

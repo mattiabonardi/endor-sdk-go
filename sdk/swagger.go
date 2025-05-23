@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,90 +11,94 @@ import (
 	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/sdk/dao"
-	"gopkg.in/yaml.v3"
 )
 
 //go:embed swagger/*
 var swaggerFS embed.FS
 
 type OpenAPIConfiguration struct {
-	OpenAPI    string                     `json:"openapi" yaml:"openapi"` // should be "3.0.0"
-	Info       OpenAPIInfo                `json:"info" yaml:"info"`
-	Servers    []OpenAPIServer            `json:"servers" yaml:"servers"`
-	Paths      map[string]OpenAPIPathItem `json:"paths" yaml:"paths"`
-	Components OpenApiComponents          `json:"components" yaml:"components"`
+	OpenAPI        string                          `json:"openapi"`
+	Info           OpenAPIInfo                     `json:"info"`
+	Servers        []OpenAPIServer                 `json:"servers"`
+	EndorResources map[string]OpenAPIEndorResource `json:"endorResources"`
+	Paths          map[string]OpenAPIPathItem      `json:"paths"`
+	Components     OpenApiComponents               `json:"components"`
+}
+
+type OpenAPIEndorResource struct {
+	Description string `json:"description"`
 }
 
 type OpenAPIInfo struct {
-	Title       string `json:"title" yaml:"title"`
-	Description string `json:"description" yaml:"description"`
-	Version     string `json:"version" yaml:"version"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
 }
 
 type OpenAPIServer struct {
-	URL         string `json:"url" yaml:"url"`
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
 }
 
 type OpenAPIPathItem struct {
-	Get    *OpenAPIOperation `json:"get,omitempty" yaml:"get,omitempty"`
-	Post   *OpenAPIOperation `json:"post,omitempty" yaml:"post,omitempty"`
-	Put    *OpenAPIOperation `json:"put,omitempty" yaml:"put,omitempty"`
-	Delete *OpenAPIOperation `json:"delete,omitempty" yaml:"delete,omitempty"`
+	Get    *OpenAPIOperation `json:"get,omitempty"`
+	Post   *OpenAPIOperation `json:"post,omitempty"`
+	Put    *OpenAPIOperation `json:"put,omitempty"`
+	Delete *OpenAPIOperation `json:"delete,omitempty"`
 }
 
 type OpenAPIOperation struct {
-	Summary     string                       `json:"summary,omitempty" yaml:"summary,omitempty"`
-	Description string                       `json:"description,omitempty" yaml:"description,omitempty"`
-	Tags        []string                     `json:"tags,omitempty" yaml:"tags,omitempty"`
-	OperationID string                       `json:"operationId,omitempty" yaml:"operationId,omitempty"`
-	Parameters  []OpenApiParameter           `json:"parameters" yaml:"parameters"`
-	RequestBody *OpenAPIRequestBody          `json:"requestBody,omitempty" yaml:"requestBody,omitempty"`
-	Responses   OpenApiResponses             `json:"responses" yaml:"responses"`
-	Security    []SwaggerSecurityRequirement `json:"security" yaml:"security"`
+	Summary     string                       `json:"summary,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	Tags        []string                     `json:"tags,omitempty"`
+	OperationID string                       `json:"operationId,omitempty"`
+	Parameters  []OpenApiParameter           `json:"parameters"`
+	RequestBody *OpenAPIRequestBody          `json:"requestBody,omitempty"`
+	Responses   OpenApiResponses             `json:"responses"`
+	Security    []SwaggerSecurityRequirement `json:"security"`
 }
 
 type SwaggerSecurityRequirement map[string][]string
 
 type OpenApiParameter struct {
-	Name        string            `json:"name,omitempty" yaml:"name,omitempty"`
-	In          string            `json:"in,omitempty" yaml:"in,omitempty"`
-	Required    bool              `json:"required,omitempty" yaml:"required,omitempty"`
-	Default     string            `json:"default,omitempty" yaml:"default,omitempty"`
-	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
-	Schema      map[string]string `json:"schema,omitempty" yaml:"schema,omitempty"`
+	Name        string `json:"name,omitempty"`
+	In          string `json:"in,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Default     string `json:"default,omitempty"`
+	Description string `json:"description,omitempty"`
+	Schema      Schema `json:"schema,omitempty"`
 }
 
 type OpenAPIRequestBody struct {
-	Description string                      `json:"description,omitempty" yaml:"description,omitempty"`
-	Content     map[string]OpenAPIMediaType `json:"content" yaml:"content"`
-	Required    bool                        `json:"required,omitempty" yaml:"required,omitempty"`
+	Description string                      `json:"description,omitempty"`
+	Content     map[string]OpenAPIMediaType `json:"content"`
+	Required    bool                        `json:"required,omitempty"`
 }
 
 type OpenAPIMediaType struct {
-	Schema Schema `json:"schema" yaml:"schema"`
+	Schema Schema `json:"schema"`
 }
 
 type OpenApiComponents struct {
-	SecuritySchemas map[string]OpenApiAuth `json:"securitySchemas" yaml:"securitySchemas"`
-	Schemas         map[string]Schema      `json:"schemas" yaml:"schemas"`
+	SecuritySchemas map[string]OpenApiAuth `json:"securitySchemas"`
+	Schemas         map[string]Schema      `json:"schemas"`
 }
 
 type OpenApiAuth struct {
-	Type string `json:"type" yaml:"type"`
-	In   string `json:"in" yaml:"in"`
-	Name string `json:"name" yaml:"name"`
+	Type string `json:"type"`
+	In   string `json:"in"`
+	Name string `json:"name"`
 }
 
 type OpenApiResponse struct {
-	Description string `yaml:"description" json:"description"`
-	Content     map[string]OpenAPIMediaType
+	Description string                      `json:"description"`
+	Content     map[string]OpenAPIMediaType `json:"content"`
 }
 
 type OpenApiResponses map[string]OpenApiResponse
 
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
-var configurationFileName = "openapi.yaml"
+var configurationFileName = "openapi.json"
 
 func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
 	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
@@ -106,15 +111,14 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	}
 	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, microServiceId)
 
-	// copy swagger files
 	err = copySwagger(swaggerFolder)
 	if err != nil {
 		return "", err
 	}
-	// serialize openapi file
+
 	filePath := filepath.Join(swaggerFolder, configurationFileName)
 
-	data, err := yaml.Marshal(definition)
+	data, err := json.MarshalIndent(definition, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +152,6 @@ func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
 	if err != nil {
 		return configs, err
 	}
-	// cicle folder and unmarshal configuration
 	for _, folder := range folders {
 		configFilePath := filepath.Join(swaggerFolder, folder)
 		configFsDao, err := dao.NewFileSystemDAO(configFilePath)
@@ -160,7 +163,7 @@ func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
 			return configs, err
 		}
 		var cfg OpenAPIConfiguration
-		err = yaml.Unmarshal([]byte(content), &cfg)
+		err = json.Unmarshal([]byte(content), &cfg)
 		if err != nil {
 			return configs, err
 		}
@@ -181,6 +184,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				URL: "/",
 			},
 		},
+		EndorResources: map[string]OpenAPIEndorResource{},
 		Components: OpenApiComponents{
 			SecuritySchemas: map[string]OpenApiAuth{
 				"cookieAuth": {
@@ -233,8 +237,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 							Required:    true,
 							Default:     "",
 							Description: "app",
-							Schema: map[string]string{
-								"type": "string",
+							Schema: Schema{
+								Type: StringType,
 							},
 						},
 					},
@@ -251,6 +255,10 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 						},
 					},
 				},
+			}
+			// apps
+			if service.Apps != nil {
+				path.Post.Parameters[0].Schema.Enum = &service.Apps
 			}
 			// find payload using reflection
 			payload, err := resolvePayloadType(method)
@@ -305,6 +313,9 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			}
 			apiPath := strings.ReplaceAll(baseApiPath, ":app", "{app}")
 			paths[fmt.Sprintf("%s/%s/%s/%s", apiPath, version, service.Resource, methodKey)] = path
+		}
+		swaggerConfiguration.EndorResources[service.Resource] = OpenAPIEndorResource{
+			Description: service.Description,
 		}
 	}
 
