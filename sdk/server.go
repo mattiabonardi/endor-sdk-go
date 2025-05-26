@@ -15,6 +15,10 @@ func Init(microExecutorId string, services []EndorService) {
 	// create router
 	router := gin.New()
 
+	// start watcher
+	watcher := Watcher{}
+	go watcher.Start()
+
 	// monitoring
 	router.GET("/readyz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

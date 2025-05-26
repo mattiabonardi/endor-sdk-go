@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/sdk/resource"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -14,7 +15,7 @@ type MongoResourceRepository[T any] struct {
 	collection *mongo.Collection
 }
 
-func NewMongoResourceRepository[T any](client *mongo.Client, resource sdk.Resource) *MongoResourceRepository[T] {
+func NewMongoResourceRepository[T any](client *mongo.Client, resource resource.Resource) *MongoResourceRepository[T] {
 	dbName := resource.Persistence.Options["database"]
 	collName := resource.Persistence.Options["collection"]
 

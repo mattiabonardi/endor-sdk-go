@@ -1,9 +1,11 @@
-package sdk
+package resource
+
+import "github.com/mattiabonardi/endor-sdk-go/sdk"
 
 type Resource struct {
 	ID          string      `json:"id,omitempty" yaml:"id,omitempty"`
 	Description string      `json:"description,omitempty" yaml:"description,omitempty"`
-	Schema      Schema      `json:"schema,omitempty" yaml:"schema,omitempty"`
+	Schema      sdk.Schema  `json:"schema,omitempty" yaml:"schema,omitempty"`
 	Persistence Persistence `json:"persistence,omitempty" yaml:"persistence,omitempty"`
 }
 
