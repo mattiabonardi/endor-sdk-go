@@ -3,6 +3,8 @@ package sdk
 import (
 	"reflect"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type SchemaTypeName string
@@ -27,6 +29,14 @@ type Schema struct {
 type RootSchema struct {
 	Schema
 	Definitions map[string]Schema `json:"$defs,omitempty" yaml:"$defs,omitempty"`
+}
+
+func (h *RootSchema) ToYAML() (string, error) {
+	yamlData, err := yaml.Marshal(&h)
+	if err != nil {
+		return "", err
+	}
+	return string(yamlData), nil
 }
 
 func NewSchema(model any) *RootSchema {

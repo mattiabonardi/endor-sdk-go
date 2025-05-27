@@ -15,8 +15,8 @@ type MongoResourceRepository[T any] struct {
 }
 
 func NewMongoResourceRepository[T any](client *mongo.Client, resource sdk.Resource) *MongoResourceRepository[T] {
-	dbName := resource.Persistence.Options["database"]
-	collName := resource.Persistence.Options["collection"]
+	dbName := /*resource.Persistence.Options["database"]*/ ""
+	collName := /*resource.Persistence.Options["collection"]*/ ""
 
 	collection := client.Database(dbName).Collection(collName)
 	return &MongoResourceRepository[T]{

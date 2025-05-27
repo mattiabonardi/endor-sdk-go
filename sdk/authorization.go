@@ -20,7 +20,7 @@ func AuthorizationHandler[T any](c *EndorContext[T]) {
 		c.Session = Session{
 			Id:       uuid.New().String(),
 			Username: "endor",
-			App:      app,
+			App:      "admin",
 		}
 		c.Next()
 		return
