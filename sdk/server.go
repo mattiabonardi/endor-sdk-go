@@ -1,17 +1,35 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func Init(microExecutorId string, services []EndorService) {
 	// load configuration
 	config := LoadConfiguration()
+
+	// Connect to MongoDB
+	ctx := context.TODO()
+	clientOptions := options.Client().ApplyURI(config.EndorResourceDBUri)
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatal("MongoDB connection error:", err)
+	}
+
+	// Ping to test connection
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		log.Fatal("MongoDB ping failed:", err)
+	}
+
 	// create router
 	router := gin.New()
 
@@ -40,7 +58,7 @@ func Init(microExecutorId string, services []EndorService) {
 	}
 
 	// resource service
-	resourceService := NewResourceService(services)
+	resourceService := NewResourceService(services, client, ctx, microExecutorId)
 	resourceGroup := api.Group(microExecutorId + "/v1/resource")
 	for methodPath, method := range resourceService.Methods {
 		method.Register(resourceGroup, methodPath)
@@ -61,7 +79,7 @@ func Init(microExecutorId string, services []EndorService) {
 		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
-	err := InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
+	err = InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
 	if err != nil {
 		log.Fatal(err)
 	}

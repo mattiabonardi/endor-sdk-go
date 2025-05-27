@@ -1,9 +1,10 @@
 package sdk
 
 type Resource struct {
-	ID          string `json:"id,omitempty" yaml:"id,omitempty"`
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	Schema      string `json:"schema,omitempty" yaml:"schema,omitempty"`
+	ID          string   `json:"id,omitempty" yaml:"id,omitempty" bson:"_id,omitempty"`
+	Description string   `json:"description,omitempty" yaml:"description,omitempty"`
+	Apps        []string `json:"apps,omitempty" yaml:"apps,omitempty"`
+	Schema      string   `json:"schema,omitempty" yaml:"schema,omitempty"`
 }
 
 type ReadInstanceDTO struct {

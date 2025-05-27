@@ -53,3 +53,6 @@ func (c *EndorContext[T]) Unauthorize(err error) {
 func (c *EndorContext[T]) Forbidden(err error) {
 	c.GinContext.AbortWithStatusJSON(http.StatusForbidden, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
 }
+func (c *EndorContext[T]) Conflict(err error) {
+	c.GinContext.AbortWithStatusJSON(http.StatusConflict, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+}

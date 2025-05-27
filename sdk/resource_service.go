@@ -1,10 +1,19 @@
 package sdk
 
-import "fmt"
+import (
+	"context"
+	"errors"
+	"fmt"
 
-func NewResourceService(services []EndorService) EndorService {
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+func NewResourceService(services []EndorService, client *mongo.Client, context context.Context, databaseName string) EndorService {
 	resourceService := ResourceService{
-		Services: services,
+		services:     services,
+		mongoClient:  client,
+		context:      context,
+		databaseName: databaseName,
 	}
 	return EndorService{
 		Resource:    "resource",
@@ -19,12 +28,20 @@ func NewResourceService(services []EndorService) EndorService {
 				AuthorizationHandler,
 				resourceService.instance,
 			),
+			"create": NewMethod(
+				ValidationHandler,
+				AuthorizationHandler,
+				resourceService.create,
+			),
 		},
 	}
 }
 
 type ResourceService struct {
-	Services []EndorService
+	services     []EndorService
+	mongoClient  *mongo.Client
+	context      context.Context
+	databaseName string
 }
 
 func (h *ResourceService) list(c *EndorContext[ResourceListDTO]) {
@@ -32,7 +49,7 @@ func (h *ResourceService) list(c *EndorContext[ResourceListDTO]) {
 		c.Forbidden(fmt.Errorf("you can't access to resources of others application"))
 		return
 	}
-	resources, err := NewResourceRepository(h.Services).List(c.Payload)
+	resources, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).List(c.Payload)
 	if err != nil {
 		c.InternalServerError(err)
 		return
@@ -45,14 +62,29 @@ func (h *ResourceService) instance(c *EndorContext[ResourceInstanceDTO]) {
 		c.Forbidden(fmt.Errorf("you can't access to resources of others application"))
 		return
 	}
-	resource, err := NewResourceRepository(h.Services).Instance(c.Payload)
+	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		if errors.Is(err, ErrNotFound) {
+			c.NotFound(err)
+			return
+		} else {
+			c.InternalServerError(err)
+			return
+		}
 	}
-	if resource == nil {
-		c.NotFound(fmt.Errorf("not found resource %s", c.Payload.Id))
-	} else {
-		c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).Build())
+	c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).Build())
+}
+
+func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
+	err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
+	if err != nil {
+		if errors.Is(err, ErrAlreadyExists) {
+			c.Conflict(err)
+			return
+		} else {
+			c.InternalServerError(err)
+			return
+		}
 	}
+	c.End(NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource created")).Build())
 }

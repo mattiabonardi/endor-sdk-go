@@ -1,20 +1,33 @@
 package sdk
 
-import "github.com/mattiabonardi/endor-sdk-go/sdk/utils"
+import (
+	"context"
+	"errors"
 
-func NewResourceRepository(services []EndorService) *ResourceRepository {
+	"github.com/mattiabonardi/endor-sdk-go/sdk/utils"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+func NewResourceRepository(services []EndorService, client *mongo.Client, context context.Context, databaseName string) *ResourceRepository {
+	database := client.Database(databaseName)
+	collection := database.Collection(COLLECTION_RESOURCES)
 	return &ResourceRepository{
-		Services: services,
+		services:   services,
+		collection: collection,
+		context:    context,
 	}
 }
 
 type ResourceRepository struct {
-	Services []EndorService
+	services   []EndorService
+	context    context.Context
+	collection *mongo.Collection
 }
 
 func (h *ResourceRepository) List(options ResourceListDTO) ([]Resource, error) {
 	resources := []Resource{}
-	for _, service := range h.Services {
+	for _, service := range h.services {
 		if len(service.Apps) == 0 || utils.StringElemMatch(service.Apps, options.App) {
 			resource := Resource{
 				ID:          service.Resource,
@@ -35,7 +48,8 @@ func (h *ResourceRepository) List(options ResourceListDTO) ([]Resource, error) {
 }
 
 func (h *ResourceRepository) Instance(options ResourceInstanceDTO) (*Resource, error) {
-	for _, service := range h.Services {
+	// search from internal services
+	for _, service := range h.services {
 		if service.Resource == options.Id {
 			if len(service.Apps) == 0 || utils.StringElemMatch(service.Apps, options.App) {
 				resource := Resource{
@@ -54,5 +68,38 @@ func (h *ResourceRepository) Instance(options ResourceInstanceDTO) (*Resource, e
 			}
 		}
 	}
-	return nil, nil
+	// search from database
+	filter := bson.M{"_id": options.Id, "apps": options.App}
+	resource := Resource{}
+	err := h.collection.FindOne(h.context, filter).Decode(&resource)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNotFound
+		} else {
+			return nil, ErrInternalServerError
+		}
+	}
+	return &resource, nil
+}
+
+func (h *ResourceRepository) Create(dto CreateDTO[Resource]) error {
+	// check if resources already exist
+	for _, app := range dto.Data.Apps {
+		instanceOptions := ResourceInstanceDTO{
+			App: app,
+			Id:  dto.Data.ID,
+		}
+		instance, err := h.Instance(instanceOptions)
+		if err != nil && errors.Is(err, ErrInternalServerError) {
+			return ErrInternalServerError
+		}
+		if instance != nil {
+			return ErrAlreadyExists
+		}
+	}
+	_, err := h.collection.InsertOne(h.context, dto.Data)
+	if err != nil {
+		return ErrInternalServerError
+	}
+	return nil
 }
