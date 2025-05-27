@@ -1,4 +1,4 @@
-package handler
+package sdk
 
 import (
 	"bytes"
@@ -8,17 +8,16 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
 )
 
 // get access token and verify user session
-func AuthorizationHandler[T any](c *sdk.EndorContext[T]) {
-	config := sdk.LoadConfiguration()
+func AuthorizationHandler[T any](c *EndorContext[T]) {
+	config := LoadConfiguration()
 	app := c.Session.App
 
 	if config.Env == "DEVELOPMENT" {
 		// create dummy userSession
-		c.Session = sdk.Session{
+		c.Session = Session{
 			Id:       uuid.New().String(),
 			Username: "endor",
 			App:      app,
@@ -64,7 +63,7 @@ func AuthorizationHandler[T any](c *sdk.EndorContext[T]) {
 		c.InternalServerError(err)
 		return
 	}
-	r := sdk.Response[sdk.Session]{}
+	r := Response[Session]{}
 	err = json.Unmarshal([]byte(jsonData), &r)
 	if err != nil {
 		c.InternalServerError(err)

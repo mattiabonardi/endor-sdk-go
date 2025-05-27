@@ -48,6 +48,10 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 		} else {
 			path += "[^/]+/"
 		}
+		if service.Resource == "resource" {
+			// resource
+			path += microServiceId + "/"
+		}
 		// version
 		if service.Version != "" {
 			path += service.Version + "/"

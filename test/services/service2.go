@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/sdk/handler"
 )
 
 type Service2 struct {
@@ -19,7 +18,7 @@ func NewService2() sdk.EndorService {
 		Apps:     []string{"app1", "app2"},
 		Methods: map[string]sdk.EndorServiceMethod{
 			"test1": sdk.NewMethod(
-				handler.AuthorizationHandler,
+				sdk.AuthorizationHandler,
 				Service2.test1,
 			),
 		},

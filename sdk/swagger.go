@@ -312,7 +312,13 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				version = "v1"
 			}
 			apiPath := strings.ReplaceAll(baseApiPath, ":app", "{app}")
-			paths[fmt.Sprintf("%s/%s/%s/%s", apiPath, version, service.Resource, methodKey)] = path
+			if service.Resource == "resource" {
+				// special case for resource service
+				paths[fmt.Sprintf("%s/%s/%s/%s/%s", apiPath, microServiceId, version, service.Resource, methodKey)] = path
+			} else {
+				paths[fmt.Sprintf("%s/%s/%s/%s", apiPath, version, service.Resource, methodKey)] = path
+			}
+
 		}
 		swaggerConfiguration.EndorResources[service.Resource] = OpenAPIEndorResource{
 			Description: service.Description,

@@ -43,6 +43,14 @@ func Init(microExecutorId string, services []EndorService) {
 		}
 	}
 
+	// resource service
+	resourceService := NewResourceService()
+	resourceGroup := api.Group(microExecutorId + "/v1/resource")
+	for methodPath, method := range resourceService.Methods {
+		method.Register(resourceGroup, methodPath)
+	}
+	services = append(services, resourceService)
+
 	router.NoRoute(func(c *gin.Context) {
 		response := NewDefaultResponseBuilder()
 		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
