@@ -27,6 +27,7 @@ type ResourceRepository struct {
 
 func (h *ResourceRepository) List(options ResourceListDTO) ([]Resource, error) {
 	resources := []Resource{}
+	// search from internal services
 	for _, service := range h.services {
 		if len(service.Apps) == 0 || utils.StringElemMatch(service.Apps, options.App) {
 			resource := Resource{
@@ -44,6 +45,21 @@ func (h *ResourceRepository) List(options ResourceListDTO) ([]Resource, error) {
 			resources = append(resources, resource)
 		}
 	}
+	// search from database
+	filter := bson.M{"apps": options.App}
+	cursor, err := h.collection.Find(h.context, filter)
+	if err != nil {
+		return nil, ErrInternalServerError
+	}
+	var storedResources []Resource
+	if err := cursor.All(h.context, &storedResources); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return resources, nil
+		} else {
+			return nil, ErrInternalServerError
+		}
+	}
+	resources = append(resources, storedResources...)
 	return resources, nil
 }
 
@@ -102,4 +118,31 @@ func (h *ResourceRepository) Create(dto CreateDTO[Resource]) error {
 		return ErrInternalServerError
 	}
 	return nil
+}
+
+func (h *ResourceRepository) UpdateByID(dto ResourceUpdateByIdDTO) (*Resource, error) {
+	// check if resources already exist
+	for _, app := range dto.Data.Apps {
+		instanceOptions := ResourceInstanceDTO{
+			App: app,
+			Id:  dto.Data.ID,
+		}
+		_, err := h.Instance(instanceOptions)
+		if err != nil {
+			return &dto.Data, err
+		}
+	}
+
+	updateBson, err := bson.Marshal(dto.Data)
+	if err != nil {
+		return &dto.Data, err
+	}
+	update := bson.M{"$set": bson.Raw(updateBson)}
+	filter := bson.M{"_id": dto.Id, "apps": dto.App}
+	_, err = h.collection.UpdateOne(h.context, filter, update)
+	if err != nil {
+		return nil, ErrInternalServerError
+	}
+
+	return &dto.Data, nil
 }

@@ -20,6 +20,7 @@ func NewResourceService(services []EndorService, client *mongo.Client, context c
 		Description: "Resource",
 		Methods: map[string]EndorServiceMethod{
 			"list": NewMethod(
+				ValidationHandler,
 				AuthorizationHandler,
 				resourceService.list,
 			),
@@ -32,6 +33,11 @@ func NewResourceService(services []EndorService, client *mongo.Client, context c
 				ValidationHandler,
 				AuthorizationHandler,
 				resourceService.create,
+			),
+			"update": NewMethod(
+				ValidationHandler,
+				AuthorizationHandler,
+				resourceService.update,
 			),
 		},
 	}
@@ -87,4 +93,18 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
 		}
 	}
 	c.End(NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource created")).Build())
+}
+
+func (h *ResourceService) update(c *EndorContext[ResourceUpdateByIdDTO]) {
+	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).UpdateByID(c.Payload)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			c.NotFound(err)
+			return
+		} else {
+			c.InternalServerError(err)
+			return
+		}
+	}
+	c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build())
 }

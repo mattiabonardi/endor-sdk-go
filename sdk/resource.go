@@ -19,3 +19,9 @@ type ResourceInstanceDTO struct {
 	App string `json:"app" binding:"required"`
 	Id  string `json:"id" binding:"required"`
 }
+
+type ResourceUpdateByIdDTO struct {
+	App  string   `json:"app" binding:"required"`
+	Id   string   `json:"id" binding:"required"`
+	Data Resource `json:"data" binding:"required"`
+}
