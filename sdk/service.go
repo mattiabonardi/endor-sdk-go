@@ -17,7 +17,6 @@ type EndorService struct {
 
 	// optionals
 	Version string
-	Apps    []string
 }
 
 func NewMethod[T any](handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
@@ -35,9 +34,7 @@ func (m *endorServiceMethodImpl[T]) Register(group *gin.RouterGroup, path string
 			GinContext: c,
 			Handlers:   m.handlers,
 			Data:       make(map[string]interface{}),
-			Session: Session{
-				App: c.Param("app"),
-			},
+			Session:    Session{},
 		}
 		ec.Next()
 	})

@@ -39,6 +39,11 @@ func NewResourceService(services []EndorService, client *mongo.Client, context c
 				AuthorizationHandler,
 				resourceService.update,
 			),
+			"delete": NewMethod(
+				ValidationHandler,
+				AuthorizationHandler,
+				resourceService.delete,
+			),
 		},
 	}
 }
@@ -50,12 +55,8 @@ type ResourceService struct {
 	databaseName string
 }
 
-func (h *ResourceService) list(c *EndorContext[ResourceListDTO]) {
-	if c.Payload.App != c.Session.App && c.Session.App != "admin" {
-		c.Forbidden(fmt.Errorf("you can't access to resources of others application"))
-		return
-	}
-	resources, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).List(c.Payload)
+func (h *ResourceService) list(c *EndorContext[NoPayload]) {
+	resources, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).List()
 	if err != nil {
 		c.InternalServerError(err)
 		return
@@ -63,11 +64,7 @@ func (h *ResourceService) list(c *EndorContext[ResourceListDTO]) {
 	c.End(NewResponseBuilder[[]Resource]().AddData(&resources).AddSchema(NewSchema(&Resource{})).Build())
 }
 
-func (h *ResourceService) instance(c *EndorContext[ResourceInstanceDTO]) {
-	if c.Payload.App != c.Session.App && c.Session.App != "admin" {
-		c.Forbidden(fmt.Errorf("you can't access to resources of others application"))
-		return
-	}
+func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
 	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -92,11 +89,11 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
 			return
 		}
 	}
-	c.End(NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource created")).Build())
+	c.End(NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build())
 }
 
-func (h *ResourceService) update(c *EndorContext[ResourceUpdateByIdDTO]) {
-	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).UpdateByID(c.Payload)
+func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) {
+	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			c.NotFound(err)
@@ -107,4 +104,13 @@ func (h *ResourceService) update(c *EndorContext[ResourceUpdateByIdDTO]) {
 		}
 	}
 	c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build())
+}
+
+func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
+	err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
+	if err != nil {
+		c.InternalServerError(err)
+		return
+	}
+	c.End(NewResponseBuilder[Resource]().AddMessage(NewMessage(Info, fmt.Sprintf("resource %s deleted", c.Payload.Id))).Build())
 }

@@ -1,5 +1,9 @@
 package sdk
 
+type ReadInstanceDTO struct {
+	Id string `json:"id,omitempty"`
+}
+
 type CreateDTO[T any] struct {
 	Data T `json:"data" binding:"required"`
 }

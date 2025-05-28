@@ -43,7 +43,7 @@ func Init(microExecutorId string, services []EndorService) {
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// api
-	api := router.Group("api").Group(":app")
+	api := router.Group("api")
 	for _, s := range services {
 		var versionGroup *gin.RouterGroup
 		if s.Version != "" {

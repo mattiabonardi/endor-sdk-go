@@ -13,14 +13,12 @@ import (
 // get access token and verify user session
 func AuthorizationHandler[T any](c *EndorContext[T]) {
 	config := LoadConfiguration()
-	app := c.Session.App
 
 	if config.Env == "DEVELOPMENT" {
 		// create dummy userSession
 		c.Session = Session{
 			Id:       uuid.New().String(),
 			Username: "endor",
-			App:      "admin",
 		}
 		c.Next()
 		return
@@ -34,7 +32,7 @@ func AuthorizationHandler[T any](c *EndorContext[T]) {
 	}
 	// request authorization to identity provider
 	payload := []byte(fmt.Sprintf(`{"path": "%s"}`, c.GinContext.FullPath()))
-	path := fmt.Sprintf("%s/api/%s/v1/authentication/authorize", config.EndorAuthenticationServiceUrl, app)
+	path := fmt.Sprintf("%s/api/v1/authentication/authorize", config.EndorAuthenticationServiceUrl)
 	request, err := http.NewRequest("POST", path, bytes.NewBuffer(payload))
 	if err != nil {
 		c.InternalServerError(err)

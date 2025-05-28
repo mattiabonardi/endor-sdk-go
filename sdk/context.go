@@ -9,7 +9,6 @@ import (
 type Session struct {
 	Id       string `json:"id"`
 	Username string `json:"username"`
-	App      string `json:"app"`
 }
 
 type EndorContext[T any] struct {

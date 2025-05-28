@@ -52,22 +52,12 @@ type OpenAPIOperation struct {
 	Description string                       `json:"description,omitempty"`
 	Tags        []string                     `json:"tags,omitempty"`
 	OperationID string                       `json:"operationId,omitempty"`
-	Parameters  []OpenApiParameter           `json:"parameters"`
 	RequestBody *OpenAPIRequestBody          `json:"requestBody,omitempty"`
 	Responses   OpenApiResponses             `json:"responses"`
 	Security    []SwaggerSecurityRequirement `json:"security"`
 }
 
 type SwaggerSecurityRequirement map[string][]string
-
-type OpenApiParameter struct {
-	Name        string `json:"name,omitempty"`
-	In          string `json:"in,omitempty"`
-	Required    bool   `json:"required,omitempty"`
-	Default     string `json:"default,omitempty"`
-	Description string `json:"description,omitempty"`
-	Schema      Schema `json:"schema,omitempty"`
-}
 
 type OpenAPIRequestBody struct {
 	Description string                      `json:"description,omitempty"`
@@ -230,18 +220,6 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				Post: &OpenAPIOperation{
 					OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
 					Tags:        []string{service.Resource},
-					Parameters: []OpenApiParameter{
-						{
-							Name:        "app",
-							In:          "path",
-							Required:    true,
-							Default:     "",
-							Description: "app",
-							Schema: Schema{
-								Type: StringType,
-							},
-						},
-					},
 					Responses: OpenApiResponses{
 						"default": OpenApiResponse{
 							Description: "Default response",
@@ -255,10 +233,6 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 						},
 					},
 				},
-			}
-			// apps
-			if service.Apps != nil {
-				path.Post.Parameters[0].Schema.Enum = &service.Apps
 			}
 			// find payload using reflection
 			payload, err := resolvePayloadType(method)
@@ -311,12 +285,11 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			if version == "" {
 				version = "v1"
 			}
-			apiPath := strings.ReplaceAll(baseApiPath, ":app", "{app}")
 			if service.Resource == "resource" {
 				// special case for resource service
-				paths[fmt.Sprintf("%s/%s/%s/%s/%s", apiPath, microServiceId, version, service.Resource, methodKey)] = path
+				paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, microServiceId, version, service.Resource, methodKey)] = path
 			} else {
-				paths[fmt.Sprintf("%s/%s/%s/%s", apiPath, version, service.Resource, methodKey)] = path
+				paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
 			}
 
 		}

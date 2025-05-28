@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -41,17 +40,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
 	for _, service := range services {
-		// app
 		path := "^/api/"
-		if len(service.Apps) > 0 {
-			path += fmt.Sprintf("(%s)/", strings.Join(service.Apps, "|"))
-		} else {
-			path += "[^/]+/"
-		}
-		if service.Resource == "resource" {
-			// resource
-			path += microServiceId + "/"
-		}
 		// version
 		if service.Version != "" {
 			path += service.Version + "/"
