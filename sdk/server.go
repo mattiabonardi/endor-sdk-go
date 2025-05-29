@@ -16,20 +16,6 @@ func Init(microExecutorId string, services []EndorService) {
 	// load configuration
 	config := LoadConfiguration()
 
-	// Connect to MongoDB
-	ctx := context.TODO()
-	clientOptions := options.Client().ApplyURI(config.EndorResourceDBUri)
-	client, err := mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		log.Fatal("MongoDB connection error:", err)
-	}
-
-	// Ping to test connection
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		log.Fatal("MongoDB ping failed:", err)
-	}
-
 	// create router
 	router := gin.New()
 
@@ -41,6 +27,23 @@ func Init(microExecutorId string, services []EndorService) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	if config.EndorResourceServiceEnabled {
+		// Connect to MongoDB
+		ctx := context.TODO()
+		clientOptions := options.Client().ApplyURI(config.EndorResourceDBUri)
+		client, err := mongo.Connect(ctx, clientOptions)
+		if err != nil {
+			log.Fatal("MongoDB connection error:", err)
+		}
+
+		// Ping to test connection
+		err = client.Ping(ctx, nil)
+		if err != nil {
+			log.Fatal("MongoDB ping failed:", err)
+		}
+		services = append(services, NewResourceService(services, client, ctx, microExecutorId))
+	}
 
 	// api
 	api := router.Group("api")
@@ -57,14 +60,6 @@ func Init(microExecutorId string, services []EndorService) {
 		}
 	}
 
-	// resource service
-	resourceService := NewResourceService(services, client, ctx, microExecutorId)
-	resourceGroup := api.Group(microExecutorId + "/v1/resource")
-	for methodPath, method := range resourceService.Methods {
-		method.Register(resourceGroup, methodPath)
-	}
-	services = append(services, resourceService)
-
 	router.NoRoute(func(c *gin.Context) {
 		response := NewDefaultResponseBuilder()
 		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
@@ -79,7 +74,7 @@ func Init(microExecutorId string, services []EndorService) {
 		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
 	}
 
-	err = InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
+	err := InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
 	if err != nil {
 		log.Fatal(err)
 	}

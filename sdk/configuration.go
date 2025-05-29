@@ -12,6 +12,7 @@ type ServerConfig struct {
 	ServerPort                    string
 	EndorAuthenticationServiceUrl string
 	EndorResourceDBUri            string
+	EndorResourceServiceEnabled   bool
 	Env                           string
 }
 
@@ -33,6 +34,11 @@ func LoadConfiguration() ServerConfig {
 	if !exists || endorResourceDBUri == "" {
 		endorResourceDBUri = "mongodb://localhost:27017"
 	}
+	endorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENBALED")
+	endorResourceServiceEnabled := true
+	if !exists || endorResourceServiceEnabledStr == "" || endorResourceServiceEnabledStr == "false" {
+		endorResourceServiceEnabled = false
+	}
 
 	return ServerConfig{
 		ServerPort:                    port,
@@ -40,5 +46,6 @@ func LoadConfiguration() ServerConfig {
 		EndorAuthenticationServiceUrl: endorAuthenticationServiceUrl,
 		EndorResourceDBUri:            endorResourceDBUri,
 		Env:                           os.Getenv("ENV"),
+		EndorResourceServiceEnabled:   endorResourceServiceEnabled,
 	}
 }
