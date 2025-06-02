@@ -34,7 +34,7 @@ func LoadConfiguration() ServerConfig {
 	if !exists || endorResourceDBUri == "" {
 		endorResourceDBUri = "mongodb://localhost:27017"
 	}
-	endorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENBALED")
+	endorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
 	endorResourceServiceEnabled := true
 	if !exists || endorResourceServiceEnabledStr == "" || endorResourceServiceEnabledStr == "false" {
 		endorResourceServiceEnabled = false
