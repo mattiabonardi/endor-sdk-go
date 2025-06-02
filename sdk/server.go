@@ -66,19 +66,11 @@ func Init(microExecutorId string, services []EndorService) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	// service discovery configuration
-	var serverAddr string
-	if config.ServerDNS != "" {
-		serverAddr = config.ServerDNS // Dereference pointer
-	} else {
-		serverAddr = fmt.Sprintf("http://localhost:%s", config.ServerPort)
-	}
-
-	err := InitializeApiGatewayConfiguration(microExecutorId, serverAddr, services)
+	err := InitializeApiGatewayConfiguration(microExecutorId, fmt.Sprintf("http://%s:%s", microExecutorId, config.ServerPort), services)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := CreateSwaggerConfiguration(microExecutorId, serverAddr, services, api.BasePath())
+	swaggerPath, err := CreateSwaggerConfiguration(microExecutorId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, api.BasePath())
 	if err != nil {
 		log.Fatal(err)
 	}

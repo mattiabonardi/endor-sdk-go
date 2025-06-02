@@ -41,7 +41,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
 	for _, service := range services {
-		path := "^/api/"
+		path := "/api/"
 		// version
 		if service.Version != "" {
 			path += service.Version + "/"
@@ -49,12 +49,12 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 			path += "v1/"
 		}
 		// resource
-		path += service.Resource + "/.*$"
+		path += service.Resource
 
 		// create router
 		key := fmt.Sprintf("%s-router-%s", microServiceId, service.Resource)
 		routers[key] = ApiGatewayConfigurationRouter{
-			Rule:        fmt.Sprintf("PathRegexp(`%s`)", path),
+			Rule:        fmt.Sprintf("PathPrefix(`%s`)", path),
 			Service:     microServiceId,
 			Priority:    service.Priority,
 			EntryPoints: []string{"web"},
