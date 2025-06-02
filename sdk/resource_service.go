@@ -8,12 +8,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewResourceService(services []EndorService, client *mongo.Client, context context.Context, databaseName string) EndorService {
+func NewResourceService(microServiceId string, services []EndorService, client *mongo.Client, context context.Context, databaseName string) EndorService {
 	resourceService := ResourceService{
-		services:     services,
-		mongoClient:  client,
-		context:      context,
-		databaseName: databaseName,
+		microServiceId: microServiceId,
+		services:       services,
+		mongoClient:    client,
+		context:        context,
+		databaseName:   databaseName,
 	}
 	return EndorService{
 		Resource:    "resource",
@@ -49,14 +50,15 @@ func NewResourceService(services []EndorService, client *mongo.Client, context c
 }
 
 type ResourceService struct {
-	services     []EndorService
-	mongoClient  *mongo.Client
-	context      context.Context
-	databaseName string
+	microServiceId string
+	services       []EndorService
+	mongoClient    *mongo.Client
+	context        context.Context
+	databaseName   string
 }
 
 func (h *ResourceService) list(c *EndorContext[NoPayload]) {
-	resources, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).List()
+	resources, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).List()
 	if err != nil {
 		c.InternalServerError(err)
 		return
@@ -65,7 +67,7 @@ func (h *ResourceService) list(c *EndorContext[NoPayload]) {
 }
 
 func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
-	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
+	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			c.NotFound(err)
@@ -79,7 +81,7 @@ func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
 }
 
 func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
-	err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
+	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
 	if err != nil {
 		if errors.Is(err, ErrAlreadyExists) {
 			c.Conflict(err)
@@ -93,7 +95,7 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
 }
 
 func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) {
-	resource, err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
+	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			c.NotFound(err)
@@ -107,7 +109,7 @@ func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) {
 }
 
 func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
-	err := NewResourceRepository(h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
+	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
 		c.InternalServerError(err)
 		return

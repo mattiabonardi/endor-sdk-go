@@ -53,9 +53,11 @@ func (h *Service1) test4() func(c *sdk.EndorContext[Test4Payload[GenericPayload]
 
 func NewService1() sdk.EndorService {
 	Service1 := Service1{}
+	priority := 99
 	return sdk.EndorService{
 		Resource:    "test",
 		Description: "Testing resource",
+		Priority:    &priority,
 		Methods: map[string]sdk.EndorServiceMethod{
 			"test1": sdk.NewMethod(
 				sdk.AuthorizationHandler,

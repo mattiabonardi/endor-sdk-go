@@ -42,7 +42,7 @@ func Init(microExecutorId string, services []EndorService) {
 		if err != nil {
 			log.Fatal("MongoDB ping failed:", err)
 		}
-		services = append(services, NewResourceService(services, client, ctx, microExecutorId))
+		services = append(services, NewResourceService(microExecutorId, services, client, ctx, microExecutorId))
 	}
 
 	// api

@@ -20,6 +20,7 @@ type ApiGatewayConfigurationHTTP struct {
 type ApiGatewayConfigurationRouter struct {
 	Rule        string   `yaml:"rule"`
 	Service     string   `yaml:"service"`
+	Priority    *int     `yaml:"priority,omitempty"`
 	EntryPoints []string `yaml:"entryPoints"`
 }
 
@@ -55,6 +56,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 		routers[key] = ApiGatewayConfigurationRouter{
 			Rule:        fmt.Sprintf("PathRegexp(`%s`)", path),
 			Service:     microServiceId,
+			Priority:    service.Priority,
 			EntryPoints: []string{"web"},
 		}
 	}

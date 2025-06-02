@@ -14,6 +14,7 @@ type EndorService struct {
 	Resource    string
 	Description string
 	Methods     map[string]EndorServiceMethod
+	Priority    *int
 
 	// optionals
 	Version string

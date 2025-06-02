@@ -8,20 +8,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewResourceRepository(services []EndorService, client *mongo.Client, context context.Context, databaseName string) *ResourceRepository {
+func NewResourceRepository(microServiceId string, services []EndorService, client *mongo.Client, context context.Context, databaseName string) *ResourceRepository {
 	database := client.Database(databaseName)
 	collection := database.Collection(COLLECTION_RESOURCES)
 	return &ResourceRepository{
-		services:   services,
-		collection: collection,
-		context:    context,
+		microServiceId: microServiceId,
+		services:       services,
+		collection:     collection,
+		context:        context,
 	}
 }
 
 type ResourceRepository struct {
-	services   []EndorService
-	context    context.Context
-	collection *mongo.Collection
+	microServiceId string
+	services       []EndorService
+	context        context.Context
+	collection     *mongo.Collection
 }
 
 func (h *ResourceRepository) List() ([]Resource, error) {
@@ -31,6 +33,7 @@ func (h *ResourceRepository) List() ([]Resource, error) {
 		resource := Resource{
 			ID:          service.Resource,
 			Description: service.Description,
+			Service:     h.microServiceId,
 		}
 		for methodName, method := range service.Methods {
 			payload, _ := resolvePayloadType(method)
@@ -92,6 +95,7 @@ func (h *ResourceRepository) Instance(dto ReadInstanceDTO) (*Resource, error) {
 }
 
 func (h *ResourceRepository) Create(dto CreateDTO[Resource]) error {
+	dto.Data.Service = h.microServiceId
 	_, err := h.Instance(ReadInstanceDTO{
 		Id: dto.Data.ID,
 	})
