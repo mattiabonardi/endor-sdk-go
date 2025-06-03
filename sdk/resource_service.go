@@ -21,23 +21,18 @@ func NewResourceService(microServiceId string, services []EndorService, client *
 		Description: "Resource",
 		Methods: map[string]EndorServiceMethod{
 			"list": NewMethod(
-				ValidationHandler,
 				resourceService.list,
 			),
 			"instance": NewMethod(
-				ValidationHandler,
 				resourceService.instance,
 			),
 			"create": NewMethod(
-				ValidationHandler,
 				resourceService.create,
 			),
 			"update": NewMethod(
-				ValidationHandler,
 				resourceService.update,
 			),
 			"delete": NewMethod(
-				ValidationHandler,
 				resourceService.delete,
 			),
 		},
