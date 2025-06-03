@@ -48,16 +48,13 @@ type OpenAPIPathItem struct {
 }
 
 type OpenAPIOperation struct {
-	Summary     string                       `json:"summary,omitempty"`
-	Description string                       `json:"description,omitempty"`
-	Tags        []string                     `json:"tags,omitempty"`
-	OperationID string                       `json:"operationId,omitempty"`
-	RequestBody *OpenAPIRequestBody          `json:"requestBody,omitempty"`
-	Responses   OpenApiResponses             `json:"responses"`
-	Security    []SwaggerSecurityRequirement `json:"security"`
+	Summary     string              `json:"summary,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Tags        []string            `json:"tags,omitempty"`
+	OperationID string              `json:"operationId,omitempty"`
+	RequestBody *OpenAPIRequestBody `json:"requestBody,omitempty"`
+	Responses   OpenApiResponses    `json:"responses"`
 }
-
-type SwaggerSecurityRequirement map[string][]string
 
 type OpenAPIRequestBody struct {
 	Description string                      `json:"description,omitempty"`
@@ -70,8 +67,7 @@ type OpenAPIMediaType struct {
 }
 
 type OpenApiComponents struct {
-	SecuritySchemas map[string]OpenApiAuth `json:"securitySchemas"`
-	Schemas         map[string]Schema      `json:"schemas"`
+	Schemas map[string]Schema `json:"schemas"`
 }
 
 type OpenApiAuth struct {
@@ -176,13 +172,6 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 		},
 		EndorResources: map[string]OpenAPIEndorResource{},
 		Components: OpenApiComponents{
-			SecuritySchemas: map[string]OpenApiAuth{
-				"cookieAuth": {
-					Type: "apiKey",
-					In:   "cookie",
-					Name: "sessionId",
-				},
-			},
 			Schemas: map[string]Schema{
 				"DefaultEndorResponse": {
 					Type: ObjectType,
@@ -278,7 +267,6 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					},
 				}
 			}
-			//TODO: check authorization handler
 
 			version := service.Version
 			if version == "" {

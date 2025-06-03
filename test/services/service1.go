@@ -60,19 +60,15 @@ func NewService1() sdk.EndorService {
 		Priority:    &priority,
 		Methods: map[string]sdk.EndorServiceMethod{
 			"test1": sdk.NewMethod(
-				sdk.AuthorizationHandler,
 				Service1.test1,
 			),
 			"test2": sdk.NewMethod(
-				sdk.AuthorizationHandler,
 				Service1.test2(),
 			),
 			"test3": sdk.NewMethod(
-				sdk.AuthorizationHandler,
 				Service1.test3(),
 			),
 			"test4": sdk.NewMethod(
-				sdk.AuthorizationHandler,
 				Service1.test4(),
 			),
 		},

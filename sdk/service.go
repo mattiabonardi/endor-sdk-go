@@ -21,7 +21,9 @@ type EndorService struct {
 }
 
 func NewMethod[T any](handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
-	return &endorServiceMethodImpl[T]{handlers: handlers}
+	h := []EndorHandlerFunc[T]{ValidationHandler[T]}
+	h = append(h, handlers...)
+	return &endorServiceMethodImpl[T]{handlers: h}
 }
 
 type endorServiceMethodImpl[T any] struct {
@@ -30,12 +32,16 @@ type endorServiceMethodImpl[T any] struct {
 
 func (m *endorServiceMethodImpl[T]) Register(group *gin.RouterGroup, path string) {
 	group.POST(path, func(c *gin.Context) {
+		session := Session{
+			Id:       c.GetHeader("X-User-ID"),
+			Username: c.GetHeader("X-User-Session"),
+		}
 		ec := &EndorContext[T]{
 			Index:      -1,
 			GinContext: c,
 			Handlers:   m.handlers,
 			Data:       make(map[string]interface{}),
-			Session:    Session{},
+			Session:    session,
 		}
 		ec.Next()
 	})

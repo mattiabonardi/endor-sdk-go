@@ -28,10 +28,6 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	if def.EndorResources["test"].Description != "Testing resource" {
 		t.Fatalf("Received %v", def.EndorResources["test"].Description)
 	}
-	// security scheme
-	if len(def.Components.SecuritySchemas) != 1 {
-		t.Fatalf("Received %v", len(def.Components.SecuritySchemas))
-	}
 	// check definitions
 	if len(def.Components.Schemas) != 6 {
 		t.Fatalf("Received %v", len(def.Components.Schemas))
