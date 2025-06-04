@@ -18,13 +18,36 @@ const (
 	ArrayType   SchemaTypeName = "array"
 )
 
+type SchemaFormatName string
+
+const (
+	DateTimeFormat     SchemaFormatName = "date-time"
+	DateFormat         SchemaFormatName = "date"
+	TimeFormat         SchemaFormatName = "time"
+	EmailFormat        SchemaFormatName = "email"
+	HostnameFormat     SchemaFormatName = "hostname"
+	IPv4Format         SchemaFormatName = "ipv4"
+	IPv6Format         SchemaFormatName = "ipv6"
+	URIFormat          SchemaFormatName = "uri"
+	UUIDFormat         SchemaFormatName = "uuid"
+	PasswordFormat     SchemaFormatName = "password"
+	CountryCodeFormat  SchemaFormatName = "country-code"  // ISO 3166-1 alpha-2 country code
+	LanguageCodeFormat SchemaFormatName = "language-code" // Language tag (e.g., en-US)
+	CurrencyFormat     SchemaFormatName = "currency"      // Currency code (e.g., USD, EUR)
+)
+
 type Schema struct {
-	Reference  string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
-	Type       SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
-	Properties *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
-	Items      *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
-	Enum       *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
-	UISchema   *UISchema          `json:"x-ui,omitempty"`
+	Reference   string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
+	Type        SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
+	Properties  *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
+	Items       *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
+	Enum        *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
+	Title       *string            `json:"title,omitempty" yaml:"title,omitempty"`
+	Description *string            `json:"description,omitempty" yaml:"description,omitempty"`
+	Format      *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
+	ReadOnly    *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
+
+	UISchema *UISchema `json:"x-ui,omitempty"`
 }
 
 type UISchema struct {
