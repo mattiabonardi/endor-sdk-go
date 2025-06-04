@@ -89,6 +89,24 @@ func TestSchemaTypes(t *testing.T) {
 	if len(carSchemaProperties) != 1 {
 		t.Fatalf("Received %v", len(carSchemaProperties))
 	}
+
+	// ui schema
+	if len(*userSchema.UISchema.Order) != 9 {
+		t.Fatalf("Received %v", len(*userSchema.UISchema.Order))
+	}
+	order := *userSchema.UISchema.Order
+	if order[0] != "id" {
+		t.Fatalf("Received %v", order[0])
+	}
+	if order[1] != "name" {
+		t.Fatalf("Received %v", order[1])
+	}
+	if order[4] != "active" {
+		t.Fatalf("Received %v", order[4])
+	}
+	if order[8] != "car" {
+		t.Fatalf("Received %v", order[8])
+	}
 }
 
 func TestRicorsionTypes(t *testing.T) {

@@ -24,6 +24,12 @@ type Schema struct {
 	Properties *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
 	Items      *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
 	Enum       *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
+	UISchema   *UISchema          `json:"x-ui,omitempty"`
+}
+
+type UISchema struct {
+	Resource *string   `json:"resource,omitempty"` // define the reference resource
+	Order    *[]string `json:"order,omitempty"`    // define the order of the attributes
 }
 
 type RootSchema struct {
@@ -79,6 +85,9 @@ func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 	// Prevent infinite recursion
 	defs[typeName] = schema
 
+	schema.UISchema = &UISchema{
+		Order: &[]string{},
+	}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.PkgPath != "" {
@@ -93,6 +102,9 @@ func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 		if name == "-" {
 			continue
 		}
+
+		// add field to order
+		*schema.UISchema.Order = append(*schema.UISchema.Order, name)
 
 		(*schema.Properties)[name] = resolveFieldSchema(field.Type, defs)
 	}
