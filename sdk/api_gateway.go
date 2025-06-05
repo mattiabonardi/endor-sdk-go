@@ -14,9 +14,8 @@ type ApiGatewayConfiguration struct {
 }
 
 type ApiGatewayConfigurationHTTP struct {
-	Routers     map[string]ApiGatewayConfigurationRouter  `yaml:"routers"`
-	Services    map[string]ApiGatewayConfigurationService `yaml:"services"`
-	Middlewares map[string]ApiGatewayConfigurationService `yaml:"middlewares"`
+	Routers  map[string]ApiGatewayConfigurationRouter  `yaml:"routers"`
+	Services map[string]ApiGatewayConfigurationService `yaml:"services"`
 }
 
 type ApiGatewayConfigurationRouter struct {
@@ -56,19 +55,18 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 
 		// methods
 		for methodKey, method := range service.Methods {
-			var middlewares []string
-			if !method.GetOptions().Public {
-				middlewares = []string{"authMiddleware"}
-			}
 			// create router
 			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Resource, methodKey)
-			routers[key] = ApiGatewayConfigurationRouter{
+			router := ApiGatewayConfigurationRouter{
 				Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
 				Service:     microServiceId,
 				Priority:    service.Priority,
 				EntryPoints: []string{"web"},
-				Middlewares: &middlewares,
 			}
+			if !method.GetOptions().Public {
+				router.Middlewares = &[]string{"authMiddleware"}
+			}
+			routers[key] = router
 		}
 	}
 
