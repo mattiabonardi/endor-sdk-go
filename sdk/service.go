@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"reflect"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,14 +33,15 @@ func NewMethod[T any](handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
 }
 
 func NewConfigurableMethod[T any](options EndorMethodOptions, handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
-	if options.MethodType == "GET" {
+	if options.MethodType == "" {
+		options.MethodType = "POST"
+	}
+	var t T
+	if options.MethodType == "GET" || reflect.TypeOf(t) == reflect.TypeOf(NoPayload{}) {
 		return &endorServiceMethodImpl[T]{handlers: handlers, options: options}
 	}
 	h := []EndorHandlerFunc[T]{ValidationHandler[T]}
 	h = append(h, handlers...)
-	if options.MethodType == "" {
-		options.MethodType = "POST"
-	}
 	return &endorServiceMethodImpl[T]{handlers: h, options: options}
 }
 
