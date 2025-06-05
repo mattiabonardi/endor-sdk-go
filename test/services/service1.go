@@ -51,6 +51,12 @@ func (h *Service1) test4() func(c *sdk.EndorContext[Test4Payload[GenericPayload]
 	}
 }
 
+func (h *Service1) test5() func(c *sdk.EndorContext[sdk.NoPayload]) {
+	return func(c *sdk.EndorContext[sdk.NoPayload]) {
+		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
+	}
+}
+
 func NewService1() sdk.EndorService {
 	Service1 := Service1{}
 	priority := 99
@@ -70,6 +76,13 @@ func NewService1() sdk.EndorService {
 			),
 			"test4": sdk.NewMethod(
 				Service1.test4(),
+			),
+			"test5": sdk.NewConfigurableMethod(
+				sdk.EndorMethodOptions{
+					Public:     true,
+					MethodType: "GET",
+				},
+				Service1.test5(),
 			),
 		},
 	}

@@ -12,11 +12,12 @@ type Session struct {
 }
 
 type EndorContext[T any] struct {
-	Index    int
-	Handlers []EndorHandlerFunc[T]
-	Session  Session
-	Payload  T
-	Data     map[string]interface{}
+	MicroServiceId string
+	Index          int
+	Handlers       []EndorHandlerFunc[T]
+	Session        Session
+	Payload        T
+	Data           map[string]interface{}
 
 	// bridge with gin framework
 	GinContext *gin.Context
@@ -35,6 +36,7 @@ func (c *EndorContext[T]) Next() {
 
 // feedback functions
 func (c *EndorContext[T]) End(obj interface{}) {
+	c.GinContext.Header("X-Endor-Microservice", c.MicroServiceId)
 	c.GinContext.JSON(http.StatusOK, obj)
 }
 func (c *EndorContext[T]) InternalServerError(err error) {

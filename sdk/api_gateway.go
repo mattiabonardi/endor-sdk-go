@@ -3,6 +3,7 @@ package sdk
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -13,15 +14,17 @@ type ApiGatewayConfiguration struct {
 }
 
 type ApiGatewayConfigurationHTTP struct {
-	Routers  map[string]ApiGatewayConfigurationRouter  `yaml:"routers"`
-	Services map[string]ApiGatewayConfigurationService `yaml:"services"`
+	Routers     map[string]ApiGatewayConfigurationRouter  `yaml:"routers"`
+	Services    map[string]ApiGatewayConfigurationService `yaml:"services"`
+	Middlewares map[string]ApiGatewayConfigurationService `yaml:"middlewares"`
 }
 
 type ApiGatewayConfigurationRouter struct {
-	Rule        string   `yaml:"rule"`
-	Service     string   `yaml:"service"`
-	Priority    *int     `yaml:"priority,omitempty"`
-	EntryPoints []string `yaml:"entryPoints"`
+	Rule        string    `yaml:"rule"`
+	Service     string    `yaml:"service"`
+	Priority    *int      `yaml:"priority,omitempty"`
+	EntryPoints []string  `yaml:"entryPoints"`
+	Middlewares *[]string `yaml:"middlewares,omitempty"`
 }
 
 type ApiGatewayConfigurationService struct {
@@ -41,23 +44,31 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
 	for _, service := range services {
-		path := "/api/"
+		basePath := "/api/"
 		// version
 		if service.Version != "" {
-			path += service.Version + "/"
+			basePath += service.Version + "/"
 		} else {
-			path += "v1/"
+			basePath += "v1/"
 		}
 		// resource
-		path += service.Resource
+		basePath += service.Resource
 
-		// create router
-		key := fmt.Sprintf("%s-router-%s", microServiceId, service.Resource)
-		routers[key] = ApiGatewayConfigurationRouter{
-			Rule:        fmt.Sprintf("PathPrefix(`%s`)", path),
-			Service:     microServiceId,
-			Priority:    service.Priority,
-			EntryPoints: []string{"web"},
+		// methods
+		for methodKey, method := range service.Methods {
+			var middlewares []string
+			if !method.GetOptions().Public {
+				middlewares = []string{"authMiddleware"}
+			}
+			// create router
+			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Resource, methodKey)
+			routers[key] = ApiGatewayConfigurationRouter{
+				Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
+				Service:     microServiceId,
+				Priority:    service.Priority,
+				EntryPoints: []string{"web"},
+				Middlewares: &middlewares,
+			}
 		}
 	}
 

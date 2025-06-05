@@ -17,12 +17,12 @@ import (
 var swaggerFS embed.FS
 
 type OpenAPIConfiguration struct {
-	OpenAPI        string                          `json:"openapi"`
-	Info           OpenAPIInfo                     `json:"info"`
-	Servers        []OpenAPIServer                 `json:"servers"`
-	EndorResources map[string]OpenAPIEndorResource `json:"endorResources"`
-	Paths          map[string]OpenAPIPathItem      `json:"paths"`
-	Components     OpenApiComponents               `json:"components"`
+	OpenAPI        string                                 `json:"openapi"`
+	Info           OpenAPIInfo                            `json:"info"`
+	Servers        []OpenAPIServer                        `json:"servers"`
+	EndorResources map[string]OpenAPIEndorResource        `json:"endorResources"`
+	Paths          map[string]map[string]OpenAPIOperation `json:"paths"`
+	Components     OpenApiComponents                      `json:"components"`
 }
 
 type OpenAPIEndorResource struct {
@@ -40,20 +40,22 @@ type OpenAPIServer struct {
 	Description string `json:"description,omitempty"`
 }
 
-type OpenAPIPathItem struct {
-	Get    *OpenAPIOperation `json:"get,omitempty"`
-	Post   *OpenAPIOperation `json:"post,omitempty"`
-	Put    *OpenAPIOperation `json:"put,omitempty"`
-	Delete *OpenAPIOperation `json:"delete,omitempty"`
-}
-
 type OpenAPIOperation struct {
 	Summary     string              `json:"summary,omitempty"`
 	Description string              `json:"description,omitempty"`
 	Tags        []string            `json:"tags,omitempty"`
 	OperationID string              `json:"operationId,omitempty"`
+	Parameters  []OpenAPIParameter  `json:"parameters"`
 	RequestBody *OpenAPIRequestBody `json:"requestBody,omitempty"`
 	Responses   OpenApiResponses    `json:"responses"`
+}
+
+type OpenAPIParameter struct {
+	Name        string `json:"name"`
+	In          string `json:"in"`
+	Schema      Schema `json:"schema"`
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
 }
 
 type OpenAPIRequestBody struct {
@@ -202,69 +204,95 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 		},
 	}
 
-	paths := map[string]OpenAPIPathItem{}
+	paths := make(map[string]map[string]OpenAPIOperation)
 	for _, service := range services {
 		for methodKey, method := range service.Methods {
-			path := OpenAPIPathItem{
-				Post: &OpenAPIOperation{
-					OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
-					Tags:        []string{service.Resource},
-					Responses: OpenApiResponses{
-						"default": OpenApiResponse{
-							Description: "Default response",
-							Content: map[string]OpenAPIMediaType{
-								"application/json": {
-									Schema: Schema{
-										Reference: "#/components/schemas/DefaultEndorResponse",
-									},
+			parameters := []OpenAPIParameter{}
+			if !method.GetOptions().Public {
+				parameters = append(parameters, []OpenAPIParameter{
+					{
+						Name: "X-User-ID",
+						In:   "header",
+						Schema: Schema{
+							Type: StringType,
+						},
+						Description: "User id",
+						Required:    false,
+					},
+					{
+						Name: "X-User-Session",
+						In:   "header",
+						Schema: Schema{
+							Type: StringType,
+						},
+						Description: "User session",
+						Required:    false,
+					},
+				}...)
+			}
+			operation := OpenAPIOperation{
+				OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
+				Tags:        []string{service.Resource},
+				Parameters:  parameters,
+				Responses: OpenApiResponses{
+					"default": OpenApiResponse{
+						Description: "Default response",
+						Content: map[string]OpenAPIMediaType{
+							"application/json": {
+								Schema: Schema{
+									Reference: "#/components/schemas/DefaultEndorResponse",
 								},
 							},
 						},
 					},
 				},
 			}
+
 			// find payload using reflection
 			payload, err := resolvePayloadType(method)
-			if err != nil {
-				return swaggerConfiguration, err
-			}
-			requestSchema := NewSchemaByType(payload)
-			originalRef := requestSchema.Reference
-			// put all payload schemas to components
-			for schemaName, schema := range requestSchema.Definitions {
-				if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
-					swaggerConfiguration.Components.Schemas[schemaName] = schema
-					// normalize attributes references
-					for propertyname, property := range *swaggerConfiguration.Components.Schemas[schemaName].Properties {
-						if property.Reference != "" {
-							propertyName := extractRefName(property.Reference)
-							// set reference to the schema
-							prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
-							prop.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
-							(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
-						}
-						if property.Items != nil && property.Items.Reference != "" {
-							propertyName := extractRefName(property.Items.Reference)
-							// set reference to the schema
-							prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
-							prop.Items.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
-							(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+			// ignore NoPayload
+			if payload != reflect.TypeOf(NoPayload{}) {
+				if err != nil {
+					return swaggerConfiguration, err
+				}
+				requestSchema := NewSchemaByType(payload)
+				originalRef := requestSchema.Reference
+				// put all payload schemas to components
+				for schemaName, schema := range requestSchema.Definitions {
+					if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
+						swaggerConfiguration.Components.Schemas[schemaName] = schema
+						// normalize attributes references
+						for propertyname, property := range *swaggerConfiguration.Components.Schemas[schemaName].Properties {
+							if property.Reference != "" {
+								propertyName := extractRefName(property.Reference)
+								// set reference to the schema
+								prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+								prop.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+								(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+							}
+							if property.Items != nil && property.Items.Reference != "" {
+								propertyName := extractRefName(property.Items.Reference)
+								// set reference to the schema
+								prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+								prop.Items.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+								(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+							}
 						}
 					}
 				}
-			}
-			// add payload
-			if originalRef != "" {
-				last := extractFinalSegment(originalRef)
-				path.Post.RequestBody = &OpenAPIRequestBody{
-					Content: map[string]OpenAPIMediaType{
-						"application/json": {
-							Schema: Schema{
-								// calculate reference
-								Reference: fmt.Sprintf("#/components/schemas/%s", last),
+				// add payload
+				if originalRef != "" {
+					last := extractFinalSegment(originalRef)
+					operation.RequestBody = &OpenAPIRequestBody{
+						Content: map[string]OpenAPIMediaType{
+							"application/json": {
+								Schema: Schema{
+									// calculate reference
+									Reference: fmt.Sprintf("#/components/schemas/%s", last),
+								},
 							},
 						},
-					},
+					}
 				}
 			}
 
@@ -272,6 +300,9 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			if version == "" {
 				version = "v1"
 			}
+
+			path := map[string]OpenAPIOperation{}
+			path[strings.ToLower(method.GetOptions().MethodType)] = operation
 			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
 		}
 		swaggerConfiguration.EndorResources[service.Resource] = OpenAPIEndorResource{

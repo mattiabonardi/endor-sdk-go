@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Init(microExecutorId string, services []EndorService) {
+func Init(microserviceId string, services []EndorService) {
 	// load configuration
 	config := LoadConfiguration()
 
@@ -42,7 +42,7 @@ func Init(microExecutorId string, services []EndorService) {
 		if err != nil {
 			log.Fatal("MongoDB ping failed:", err)
 		}
-		services = append(services, NewResourceService(microExecutorId, services, client, ctx, microExecutorId))
+		services = append(services, NewResourceService(microserviceId, services, client, ctx, microserviceId))
 	}
 
 	// api
@@ -56,7 +56,7 @@ func Init(microExecutorId string, services []EndorService) {
 		}
 		resourceGroup := versionGroup.Group(s.Resource)
 		for methodPath, method := range s.Methods {
-			method.Register(resourceGroup, methodPath)
+			method.Register(resourceGroup, methodPath, microserviceId)
 		}
 	}
 
@@ -66,11 +66,11 @@ func Init(microExecutorId string, services []EndorService) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err := InitializeApiGatewayConfiguration(microExecutorId, fmt.Sprintf("http://%s:%s", microExecutorId, config.ServerPort), services)
+	err := InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), services)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := CreateSwaggerConfiguration(microExecutorId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, api.BasePath())
+	swaggerPath, err := CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, api.BasePath())
 	if err != nil {
 		log.Fatal(err)
 	}
