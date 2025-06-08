@@ -53,6 +53,7 @@ type Schema struct {
 type UISchema struct {
 	Resource *string   `json:"resource,omitempty"` // define the reference resource
 	Order    *[]string `json:"order,omitempty"`    // define the order of the attributes
+	Id       *string   `json:"id,omitempty"`       // define the property that refers to id
 }
 
 type RootSchema struct {
