@@ -38,6 +38,10 @@ const (
 	JSONFormat         SchemaFormatName = "json"
 )
 
+func NewSchemaFormat(f SchemaFormatName) *SchemaFormatName {
+	return &f
+}
+
 type Schema struct {
 	Reference   string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
 	Type        SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
