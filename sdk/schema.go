@@ -63,7 +63,7 @@ type UISchema struct {
 }
 
 type RootSchema struct {
-	Schema
+	Schema      `json:",inline" yaml:",inline"`
 	Definitions map[string]Schema `json:"$defs,omitempty" yaml:"$defs,omitempty"`
 }
 

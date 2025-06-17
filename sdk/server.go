@@ -43,6 +43,21 @@ func Init(microserviceId string, services []EndorService) {
 			log.Fatal("MongoDB ping failed:", err)
 		}
 		services = append(services, NewResourceService(microserviceId, services, client, ctx, microserviceId))
+
+		// append dynamic services
+		resources, err := NewResourceRepository(microserviceId, []EndorService{}, client, ctx, microserviceId).DynamiResourceList()
+		if err == nil {
+			for _, r := range resources {
+				defintion, err := r.UnmarshalDefinition()
+				if err == nil {
+					services = append(services, NewAbstractResourceService(r.ID, r.Description, *defintion))
+				} else {
+					// TODO: non blocked log
+				}
+			}
+		} else {
+			// TODO: non blocked log
+		}
 	}
 
 	// api

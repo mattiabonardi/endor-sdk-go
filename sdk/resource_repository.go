@@ -39,12 +39,24 @@ func (h *ResourceRepository) List() ([]Resource, error) {
 			payload, _ := resolvePayloadType(method)
 			requestSchema := NewSchemaByType(payload)
 			if methodName == "create" {
-				stringSchema, _ := requestSchema.ToYAML()
-				resource.Schema = stringSchema
+				definition := ResourceDefinition{
+					Schema: *requestSchema,
+				}
+				stringDefinition, _ := definition.ToYAML()
+				resource.Definition = stringDefinition
 			}
 		}
 		resources = append(resources, resource)
 	}
+	storedResources, err := h.DynamiResourceList()
+	if err != nil {
+		return []Resource{}, nil
+	}
+	resources = append(resources, storedResources...)
+	return resources, nil
+}
+
+func (h *ResourceRepository) DynamiResourceList() ([]Resource, error) {
 	cursor, err := h.collection.Find(h.context, bson.M{})
 	if err != nil {
 		return nil, ErrInternalServerError
@@ -52,13 +64,12 @@ func (h *ResourceRepository) List() ([]Resource, error) {
 	var storedResources []Resource
 	if err := cursor.All(h.context, &storedResources); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return resources, nil
+			return []Resource{}, nil
 		} else {
 			return nil, ErrInternalServerError
 		}
 	}
-	resources = append(resources, storedResources...)
-	return resources, nil
+	return storedResources, nil
 }
 
 func (h *ResourceRepository) Instance(dto ReadInstanceDTO) (*Resource, error) {
@@ -73,8 +84,11 @@ func (h *ResourceRepository) Instance(dto ReadInstanceDTO) (*Resource, error) {
 				payload, _ := resolvePayloadType(method)
 				requestSchema := NewSchemaByType(payload)
 				if methodName == "create" {
-					stringSchema, _ := requestSchema.ToYAML()
-					resource.Schema = stringSchema
+					definition := ResourceDefinition{
+						Schema: *requestSchema,
+					}
+					stringDefinition, _ := definition.ToYAML()
+					resource.Definition = stringDefinition
 				}
 			}
 			return &resource, nil
