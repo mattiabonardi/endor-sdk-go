@@ -50,7 +50,7 @@ func Init(microserviceId string, services []EndorService) {
 			for _, r := range resources {
 				defintion, err := r.UnmarshalDefinition()
 				if err == nil {
-					services = append(services, NewAbstractResourceService(r.ID, r.Description, *defintion, client, microserviceId))
+					services = append(services, NewAbstractResourceService(r.ID, r.Description, *defintion, client, microserviceId, ctx))
 				} else {
 					// TODO: non blocked log
 				}

@@ -16,6 +16,7 @@ type Resource struct {
 type ResourceDefinition struct {
 	Schema      RootSchema     `yaml:"schema"`
 	DataSources DataSourceList `yaml:"dataSources"`
+	Id          string         `yaml:"id"`
 }
 
 type DataSourceList []DataSource
@@ -106,4 +107,17 @@ func (h *Resource) UnmarshalDefinition() (*ResourceDefinition, error) {
 		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
 	}
 	return &def, nil
+}
+
+type ResurceRepositoryInterface interface {
+	Instance(dto ReadInstanceDTO) (any, error)
+	List() ([]any, error)
+	Create(dto CreateDTO[any]) error
+	Delete(dto DeleteByIdDTO) error
+	Update(dto UpdateByIdDTO[any]) (any, error)
+}
+
+type ResourceSliceContext struct {
+	dataSource DataSource
+	repository ResurceRepositoryInterface
 }

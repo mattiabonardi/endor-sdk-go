@@ -24,6 +24,7 @@ dataSources:
         path: name
       surname:
         path: surname
+id: name
 `
 	resource := sdk.Resource{
 		ID:          "customer",
@@ -63,5 +64,9 @@ dataSources:
 		}
 	} else {
 		t.Errorf("DataSource is not MongoDataSource")
+	}
+
+	if def.Id != "name" {
+		t.Errorf("Expected id 'name', got %s", def.Id)
 	}
 }
