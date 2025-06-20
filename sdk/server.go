@@ -28,11 +28,14 @@ func Init(microserviceId string, services []EndorService) {
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
+	var client *mongo.Client
+	ctx := context.TODO()
+
 	if config.EndorResourceServiceEnabled {
 		// Connect to MongoDB
-		ctx := context.TODO()
 		clientOptions := options.Client().ApplyURI(config.EndorResourceDBUri)
-		client, err := mongo.Connect(ctx, clientOptions)
+		var err error
+		client, err = mongo.Connect(ctx, clientOptions)
 		if err != nil {
 			log.Fatal("MongoDB connection error:", err)
 		}
@@ -43,49 +46,38 @@ func Init(microserviceId string, services []EndorService) {
 			log.Fatal("MongoDB ping failed:", err)
 		}
 		services = append(services, NewResourceService(microserviceId, services, client, ctx, microserviceId))
-
-		// append dynamic services
-		resources, err := NewResourceRepository(microserviceId, []EndorService{}, client, ctx, microserviceId).DynamiResourceList()
-		if err == nil {
-			for _, r := range resources {
-				defintion, err := r.UnmarshalDefinition()
-				if err == nil {
-					services = append(services, NewAbstractResourceService(r.ID, r.Description, *defintion, client, microserviceId, ctx))
-				} else {
-					// TODO: non blocked log
-				}
-			}
-		} else {
-			// TODO: non blocked log
-		}
 	}
 
-	// api
-	api := router.Group("api")
-	for _, s := range services {
-		var versionGroup *gin.RouterGroup
-		if s.Version != "" {
-			versionGroup = api.Group(s.Version)
-		} else {
-			versionGroup = api.Group("v1")
-		}
-		resourceGroup := versionGroup.Group(s.Resource)
-		for methodPath, method := range s.Methods {
-			method.Register(resourceGroup, methodPath, microserviceId)
-		}
+	registry := GetInternalServiceRegistry()
+	registry.Init(client, ctx, microserviceId)
+	internalServices := registry.GetInternalServices()
+	apiBasePath := "/api"
+	for _, service := range services {
+		registry.RegisterService(&internalServices, service, microserviceId)
+	}
+
+	// load dynamic services
+	serviceMap := registry.GetServices()
+	for _, service := range serviceMap {
+		services = append(services, service.instance)
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		response := NewDefaultResponseBuilder()
-		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
-		c.JSON(http.StatusNotFound, response.Build())
+		def := registry.GetService(c.Request.URL.Path)
+		if def != nil {
+			def.callback(c)
+		} else {
+			response := NewDefaultResponseBuilder()
+			response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
+			c.JSON(http.StatusNotFound, response.Build())
+		}
 	})
 
 	err := InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), services)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, api.BasePath())
+	swaggerPath, err := CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, apiBasePath)
 	if err != nil {
 		log.Fatal(err)
 	}

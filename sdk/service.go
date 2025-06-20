@@ -10,6 +10,7 @@ type EndorHandlerFunc[T any] func(*EndorContext[T])
 
 type EndorServiceMethod interface {
 	Register(route *gin.RouterGroup, path string, microserviceId string)
+	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
 	GetOptions() EndorMethodOptions
 }
 
@@ -71,6 +72,24 @@ func (m *endorServiceMethodImpl[T]) Register(group *gin.RouterGroup, path string
 	}
 	if m.options.MethodType == "GET" {
 		group.GET(path, callback)
+	}
+}
+
+func (m *endorServiceMethodImpl[T]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		session := Session{
+			Id:       c.GetHeader("X-User-ID"),
+			Username: c.GetHeader("X-User-Session"),
+		}
+		ec := &EndorContext[T]{
+			MicroServiceId: microserviceId,
+			Index:          -1,
+			GinContext:     c,
+			Handlers:       m.handlers,
+			Data:           make(map[string]interface{}),
+			Session:        session,
+		}
+		ec.Next()
 	}
 }
 

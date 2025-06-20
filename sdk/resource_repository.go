@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -118,6 +119,7 @@ func (h *ResourceRepository) Create(dto CreateDTO[Resource]) error {
 		if err != nil {
 			return ErrInternalServerError
 		}
+		h.reloadRouteConfiguration(h.microServiceId)
 		return nil
 	} else {
 		return ErrAlreadyExists
@@ -143,6 +145,8 @@ func (h *ResourceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resource, 
 		return nil, ErrInternalServerError
 	}
 
+	h.reloadRouteConfiguration(h.microServiceId)
+
 	return &dto.Data, nil
 }
 
@@ -153,5 +157,27 @@ func (h *ResourceRepository) DeleteOne(dto DeleteByIdDTO) error {
 		return err
 	}
 	_, err = h.collection.DeleteOne(h.context, bson.M{"_id": dto.Id})
+	if err != nil {
+		h.reloadRouteConfiguration(h.microServiceId)
+	}
 	return err
+}
+
+func (h *ResourceRepository) reloadRouteConfiguration(microserviceId string) error {
+	config := LoadConfiguration()
+	registry := GetInternalServiceRegistry()
+	serviceMap := registry.GetServices()
+	services := make([]EndorService, 0, len(serviceMap))
+	for _, service := range serviceMap {
+		services = append(services, service.instance)
+	}
+	err := InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), services)
+	if err != nil {
+		return err
+	}
+	_, err = CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), services, "/api")
+	if err != nil {
+		return err
+	}
+	return nil
 }
