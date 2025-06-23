@@ -28,6 +28,9 @@ func NewAbstractResourceService(resource string, description string, definition 
 		Resource:    resource,
 		Description: description,
 		Methods: map[string]EndorServiceMethod{
+			"schema": NewMethod(
+				service.schema,
+			),
 			"list": NewMethod(
 				service.list,
 			),
@@ -45,6 +48,10 @@ func NewAbstractResourceService(resource string, description string, definition 
 			),
 		},
 	}
+}
+
+func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) {
+	c.End(NewResponseBuilder[any]().AddSchema(&h.definition.Schema).Build())
 }
 
 func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
