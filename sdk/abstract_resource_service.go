@@ -51,7 +51,7 @@ func NewAbstractResourceService(resource string, description string, definition 
 }
 
 func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) {
-	c.End(NewResponseBuilder[any]().AddSchema(&h.definition.Schema).Build())
+	c.End(NewResponseBuilder[any]().AddSchema(h.createSchema()).Build())
 }
 
 func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
@@ -70,7 +70,7 @@ func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
 			return
 		}
 	}
-	c.End(NewResponseBuilder[any]().AddData(&instance).AddSchema(&h.definition.Schema).Build())
+	c.End(NewResponseBuilder[any]().AddData(&instance).AddSchema(h.createSchema()).Build())
 }
 
 func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) {
@@ -84,7 +84,7 @@ func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) {
 		c.InternalServerError(err)
 		return
 	}
-	c.End(NewResponseBuilder[[]any]().AddData(&list).AddSchema(&h.definition.Schema).Build())
+	c.End(NewResponseBuilder[[]any]().AddData(&list).AddSchema(h.createSchema()).Build())
 }
 
 func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) {
@@ -103,7 +103,7 @@ func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) {
 			return
 		}
 	}
-	c.End(NewResponseBuilder[any]().AddData(&c.Payload.Data).AddSchema(&h.definition.Schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build())
+	c.End(NewResponseBuilder[any]().AddData(&c.Payload.Data).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build())
 }
 
 func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) {
@@ -122,7 +122,7 @@ func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) {
 			return
 		}
 	}
-	c.End(NewResponseBuilder[any]().AddData(&updated).AddSchema(&h.definition.Schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build())
+	c.End(NewResponseBuilder[any]().AddData(&updated).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build())
 }
 
 func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
@@ -141,5 +141,16 @@ func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
 			return
 		}
 	}
-	c.End(NewResponseBuilder[any]().AddSchema(&h.definition.Schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.resource))).Build())
+	c.End(NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.resource))).Build())
+}
+
+func (h *AbstractResourceService) createSchema() *RootSchema {
+	schema := h.definition.Schema
+	// id
+	if h.definition.Id != "" {
+		schema.UISchema = &UISchema{
+			Id: &h.definition.Id,
+		}
+	}
+	return &schema
 }
