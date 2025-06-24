@@ -7,6 +7,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoAbstractResourceRepository struct {
@@ -45,7 +46,11 @@ func (r *MongoAbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, er
 		return nil, err
 	}
 	filter := bson.M{idMapping.Path: dto.Id}
-	err = r.collection.FindOne(r.context, filter).Decode(&instance)
+	var opts *options.FindOneOptions
+	if !r.has_IdPath() {
+		opts = options.FindOne().SetProjection(bson.M{"_id": 0})
+	}
+	err = r.collection.FindOne(r.context, filter, opts).Decode(&instance)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -57,7 +62,11 @@ func (r *MongoAbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, er
 }
 
 func (r *MongoAbstractResourceRepository) List() ([]any, error) {
-	cursor, err := r.collection.Find(r.context, bson.M{})
+	var opts *options.FindOptions
+	if !r.has_IdPath() {
+		opts = options.Find().SetProjection(bson.M{"_id": 0})
+	}
+	cursor, err := r.collection.Find(r.context, bson.M{}, opts)
 	if err != nil {
 		return nil, ErrInternalServerError
 	}
@@ -177,4 +186,13 @@ func (r *MongoAbstractResourceRepository) getMapping(propertyName string) *Mongo
 		}
 	}
 	return nil
+}
+
+func (r *MongoAbstractResourceRepository) has_IdPath() bool {
+	for _, v := range r.currentDatasource.Mappings {
+		if v.Path == "_id" {
+			return true
+		}
+	}
+	return false
 }
