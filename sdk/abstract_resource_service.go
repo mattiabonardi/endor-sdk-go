@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -50,98 +49,68 @@ func NewAbstractResourceService(resource string, description string, definition 
 	}
 }
 
-func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) {
-	c.End(NewResponseBuilder[any]().AddSchema(h.createSchema()).Build())
+func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) (*Response[any], error) {
+	return NewResponseBuilder[any]().AddSchema(h.createSchema()).Build(), nil
 }
 
-func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
+func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
 	instance, err := repo.Instance(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			c.NotFound(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[any]().AddData(&instance).AddSchema(h.createSchema()).Build())
+	return NewResponseBuilder[any]().AddData(&instance).AddSchema(h.createSchema()).Build(), nil
 }
 
-func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) {
+func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) (*Response[[]any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
 	list, err := repo.List()
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
-	c.End(NewResponseBuilder[[]any]().AddData(&list).AddSchema(h.createSchema()).Build())
+	return NewResponseBuilder[[]any]().AddData(&list).AddSchema(h.createSchema()).Build(), nil
 }
 
-func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) {
+func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Response[any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
 	err = repo.Create(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrAlreadyExists) {
-			c.Conflict(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[any]().AddData(&c.Payload.Data).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build())
+	return NewResponseBuilder[any]().AddData(&c.Payload.Data).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) {
+func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*Response[any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
 	updated, err := repo.Update(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			c.NotFound(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[any]().AddData(&updated).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build())
+	return NewResponseBuilder[any]().AddData(&updated).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
+func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
 	err = repo.Delete(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			c.NotFound(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.resource))).Build())
+	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.resource))).Build(), nil
 }
 
 func (h *AbstractResourceService) createSchema() *RootSchema {

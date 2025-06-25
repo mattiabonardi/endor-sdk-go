@@ -302,7 +302,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			}
 
 			path := map[string]OpenAPIOperation{}
-			path[strings.ToLower(method.GetOptions().MethodType)] = operation
+			path["post"] = operation
 			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
 		}
 		swaggerConfiguration.EndorResources[service.Resource] = OpenAPIEndorResource{
@@ -426,12 +426,11 @@ func resolvePayloadType(method EndorServiceMethod) (reflect.Type, error) {
 		val = val.Elem()
 	}
 
-	handlers := val.FieldByName("handlers")
-	if !handlers.IsValid() || handlers.Len() == 0 {
-		return nil, fmt.Errorf("handlers not found or empty")
+	handlerFunc := val.FieldByName("handler")
+	if !handlerFunc.IsValid() {
+		return nil, fmt.Errorf("invalid handler")
 	}
 
-	handlerFunc := handlers.Index(0)
 	handlerType := handlerFunc.Type()
 
 	if handlerType.Kind() != reflect.Func || handlerType.NumIn() == 0 {

@@ -1,22 +1,23 @@
 package sdk
 
 import (
+	"errors"
+	"net/http"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
 )
 
-type EndorHandlerFunc[T any] func(*EndorContext[T])
+type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceMethod interface {
-	Register(route *gin.RouterGroup, path string, microserviceId string)
 	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
 	GetOptions() EndorMethodOptions
 }
 
 type EndorMethodOptions struct {
-	Public     bool
-	MethodType string
+	Public          bool
+	ValidatePayload bool
 }
 
 type EndorService struct {
@@ -29,53 +30,23 @@ type EndorService struct {
 	Version string
 }
 
-func NewMethod[T any](handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
-	return NewConfigurableMethod(EndorMethodOptions{}, handlers...)
+func NewMethod[T any, R any](handler EndorHandlerFunc[T, R]) EndorServiceMethod {
+	return NewConfigurableMethod(EndorMethodOptions{
+		Public:          false,
+		ValidatePayload: true,
+	}, handler)
 }
 
-func NewConfigurableMethod[T any](options EndorMethodOptions, handlers ...EndorHandlerFunc[T]) EndorServiceMethod {
-	if options.MethodType == "" {
-		options.MethodType = "POST"
-	}
-	var t T
-	if options.MethodType == "GET" || reflect.TypeOf(t) == reflect.TypeOf(NoPayload{}) {
-		return &endorServiceMethodImpl[T]{handlers: handlers, options: options}
-	}
-	h := []EndorHandlerFunc[T]{ValidationHandler[T]}
-	h = append(h, handlers...)
-	return &endorServiceMethodImpl[T]{handlers: h, options: options}
+func NewConfigurableMethod[T any, R any](options EndorMethodOptions, handler EndorHandlerFunc[T, R]) EndorServiceMethod {
+	return &endorServiceMethodImpl[T, R]{handler: handler, options: options}
 }
 
-type endorServiceMethodImpl[T any] struct {
-	handlers []EndorHandlerFunc[T]
-	options  EndorMethodOptions
+type endorServiceMethodImpl[T any, R any] struct {
+	handler EndorHandlerFunc[T, R]
+	options EndorMethodOptions
 }
 
-func (m *endorServiceMethodImpl[T]) Register(group *gin.RouterGroup, path string, microserviceId string) {
-	callback := func(c *gin.Context) {
-		session := Session{
-			Id:       c.GetHeader("X-User-ID"),
-			Username: c.GetHeader("X-User-Session"),
-		}
-		ec := &EndorContext[T]{
-			MicroServiceId: microserviceId,
-			Index:          -1,
-			GinContext:     c,
-			Handlers:       m.handlers,
-			Data:           make(map[string]interface{}),
-			Session:        session,
-		}
-		ec.Next()
-	}
-	if m.options.MethodType == "POST" {
-		group.POST(path, callback)
-	}
-	if m.options.MethodType == "GET" {
-		group.GET(path, callback)
-	}
-}
-
-func (m *endorServiceMethodImpl[T]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+func (m *endorServiceMethodImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		session := Session{
 			Id:       c.GetHeader("X-User-ID"),
@@ -83,16 +54,53 @@ func (m *endorServiceMethodImpl[T]) CreateHTTPCallback(microserviceId string) fu
 		}
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
-			Index:          -1,
-			GinContext:     c,
-			Handlers:       m.handlers,
-			Data:           make(map[string]interface{}),
 			Session:        session,
 		}
-		ec.Next()
+		var t T
+		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
+			if err := c.ShouldBindJSON(&ec.Payload); err != nil {
+				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+		}
+		// call method
+		response, err := m.handler(ec)
+		if err != nil {
+			// 400
+			if errors.Is(err, ErrBadRequest) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+			// 401
+			if errors.Is(err, ErrUnauthorized) {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+			// 403
+			if errors.Is(err, ErrForbidden) {
+				c.AbortWithStatusJSON(http.StatusForbidden, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+			// 404
+			if errors.Is(err, ErrNotFound) {
+				c.AbortWithStatusJSON(http.StatusNotFound, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+			// 409
+			if errors.Is(err, ErrAlreadyExists) {
+				c.AbortWithStatusJSON(http.StatusConflict, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				return
+			}
+			// 500
+			c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+			return
+		} else {
+			c.Header("X-Endor-Microservice", microserviceId)
+			c.JSON(http.StatusOK, response)
+		}
 	}
 }
 
-func (m *endorServiceMethodImpl[T]) GetOptions() EndorMethodOptions {
+func (m *endorServiceMethodImpl[T, R]) GetOptions() EndorMethodOptions {
 	return m.options
 }

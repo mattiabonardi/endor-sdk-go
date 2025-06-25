@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -47,62 +46,42 @@ type ResourceService struct {
 	databaseName   string
 }
 
-func (h *ResourceService) list(c *EndorContext[NoPayload]) {
+func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource], error) {
 	resources, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).List()
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
-	c.End(NewResponseBuilder[[]Resource]().AddData(&resources).AddSchema(NewSchema(&Resource{})).Build())
+	return NewResponseBuilder[[]Resource]().AddData(&resources).AddSchema(NewSchema(&Resource{})).Build(), nil
 }
 
-func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) {
+func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
 	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			c.NotFound(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).Build())
+	return NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).Build(), nil
 }
 
-func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) {
+func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Response[Resource], error) {
 	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrAlreadyExists) {
-			c.Conflict(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build())
+	return NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build(), nil
 }
 
-func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) {
+func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Response[Resource], error) {
 	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			c.NotFound(err)
-			return
-		} else {
-			c.InternalServerError(err)
-			return
-		}
+		return nil, err
 	}
-	c.End(NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build())
+	return NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build(), nil
 }
 
-func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) {
+func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[Resource], error) {
 	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
-		c.InternalServerError(err)
-		return
+		return nil, err
 	}
-	c.End(NewResponseBuilder[Resource]().AddMessage(NewMessage(Info, fmt.Sprintf("resource %s deleted", c.Payload.Id))).Build())
+	return NewResponseBuilder[Resource]().AddMessage(NewMessage(Info, fmt.Sprintf("resource %s deleted", c.Payload.Id))).Build(), nil
 }

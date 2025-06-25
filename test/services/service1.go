@@ -29,32 +29,24 @@ type Test4Payload[T any] struct {
 type Service1 struct {
 }
 
-func (h *Service1) test1(c *sdk.EndorContext[Test1Payload]) {
-	c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
+func (h *Service1) test1(c *sdk.EndorContext[Test1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
-func (h *Service1) test2() func(c *sdk.EndorContext[Test2Payload]) {
-	return func(c *sdk.EndorContext[Test2Payload]) {
-		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
-	}
+func (h *Service1) test2(c *sdk.EndorContext[Test2Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
-func (h *Service1) test3() func(c *sdk.EndorContext[Test2Payload]) {
-	return func(c *sdk.EndorContext[Test2Payload]) {
-		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
-	}
+func (h *Service1) test3(c *sdk.EndorContext[Test2Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
-func (h *Service1) test4() func(c *sdk.EndorContext[Test4Payload[GenericPayload]]) {
-	return func(c *sdk.EndorContext[Test4Payload[GenericPayload]]) {
-		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
-	}
+func (h *Service1) test4(c *sdk.EndorContext[Test4Payload[GenericPayload]]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
-func (h *Service1) test5() func(c *sdk.EndorContext[sdk.NoPayload]) {
-	return func(c *sdk.EndorContext[sdk.NoPayload]) {
-		c.End(sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build())
-	}
+func (h *Service1) test5(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
 func NewService1() sdk.EndorService {
@@ -69,20 +61,20 @@ func NewService1() sdk.EndorService {
 				Service1.test1,
 			),
 			"test2": sdk.NewMethod(
-				Service1.test2(),
+				Service1.test2,
 			),
 			"test3": sdk.NewMethod(
-				Service1.test3(),
+				Service1.test3,
 			),
 			"test4": sdk.NewMethod(
-				Service1.test4(),
+				Service1.test4,
 			),
 			"test5": sdk.NewConfigurableMethod(
 				sdk.EndorMethodOptions{
-					Public:     true,
-					MethodType: "GET",
+					Public:          true,
+					ValidatePayload: false,
 				},
-				Service1.test5(),
+				Service1.test5,
 			),
 		},
 	}
