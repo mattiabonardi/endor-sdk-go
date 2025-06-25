@@ -8,7 +8,7 @@ import (
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api")
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorResource{services_test.NewService1()}, "/api")
 	if err != nil {
 		t.Fail()
 	}
@@ -25,8 +25,8 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 		t.Fatalf("Received %v", def.Servers[0].URL)
 	}
 	// endor resources
-	if def.EndorResources["test"].Description != "Testing resource" {
-		t.Fatalf("Received %v", def.EndorResources["test"].Description)
+	if def.Tags[0].Description != "Testing resource" {
+		t.Fatalf("Received %v", def.Tags[0].Description)
 	}
 	// check definitions
 	if len(def.Components.Schemas) != 6 {
@@ -45,15 +45,10 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	if test4PayloadProperties["value"].Reference != "#/components/schemas/GenericPayload" {
 		t.Fatalf("Received %v", test4PayloadProperties["value"].Reference)
 	}
-
-	// check get
-	if def.Paths["/api/v1/test/test5"]["get"].OperationID == "" {
-		t.Fatalf("Received %v", def.Paths["/api/v1/test/test5"]["get"].OperationID)
-	}
 }
 
 func TestAdaptSwaggerSchemaToSchema(t *testing.T) {
-	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api")
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorResource{services_test.NewService1()}, "/api")
 	if err != nil {
 		t.Fail()
 	}

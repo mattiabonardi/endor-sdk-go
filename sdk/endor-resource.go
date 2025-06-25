@@ -10,43 +10,45 @@ import (
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
-type EndorServiceMethod interface {
+type EndorResourceAction interface {
 	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
-	GetOptions() EndorMethodOptions
+	GetOptions() EndorResourceActionOptions
 }
 
-type EndorMethodOptions struct {
+type EndorResourceActionOptions struct {
+	Description     string
 	Public          bool
 	ValidatePayload bool
 }
 
-type EndorService struct {
+type EndorResource struct {
 	Resource    string
 	Description string
-	Methods     map[string]EndorServiceMethod
+	Methods     map[string]EndorResourceAction
 	Priority    *int
 
 	// optionals
 	Version string
 }
 
-func NewMethod[T any, R any](handler EndorHandlerFunc[T, R]) EndorServiceMethod {
-	return NewConfigurableMethod(EndorMethodOptions{
+func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorResourceAction {
+	return NewConfigurableAction(EndorResourceActionOptions{
+		Description:     description,
 		Public:          false,
 		ValidatePayload: true,
 	}, handler)
 }
 
-func NewConfigurableMethod[T any, R any](options EndorMethodOptions, handler EndorHandlerFunc[T, R]) EndorServiceMethod {
-	return &endorServiceMethodImpl[T, R]{handler: handler, options: options}
+func NewConfigurableAction[T any, R any](options EndorResourceActionOptions, handler EndorHandlerFunc[T, R]) EndorResourceAction {
+	return &endorResourceActionImpl[T, R]{handler: handler, options: options}
 }
 
-type endorServiceMethodImpl[T any, R any] struct {
+type endorResourceActionImpl[T any, R any] struct {
 	handler EndorHandlerFunc[T, R]
-	options EndorMethodOptions
+	options EndorResourceActionOptions
 }
 
-func (m *endorServiceMethodImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+func (m *endorResourceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		session := Session{
 			Id:       c.GetHeader("X-User-ID"),
@@ -101,6 +103,6 @@ func (m *endorServiceMethodImpl[T, R]) CreateHTTPCallback(microserviceId string)
 	}
 }
 
-func (m *endorServiceMethodImpl[T, R]) GetOptions() EndorMethodOptions {
+func (m *endorResourceActionImpl[T, R]) GetOptions() EndorResourceActionOptions {
 	return m.options
 }

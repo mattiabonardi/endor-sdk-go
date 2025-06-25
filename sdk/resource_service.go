@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewResourceService(microServiceId string, services []EndorService, client *mongo.Client, context context.Context, databaseName string) EndorService {
+func NewResourceService(microServiceId string, services []EndorResource, client *mongo.Client, context context.Context, databaseName string) EndorResource {
 	resourceService := ResourceService{
 		microServiceId: microServiceId,
 		services:       services,
@@ -15,24 +15,33 @@ func NewResourceService(microServiceId string, services []EndorService, client *
 		context:        context,
 		databaseName:   databaseName,
 	}
-	return EndorService{
+	return EndorResource{
 		Resource:    "resource",
 		Description: "Resource",
-		Methods: map[string]EndorServiceMethod{
-			"list": NewMethod(
+		Methods: map[string]EndorResourceAction{
+			"schema": NewAction(
+				resourceService.schema,
+				"Get the schema of the resource",
+			),
+			"list": NewAction(
 				resourceService.list,
+				"Search for available resources",
 			),
-			"instance": NewMethod(
+			"instance": NewAction(
 				resourceService.instance,
+				"Get the specified instance of resources",
 			),
-			"create": NewMethod(
+			"create": NewAction(
 				resourceService.create,
+				"Create a new resource",
 			),
-			"update": NewMethod(
+			"update": NewAction(
 				resourceService.update,
+				"Update an existing resource",
 			),
-			"delete": NewMethod(
+			"delete": NewAction(
 				resourceService.delete,
+				"Delete an existing resource",
 			),
 		},
 	}
@@ -40,14 +49,18 @@ func NewResourceService(microServiceId string, services []EndorService, client *
 
 type ResourceService struct {
 	microServiceId string
-	services       []EndorService
+	services       []EndorResource
 	mongoClient    *mongo.Client
 	context        context.Context
 	databaseName   string
 }
 
+func (h *ResourceService) schema(c *EndorContext[NoPayload]) (*Response[any], error) {
+	return NewResponseBuilder[any]().AddSchema(NewSchema(&Resource{})).Build(), nil
+}
+
 func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource], error) {
-	resources, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).List()
+	resources, err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ResourceList()
 	if err != nil {
 		return nil, err
 	}
@@ -55,15 +68,15 @@ func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource
 }
 
 func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
-	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
+	resource, err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Instance(c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).Build(), nil
+	return NewResponseBuilder[Resource]().AddData(&resource.resource).AddSchema(NewSchema(&Resource{})).Build(), nil
 }
 
 func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Response[Resource], error) {
-	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
+	err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).Create(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +84,7 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Respons
 }
 
 func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Response[Resource], error) {
-	resource, err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
+	resource, err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +92,7 @@ func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Res
 }
 
 func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[Resource], error) {
-	err := NewResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
+	err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}

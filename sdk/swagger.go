@@ -17,15 +17,16 @@ import (
 var swaggerFS embed.FS
 
 type OpenAPIConfiguration struct {
-	OpenAPI        string                                 `json:"openapi"`
-	Info           OpenAPIInfo                            `json:"info"`
-	Servers        []OpenAPIServer                        `json:"servers"`
-	EndorResources map[string]OpenAPIEndorResource        `json:"endorResources"`
-	Paths          map[string]map[string]OpenAPIOperation `json:"paths"`
-	Components     OpenApiComponents                      `json:"components"`
+	OpenAPI    string                                 `json:"openapi"`
+	Info       OpenAPIInfo                            `json:"info"`
+	Servers    []OpenAPIServer                        `json:"servers"`
+	Tags       []OpenAPITag                           `json:"tags"`
+	Paths      map[string]map[string]OpenAPIOperation `json:"paths"`
+	Components OpenApiComponents                      `json:"components"`
 }
 
-type OpenAPIEndorResource struct {
+type OpenAPITag struct {
+	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
@@ -88,7 +89,7 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
+func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorResource, baseApiPath string) (string, error) {
 	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
@@ -160,7 +161,7 @@ func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
 	return configs, nil
 }
 
-func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorResource, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
@@ -172,7 +173,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				URL: "/",
 			},
 		},
-		EndorResources: map[string]OpenAPIEndorResource{},
+		Tags: []OpenAPITag{},
 		Components: OpenApiComponents{
 			Schemas: map[string]Schema{
 				"DefaultEndorResponse": {
@@ -234,6 +235,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
 				Tags:        []string{service.Resource},
 				Parameters:  parameters,
+				Summary:     method.GetOptions().Description,
 				Responses: OpenApiResponses{
 					"default": OpenApiResponse{
 						Description: "Default response",
@@ -305,9 +307,11 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			path["post"] = operation
 			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
 		}
-		swaggerConfiguration.EndorResources[service.Resource] = OpenAPIEndorResource{
+		tag := OpenAPITag{
+			Name:        service.Resource,
 			Description: service.Description,
 		}
+		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}
 
 	swaggerConfiguration.Paths = paths
@@ -420,7 +424,7 @@ func copySwagger(toDir string) error {
 	})
 }
 
-func resolvePayloadType(method EndorServiceMethod) (reflect.Type, error) {
+func resolvePayloadType(method EndorResourceAction) (reflect.Type, error) {
 	val := reflect.ValueOf(method)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()

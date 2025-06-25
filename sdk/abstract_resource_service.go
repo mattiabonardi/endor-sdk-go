@@ -15,7 +15,7 @@ type AbstractResourceService struct {
 	context     context.Context
 }
 
-func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoClient *mongo.Client, mongoDB string, context context.Context) EndorService {
+func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoClient *mongo.Client, mongoDB string, context context.Context) EndorResource {
 	service := AbstractResourceService{
 		resource:    resource,
 		definition:  definition,
@@ -23,27 +23,33 @@ func NewAbstractResourceService(resource string, description string, definition 
 		mongoDB:     mongoDB,
 		context:     context,
 	}
-	return EndorService{
+	return EndorResource{
 		Resource:    resource,
 		Description: description,
-		Methods: map[string]EndorServiceMethod{
-			"schema": NewMethod(
+		Methods: map[string]EndorResourceAction{
+			"schema": NewAction(
 				service.schema,
+				fmt.Sprintf("Get the schema of the %s (%s)", resource, description),
 			),
-			"list": NewMethod(
+			"list": NewAction(
 				service.list,
+				fmt.Sprintf("Search for available list of %s (%s)", resource, description),
 			),
-			"create": NewMethod(
+			"create": NewAction(
 				service.create,
+				fmt.Sprintf("Create the instance of %s (%s)", resource, description),
 			),
-			"instance": NewMethod(
+			"instance": NewAction(
 				service.instance,
+				fmt.Sprintf("Get the instance of %s (%s)", resource, description),
 			),
-			"update": NewMethod(
+			"update": NewAction(
 				service.update,
+				fmt.Sprintf("Update the existing instance of %s (%s)", resource, description),
 			),
-			"delete": NewMethod(
+			"delete": NewAction(
 				service.delete,
+				fmt.Sprintf("Delete the existing instance of %s (%s)", resource, description),
 			),
 		},
 	}
