@@ -53,13 +53,13 @@ type Schema struct {
 	Format      *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
 	ReadOnly    *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
 
-	UISchema *UISchema `json:"x-ui,omitempty"`
+	UISchema *UISchema `json:"x-ui,omitempty" yaml:"x-ui,omitempty"`
 }
 
 type UISchema struct {
-	Resource *string   `json:"resource,omitempty"` // define the reference resource
-	Order    *[]string `json:"order,omitempty"`    // define the order of the attributes
-	Id       *string   `json:"id,omitempty"`       // define the property that refers to id
+	Resource *string   `json:"resource,omitempty" yaml:"resource,omitempty"` // define the reference resource
+	Order    *[]string `json:"order,omitempty" yaml:"order,omitempty"`       // define the order of the attributes
+	Id       *string   `json:"id,omitempty" yaml:"id,omitempty"`             // define the property that refers to id
 }
 
 type RootSchema struct {

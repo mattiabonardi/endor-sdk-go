@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
+	"reflect"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewEndorResourceRepository(microServiceId string, internalEndorResources []EndorResource, client *mongo.Client, context context.Context, databaseName string) *EndorResourceRepository {
+func NewEndorResourceRepository(microServiceId string, internalEndorResources *[]EndorResource, client *mongo.Client, context context.Context, databaseName string) *EndorResourceRepository {
 	database := client.Database(databaseName)
 	collection := database.Collection(COLLECTION_RESOURCES)
 	return &EndorResourceRepository{
@@ -23,7 +26,7 @@ func NewEndorResourceRepository(microServiceId string, internalEndorResources []
 
 type EndorResourceRepository struct {
 	microServiceId         string
-	internalEndorResources []EndorResource
+	internalEndorResources *[]EndorResource
 	context                context.Context
 	client                 *mongo.Client
 	collection             *mongo.Collection
@@ -34,10 +37,15 @@ type EndorResourceDictionary struct {
 	resource      Resource
 }
 
+type EndorResourceActionDictionary struct {
+	endorResourceAction EndorResourceAction
+	resourceAction      ResourceAction
+}
+
 func (h *EndorResourceRepository) Map() (map[string]EndorResourceDictionary, error) {
 	resources := map[string]EndorResourceDictionary{}
 	// internal
-	for _, internalEndorResource := range h.internalEndorResources {
+	for _, internalEndorResource := range *h.internalEndorResources {
 		resource := Resource{
 			ID:          internalEndorResource.Resource,
 			Description: internalEndorResource.Description,
@@ -82,6 +90,35 @@ func (h *EndorResourceRepository) Map() (map[string]EndorResourceDictionary, err
 	return resources, nil
 }
 
+func (h *EndorResourceRepository) ActionMap() (map[string]EndorResourceActionDictionary, error) {
+	actions := map[string]EndorResourceActionDictionary{}
+	resources, err := h.Map()
+	if err != nil {
+		return actions, err
+	}
+	for resourceName, resource := range resources {
+		for actionName, endorResourceAction := range resource.endorResource.Methods {
+			action, err := h.createAction(resourceName, actionName, endorResourceAction)
+			if err == nil {
+				actions[action.resourceAction.ID] = *action
+			}
+		}
+	}
+	return actions, nil
+}
+
+func (h *EndorResourceRepository) ResourceActionList() ([]ResourceAction, error) {
+	actions, err := h.ActionMap()
+	if err != nil {
+		return []ResourceAction{}, err
+	}
+	actionList := make([]ResourceAction, 0, len(actions))
+	for _, action := range actions {
+		actionList = append(actionList, action.resourceAction)
+	}
+	return actionList, nil
+}
+
 func (h *EndorResourceRepository) ResourceList() ([]Resource, error) {
 	resources, err := h.Map()
 	if err != nil {
@@ -124,11 +161,12 @@ func (h *EndorResourceRepository) DynamiResourceList() ([]Resource, error) {
 
 func (h *EndorResourceRepository) Instance(dto ReadInstanceDTO) (*EndorResourceDictionary, error) {
 	// search from internal services
-	for _, service := range h.internalEndorResources {
+	for _, service := range *h.internalEndorResources {
 		if service.Resource == dto.Id {
 			resource := Resource{
 				ID:          service.Resource,
 				Description: service.Description,
+				Service:     h.microServiceId,
 			}
 			for methodName, method := range service.Methods {
 				payload, _ := resolvePayloadType(method)
@@ -166,6 +204,25 @@ func (h *EndorResourceRepository) Instance(dto ReadInstanceDTO) (*EndorResourceD
 		endorResource: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.client, h.microServiceId, h.context),
 		resource:      resource,
 	}, nil
+}
+
+func (h *EndorResourceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorResourceActionDictionary, error) {
+	idSegments := strings.Split(dto.Id, "/")
+	if len(idSegments) == 2 {
+		resourceInstance, err := h.Instance(ReadInstanceDTO{
+			Id: idSegments[0],
+		})
+		if err != nil {
+			return nil, err
+		}
+		if resourceAction, ok := resourceInstance.endorResource.Methods[idSegments[1]]; ok {
+			return h.createAction(idSegments[0], idSegments[1], resourceAction)
+		} else {
+			return nil, ErrNotFound
+		}
+	} else {
+		return nil, ErrBadRequest
+	}
 }
 
 func (h *EndorResourceRepository) Create(dto CreateDTO[Resource]) error {
@@ -237,4 +294,25 @@ func (h *EndorResourceRepository) reloadRouteConfiguration(microserviceId string
 		return err
 	}
 	return nil
+}
+
+func (h *EndorResourceRepository) createAction(resourceName string, actionName string, endorResourceAction EndorResourceAction) (*EndorResourceActionDictionary, error) {
+	actionId := path.Join(resourceName, actionName)
+	action := ResourceAction{
+		ID:          actionId,
+		Resource:    resourceName,
+		Description: endorResourceAction.GetOptions().Description,
+	}
+	payload, err := resolvePayloadType(endorResourceAction)
+	if payload != reflect.TypeOf(NoPayload{}) && err == nil {
+		schema := NewSchemaByType(payload)
+		schemaYaml, err := schema.ToYAML()
+		if err == nil {
+			action.InputSchema = schemaYaml
+		}
+	}
+	return &EndorResourceActionDictionary{
+		endorResourceAction: endorResourceAction,
+		resourceAction:      action,
+	}, nil
 }

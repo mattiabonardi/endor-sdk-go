@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Init(microserviceId string, internalEndorResources []EndorResource) {
+func Init(microserviceId string, internalEndorResources *[]EndorResource) {
 	// load configuration
 	config := LoadConfiguration()
 
@@ -46,7 +46,8 @@ func Init(microserviceId string, internalEndorResources []EndorResource) {
 		if err != nil {
 			log.Fatal("MongoDB ping failed:", err)
 		}
-		internalEndorResources = append(internalEndorResources, NewResourceService(microserviceId, internalEndorResources, client, ctx, microserviceId))
+		*internalEndorResources = append(*internalEndorResources, *NewResourceService(microserviceId, internalEndorResources, client, ctx, microserviceId))
+		*internalEndorResources = append(*internalEndorResources, *NewResourceActionService(microserviceId, internalEndorResources, client, ctx, microserviceId))
 	}
 
 	// get all resources

@@ -121,3 +121,11 @@ type ResourceSliceContext struct {
 	dataSource DataSource
 	repository ResurceRepositoryInterface
 }
+
+type ResourceAction struct {
+	// version/resource/action
+	ID          string `json:"id"`
+	Resource    string `json:"resource"`
+	Description string `json:"description"`
+	InputSchema string `json:"inputSchema"`
+}

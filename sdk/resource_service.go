@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewResourceService(microServiceId string, services []EndorResource, client *mongo.Client, context context.Context, databaseName string) EndorResource {
+func NewResourceService(microServiceId string, services *[]EndorResource, client *mongo.Client, context context.Context, databaseName string) *EndorResource {
 	resourceService := ResourceService{
 		microServiceId: microServiceId,
 		services:       services,
@@ -15,7 +15,7 @@ func NewResourceService(microServiceId string, services []EndorResource, client 
 		context:        context,
 		databaseName:   databaseName,
 	}
-	return EndorResource{
+	return &EndorResource{
 		Resource:    "resource",
 		Description: "Resource",
 		Methods: map[string]EndorResourceAction{
@@ -49,7 +49,7 @@ func NewResourceService(microServiceId string, services []EndorResource, client 
 
 type ResourceService struct {
 	microServiceId string
-	services       []EndorResource
+	services       *[]EndorResource
 	mongoClient    *mongo.Client
 	context        context.Context
 	databaseName   string
