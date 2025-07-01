@@ -32,19 +32,21 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	var client *mongo.Client
 	ctx := context.TODO()
 
-	if config.EndorServiceServiceEnabled {
-		// Connect to MongoDB
-		clientOptions := options.Client().ApplyURI(config.EndorServiceDBUri)
-		var err error
-		client, err = mongo.Connect(ctx, clientOptions)
-		if err != nil {
-			log.Fatal("MongoDB connection error:", err)
-		}
+	if config.EndorResourceServiceEnabled {
+		if config.EndorDynamicResourcesEnabled {
+			// Connect to MongoDB
+			clientOptions := options.Client().ApplyURI(config.EndorServiceDBUri)
+			var err error
+			client, err = mongo.Connect(ctx, clientOptions)
+			if err != nil {
+				log.Fatal("MongoDB connection error:", err)
+			}
 
-		// Ping to test connection
-		err = client.Ping(ctx, nil)
-		if err != nil {
-			log.Fatal("MongoDB ping failed:", err)
+			// Ping to test connection
+			err = client.Ping(ctx, nil)
+			if err != nil {
+				log.Fatal("MongoDB ping failed:", err)
+			}
 		}
 		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, client, ctx, microserviceId))
 		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, client, ctx, microserviceId))

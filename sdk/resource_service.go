@@ -15,7 +15,7 @@ func NewResourceService(microServiceId string, services *[]EndorService, client 
 		context:        context,
 		databaseName:   databaseName,
 	}
-	return &EndorService{
+	service := &EndorService{
 		Resource:    "resource",
 		Description: "Resource",
 		Methods: map[string]EndorServiceAction{
@@ -31,20 +31,14 @@ func NewResourceService(microServiceId string, services *[]EndorService, client 
 				resourceService.instance,
 				"Get the specified instance of resources",
 			),
-			"create": NewAction(
-				resourceService.create,
-				"Create a new resource",
-			),
-			"update": NewAction(
-				resourceService.update,
-				"Update an existing resource",
-			),
-			"delete": NewAction(
-				resourceService.delete,
-				"Delete an existing resource",
-			),
 		},
 	}
+	if LoadConfiguration().EndorDynamicResourcesEnabled {
+		service.Methods["create"] = NewAction(resourceService.create, "Create a new resource")
+		service.Methods["update"] = NewAction(resourceService.update, "Update an existing resource")
+		service.Methods["delete"] = NewAction(resourceService.delete, "Delete an existing resource")
+	}
+	return service
 }
 
 type ResourceService struct {

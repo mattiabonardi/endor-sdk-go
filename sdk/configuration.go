@@ -8,9 +8,12 @@ import (
 )
 
 type ServerConfig struct {
-	ServerPort                 string
-	EndorServiceDBUri          string
-	EndorServiceServiceEnabled bool
+	ServerPort        string
+	EndorServiceDBUri string
+	// @default false
+	EndorResourceServiceEnabled bool
+	// @default false
+	EndorDynamicResourcesEnabled bool
 }
 
 func LoadConfiguration() ServerConfig {
@@ -27,15 +30,21 @@ func LoadConfiguration() ServerConfig {
 	if !exists || EndorServiceDBUri == "" {
 		EndorServiceDBUri = "mongodb://localhost:27017"
 	}
-	EndorServiceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
-	EndorServiceServiceEnabled := true
-	if !exists || EndorServiceServiceEnabledStr == "" || EndorServiceServiceEnabledStr == "false" {
-		EndorServiceServiceEnabled = false
+	EndorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
+	EndorResourceServiceEnabled := true
+	if !exists || EndorResourceServiceEnabledStr == "" || EndorResourceServiceEnabledStr == "false" {
+		EndorResourceServiceEnabled = false
+	}
+	EndorDynamicResourcesEnabledStr, exists := os.LookupEnv("ENDOR_DYNAMIC_RESOURCES_ENABLED")
+	EndorDynamicResourcesEnabled := true
+	if !exists || EndorDynamicResourcesEnabledStr == "" || EndorDynamicResourcesEnabledStr == "false" {
+		EndorDynamicResourcesEnabled = false
 	}
 
 	return ServerConfig{
-		ServerPort:                 port,
-		EndorServiceDBUri:          EndorServiceDBUri,
-		EndorServiceServiceEnabled: EndorServiceServiceEnabled,
+		ServerPort:                   port,
+		EndorServiceDBUri:            EndorServiceDBUri,
+		EndorResourceServiceEnabled:  EndorResourceServiceEnabled,
+		EndorDynamicResourcesEnabled: EndorDynamicResourcesEnabled,
 	}
 }

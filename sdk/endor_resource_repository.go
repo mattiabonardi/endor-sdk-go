@@ -13,15 +13,17 @@ import (
 )
 
 func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, client *mongo.Client, context context.Context, databaseName string) *EndorServiceRepository {
-	database := client.Database(databaseName)
-	collection := database.Collection(COLLECTION_RESOURCES)
-	return &EndorServiceRepository{
+	serviceRepository := &EndorServiceRepository{
 		microServiceId:        microServiceId,
 		internalEndorServices: internalEndorServices,
 		client:                client,
-		collection:            collection,
 		context:               context,
 	}
+	if client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
+		database := client.Database(databaseName)
+		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
+	}
+	return serviceRepository
 }
 
 type EndorServiceRepository struct {
@@ -67,8 +69,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			resource:     resource,
 		}
 	}
-	config := LoadConfiguration()
-	if config.EndorServiceServiceEnabled {
+	if h.client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
 		// dynamic
 		dynamicResources, err := h.DynamiResourceList()
 		if err != nil {
@@ -185,25 +186,28 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			}, nil
 		}
 	}
-	// search from database
-	resource := Resource{}
-	filter := bson.M{"_id": dto.Id}
-	err := h.collection.FindOne(h.context, filter).Decode(&resource)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, NewNotFoundError(fmt.Errorf("resourse not found"))
-		} else {
+	if h.client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
+		// search from database
+		resource := Resource{}
+		filter := bson.M{"_id": dto.Id}
+		err := h.collection.FindOne(h.context, filter).Decode(&resource)
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return nil, NewNotFoundError(fmt.Errorf("resourse not found"))
+			} else {
+				return nil, err
+			}
+		}
+		defintion, err := resource.UnmarshalDefinition()
+		if err != nil {
 			return nil, err
 		}
+		return &EndorServiceDictionary{
+			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.client, h.microServiceId, h.context),
+			resource:     resource,
+		}, nil
 	}
-	defintion, err := resource.UnmarshalDefinition()
-	if err != nil {
-		return nil, err
-	}
-	return &EndorServiceDictionary{
-		EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.client, h.microServiceId, h.context),
-		resource:     resource,
-	}, nil
+	return nil, NewNotFoundError(fmt.Errorf("resource %s not found", dto.Id))
 }
 
 func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
