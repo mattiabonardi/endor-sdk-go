@@ -53,9 +53,9 @@ func (r *MongoAbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, er
 	err = r.collection.FindOne(r.context, filter, opts).Decode(&instance)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, NewNotFoundError("", nil)
+			return nil, NewNotFoundError(err)
 		} else {
-			return nil, NewInternalServerError("error during read instance", err)
+			return nil, NewInternalServerError(err)
 		}
 	}
 	return &instance, nil
@@ -68,14 +68,14 @@ func (r *MongoAbstractResourceRepository) List() ([]any, error) {
 	}
 	cursor, err := r.collection.Find(r.context, bson.M{}, opts)
 	if err != nil {
-		return nil, NewInternalServerError("error during read list", err)
+		return nil, NewInternalServerError(err)
 	}
 	var storedResources []bson.M
 	if err := cursor.All(r.context, &storedResources); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return []any{}, nil
 		} else {
-			return nil, NewInternalServerError("error during read list", err)
+			return nil, NewInternalServerError(err)
 		}
 	}
 	result := make([]any, len(storedResources))
@@ -94,7 +94,7 @@ func (r *MongoAbstractResourceRepository) Create(dto CreateDTO[any]) error {
 	// check if already exist
 	idValue, ok := doc[r.def.Id].(string)
 	if !ok {
-		return NewBadRequestError("", fmt.Errorf("document id is not a string"))
+		return NewBadRequestError(fmt.Errorf("document id is not a string"))
 	}
 	_, err = r.Instance(ReadInstanceDTO{Id: idValue})
 	if err != nil {
@@ -108,7 +108,7 @@ func (r *MongoAbstractResourceRepository) Create(dto CreateDTO[any]) error {
 			return err
 		}
 	}
-	return NewConfictErorr("", fmt.Errorf("resource already exist"))
+	return NewConfictError(fmt.Errorf("resource already exist"))
 }
 
 func (r *MongoAbstractResourceRepository) Delete(dto DeleteByIdDTO) error {
@@ -175,7 +175,7 @@ func (r *MongoAbstractResourceRepository) getIdMapping() (*MongoFieldMapping, er
 	// create id filter
 	idMapping := r.getMapping(r.def.Id)
 	if idMapping == nil {
-		return nil, NewNotFoundError("", fmt.Errorf("mapping not found"))
+		return nil, NewNotFoundError(fmt.Errorf("mapping not found"))
 	}
 	return idMapping, nil
 }

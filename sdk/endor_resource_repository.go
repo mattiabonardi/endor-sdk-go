@@ -191,7 +191,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 	err := h.collection.FindOne(h.context, filter).Decode(&resource)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, NewNotFoundError("resource not found", err)
+			return nil, NewNotFoundError(fmt.Errorf("resourse not found"))
 		} else {
 			return nil, err
 		}
@@ -218,10 +218,10 @@ func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServ
 		if resourceAction, ok := resourceInstance.EndorService.Methods[idSegments[1]]; ok {
 			return h.createAction(idSegments[0], idSegments[1], resourceAction)
 		} else {
-			return nil, NewNotFoundError("resource action not found", err)
+			return nil, NewNotFoundError(fmt.Errorf("resource action not found"))
 		}
 	} else {
-		return nil, NewBadRequestError("", fmt.Errorf("invalid resource action id"))
+		return nil, NewBadRequestError(fmt.Errorf("invalid resource action id"))
 	}
 }
 
@@ -239,7 +239,7 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 		h.reloadRouteConfiguration(h.microServiceId)
 		return nil
 	} else {
-		return NewConfictErorr("", fmt.Errorf("resource already exist"))
+		return NewConfictError(fmt.Errorf("resource already exist"))
 	}
 }
 

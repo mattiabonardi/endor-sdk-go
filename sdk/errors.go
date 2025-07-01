@@ -7,12 +7,11 @@ import (
 
 type EndorError struct {
 	StatusCode  int
-	Message     string
 	InternalErr error
 }
 
 func (e *EndorError) Error() string {
-	return fmt.Sprintf("%s: %v", e.Message, e.InternalErr)
+	return fmt.Sprintf("%v", e.InternalErr)
 }
 
 func (e *EndorError) Unwrap() error {
@@ -20,30 +19,30 @@ func (e *EndorError) Unwrap() error {
 }
 
 // Factories
-func NewBadRequestError(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusBadRequest, Message: msg, InternalErr: err}
+func NewBadRequestError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusBadRequest, InternalErr: err}
 }
 
-func NewNotFoundError(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusNotFound, Message: msg, InternalErr: err}
+func NewNotFoundError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusNotFound, InternalErr: err}
 }
 
-func NewInternalServerError(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusInternalServerError, Message: msg, InternalErr: err}
+func NewInternalServerError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusInternalServerError, InternalErr: err}
 }
 
-func NewConfictErorr(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusConflict, Message: msg, InternalErr: err}
+func NewConfictError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusConflict, InternalErr: err}
 }
 
-func NewForbiddenErorr(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusForbidden, Message: msg, InternalErr: err}
+func NewForbiddenError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusForbidden, InternalErr: err}
 }
 
-func NewUnauthorizedErorr(msg string, err error) *EndorError {
-	return &EndorError{StatusCode: http.StatusUnauthorized, Message: msg, InternalErr: err}
+func NewUnauthorizedError(err error) *EndorError {
+	return &EndorError{StatusCode: http.StatusUnauthorized, InternalErr: err}
 }
 
-func NewGenericError(msg string, status int, err error) *EndorError {
-	return &EndorError{StatusCode: status, Message: msg, InternalErr: err}
+func NewGenericError(status int, err error) *EndorError {
+	return &EndorError{StatusCode: status, InternalErr: err}
 }
