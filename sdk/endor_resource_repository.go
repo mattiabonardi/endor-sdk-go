@@ -127,7 +127,9 @@ func (h *EndorServiceRepository) ResourceList() ([]Resource, error) {
 	}
 	resourceList := make([]Resource, 0, len(resources))
 	for _, service := range resources {
-		resourceList = append(resourceList, service.resource)
+		if service.EndorService.Resource != "resource" && service.EndorService.Resource != "resource-action" {
+			resourceList = append(resourceList, service.resource)
+		}
 	}
 	return resourceList, nil
 }
