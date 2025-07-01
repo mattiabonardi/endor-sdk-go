@@ -49,14 +49,14 @@ func (h *Service1) test5(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any]
 	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
 }
 
-func NewService1() sdk.EndorResource {
+func NewService1() sdk.EndorService {
 	Service1 := Service1{}
 	priority := 99
-	return sdk.EndorResource{
+	return sdk.EndorService{
 		Resource:    "test",
 		Description: "Testing resource",
 		Priority:    &priority,
-		Methods: map[string]sdk.EndorResourceAction{
+		Methods: map[string]sdk.EndorServiceAction{
 			"test1": sdk.NewAction(
 				Service1.test1,
 				"description 1",
@@ -74,7 +74,7 @@ func NewService1() sdk.EndorResource {
 				"description 4",
 			),
 			"test5": sdk.NewConfigurableAction(
-				sdk.EndorResourceActionOptions{
+				sdk.EndorServiceActionOptions{
 					Public:          true,
 					ValidatePayload: false,
 				},

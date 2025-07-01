@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Init(microserviceId string, internalEndorResources *[]EndorResource) {
+func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	// load configuration
 	config := LoadConfiguration()
 
@@ -32,9 +32,9 @@ func Init(microserviceId string, internalEndorResources *[]EndorResource) {
 	var client *mongo.Client
 	ctx := context.TODO()
 
-	if config.EndorResourceServiceEnabled {
+	if config.EndorServiceServiceEnabled {
 		// Connect to MongoDB
-		clientOptions := options.Client().ApplyURI(config.EndorResourceDBUri)
+		clientOptions := options.Client().ApplyURI(config.EndorServiceDBUri)
 		var err error
 		client, err = mongo.Connect(ctx, clientOptions)
 		if err != nil {
@@ -46,13 +46,13 @@ func Init(microserviceId string, internalEndorResources *[]EndorResource) {
 		if err != nil {
 			log.Fatal("MongoDB ping failed:", err)
 		}
-		*internalEndorResources = append(*internalEndorResources, *NewResourceService(microserviceId, internalEndorResources, client, ctx, microserviceId))
-		*internalEndorResources = append(*internalEndorResources, *NewResourceActionService(microserviceId, internalEndorResources, client, ctx, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, client, ctx, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, client, ctx, microserviceId))
 	}
 
 	// get all resources
-	endorResourceRepository := NewEndorResourceRepository(microserviceId, internalEndorResources, client, ctx, microserviceId)
-	resources, err := endorResourceRepository.EndorResourceList()
+	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, client, ctx, microserviceId)
+	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,11 +63,11 @@ func Init(microserviceId string, internalEndorResources *[]EndorResource) {
 		if len(pathSegments) > 4 {
 			resource := pathSegments[3]
 			action := pathSegments[4]
-			endorRepositoryDictionary, err := endorResourceRepository.Instance(ReadInstanceDTO{
+			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
 				Id: resource,
 			})
 			if err == nil {
-				if method, ok := endorRepositoryDictionary.endorResource.Methods[action]; ok {
+				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
 					method.CreateHTTPCallback(microserviceId)(c)
 					return
 				}

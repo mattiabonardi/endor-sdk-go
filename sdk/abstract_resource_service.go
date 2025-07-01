@@ -15,7 +15,7 @@ type AbstractResourceService struct {
 	context     context.Context
 }
 
-func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoClient *mongo.Client, mongoDB string, context context.Context) EndorResource {
+func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoClient *mongo.Client, mongoDB string, context context.Context) EndorService {
 	service := AbstractResourceService{
 		resource:    resource,
 		definition:  definition,
@@ -23,10 +23,10 @@ func NewAbstractResourceService(resource string, description string, definition 
 		mongoDB:     mongoDB,
 		context:     context,
 	}
-	return EndorResource{
+	return EndorService{
 		Resource:    resource,
 		Description: description,
-		Methods: map[string]EndorResourceAction{
+		Methods: map[string]EndorServiceAction{
 			"schema": NewAction(
 				service.schema,
 				fmt.Sprintf("Get the schema of the %s (%s)", resource, description),

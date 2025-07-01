@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewResourceActionService(microServiceId string, services *[]EndorResource, client *mongo.Client, context context.Context, databaseName string) *EndorResource {
+func NewResourceActionService(microServiceId string, services *[]EndorService, client *mongo.Client, context context.Context, databaseName string) *EndorService {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
@@ -14,10 +14,10 @@ func NewResourceActionService(microServiceId string, services *[]EndorResource, 
 		context:        context,
 		databaseName:   databaseName,
 	}
-	return &EndorResource{
+	return &EndorService{
 		Resource:    "resource-action",
 		Description: "Resource Action",
-		Methods: map[string]EndorResourceAction{
+		Methods: map[string]EndorServiceAction{
 			"schema": NewAction(
 				resourceMethodService.schema,
 				"Get the schema of the resource method",
@@ -36,7 +36,7 @@ func NewResourceActionService(microServiceId string, services *[]EndorResource, 
 
 type ResourceActionService struct {
 	microServiceId string
-	services       *[]EndorResource
+	services       *[]EndorService
 	mongoClient    *mongo.Client
 	context        context.Context
 	databaseName   string
@@ -47,7 +47,7 @@ func (h *ResourceActionService) schema(c *EndorContext[NoPayload]) (*Response[an
 }
 
 func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]ResourceAction], error) {
-	resourceMethods, err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ResourceActionList()
+	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ResourceActionList()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]Re
 }
 
 func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[ResourceAction], error) {
-	resourceAction, err := NewEndorResourceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ActionInstance(c.Payload)
+	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}

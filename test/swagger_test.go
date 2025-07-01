@@ -8,7 +8,7 @@ import (
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorResource{services_test.NewService1()}, "/api")
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api")
 	if err != nil {
 		t.Fail()
 	}
@@ -48,7 +48,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 }
 
 func TestAdaptSwaggerSchemaToSchema(t *testing.T) {
-	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorResource{services_test.NewService1()}, "/api")
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api")
 	if err != nil {
 		t.Fail()
 	}

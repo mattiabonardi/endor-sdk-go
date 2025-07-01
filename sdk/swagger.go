@@ -89,7 +89,7 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorResource, baseApiPath string) (string, error) {
+func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
 	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
@@ -161,7 +161,7 @@ func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
 	return configs, nil
 }
 
-func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorResource, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
@@ -424,7 +424,7 @@ func copySwagger(toDir string) error {
 	})
 }
 
-func resolvePayloadType(method EndorResourceAction) (reflect.Type, error) {
+func resolvePayloadType(method EndorServiceAction) (reflect.Type, error) {
 	val := reflect.ValueOf(method)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()

@@ -8,9 +8,9 @@ import (
 )
 
 type ServerConfig struct {
-	ServerPort                  string
-	EndorResourceDBUri          string
-	EndorResourceServiceEnabled bool
+	ServerPort                 string
+	EndorServiceDBUri          string
+	EndorServiceServiceEnabled bool
 }
 
 func LoadConfiguration() ServerConfig {
@@ -23,19 +23,19 @@ func LoadConfiguration() ServerConfig {
 	if !exists || port == "" {
 		port = "8080"
 	}
-	endorResourceDBUri, exists := os.LookupEnv("ENDOR_RESOURCE_DB_URI")
-	if !exists || endorResourceDBUri == "" {
-		endorResourceDBUri = "mongodb://localhost:27017"
+	EndorServiceDBUri, exists := os.LookupEnv("ENDOR_RESOURCE_DB_URI")
+	if !exists || EndorServiceDBUri == "" {
+		EndorServiceDBUri = "mongodb://localhost:27017"
 	}
-	endorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
-	endorResourceServiceEnabled := true
-	if !exists || endorResourceServiceEnabledStr == "" || endorResourceServiceEnabledStr == "false" {
-		endorResourceServiceEnabled = false
+	EndorServiceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
+	EndorServiceServiceEnabled := true
+	if !exists || EndorServiceServiceEnabledStr == "" || EndorServiceServiceEnabledStr == "false" {
+		EndorServiceServiceEnabled = false
 	}
 
 	return ServerConfig{
-		ServerPort:                  port,
-		EndorResourceDBUri:          endorResourceDBUri,
-		EndorResourceServiceEnabled: endorResourceServiceEnabled,
+		ServerPort:                 port,
+		EndorServiceDBUri:          EndorServiceDBUri,
+		EndorServiceServiceEnabled: EndorServiceServiceEnabled,
 	}
 }
