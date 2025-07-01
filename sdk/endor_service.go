@@ -69,34 +69,12 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 		// call method
 		response, err := m.handler(ec)
 		if err != nil {
-			// 400
-			if errors.Is(err, ErrBadRequest) {
-				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-				return
+			var endorError *EndorError
+			if errors.As(err, &endorError) {
+				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, endorError.Error())))
+			} else {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())))
 			}
-			// 401
-			if errors.Is(err, ErrUnauthorized) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-				return
-			}
-			// 403
-			if errors.Is(err, ErrForbidden) {
-				c.AbortWithStatusJSON(http.StatusForbidden, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-				return
-			}
-			// 404
-			if errors.Is(err, ErrNotFound) {
-				c.AbortWithStatusJSON(http.StatusNotFound, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-				return
-			}
-			// 409
-			if errors.Is(err, ErrAlreadyExists) {
-				c.AbortWithStatusJSON(http.StatusConflict, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-				return
-			}
-			// 500
-			c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
-			return
 		} else {
 			c.Header("X-Endor-Microservice", microserviceId)
 			c.JSON(http.StatusOK, response)

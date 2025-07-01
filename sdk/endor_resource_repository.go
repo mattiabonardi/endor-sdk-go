@@ -146,14 +146,14 @@ func (h *EndorServiceRepository) EndorServiceList() ([]EndorService, error) {
 func (h *EndorServiceRepository) DynamiResourceList() ([]Resource, error) {
 	cursor, err := h.collection.Find(h.context, bson.M{})
 	if err != nil {
-		return nil, ErrInternalServerError
+		return nil, err
 	}
 	var storedResources []Resource
 	if err := cursor.All(h.context, &storedResources); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return []Resource{}, nil
 		} else {
-			return nil, ErrInternalServerError
+			return nil, err
 		}
 	}
 	return storedResources, nil
@@ -191,9 +191,9 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 	err := h.collection.FindOne(h.context, filter).Decode(&resource)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrNotFound
+			return nil, NewNotFoundError("resource not found", err)
 		} else {
-			return nil, ErrInternalServerError
+			return nil, err
 		}
 	}
 	defintion, err := resource.UnmarshalDefinition()
@@ -218,10 +218,10 @@ func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServ
 		if resourceAction, ok := resourceInstance.EndorService.Methods[idSegments[1]]; ok {
 			return h.createAction(idSegments[0], idSegments[1], resourceAction)
 		} else {
-			return nil, ErrNotFound
+			return nil, NewNotFoundError("resource action not found", err)
 		}
 	} else {
-		return nil, ErrBadRequest
+		return nil, NewBadRequestError("", fmt.Errorf("invalid resource action id"))
 	}
 }
 
@@ -230,15 +230,16 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	_, err := h.Instance(ReadInstanceDTO{
 		Id: dto.Data.ID,
 	})
-	if errors.Is(err, ErrNotFound) {
+	var endorError *EndorError
+	if errors.As(err, &endorError) && endorError.StatusCode == 404 {
 		_, err := h.collection.InsertOne(h.context, dto.Data)
 		if err != nil {
-			return ErrInternalServerError
+			return err
 		}
 		h.reloadRouteConfiguration(h.microServiceId)
 		return nil
 	} else {
-		return ErrAlreadyExists
+		return NewConfictErorr("", fmt.Errorf("resource already exist"))
 	}
 }
 
@@ -258,7 +259,7 @@ func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resour
 	filter := bson.M{"_id": dto.Id}
 	_, err = h.collection.UpdateOne(h.context, filter, update)
 	if err != nil {
-		return nil, ErrInternalServerError
+		return nil, err
 	}
 
 	h.reloadRouteConfiguration(h.microServiceId)

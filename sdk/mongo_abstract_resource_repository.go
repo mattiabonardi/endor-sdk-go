@@ -53,9 +53,9 @@ func (r *MongoAbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, er
 	err = r.collection.FindOne(r.context, filter, opts).Decode(&instance)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrNotFound
+			return nil, NewNotFoundError("", nil)
 		} else {
-			return nil, ErrInternalServerError
+			return nil, NewInternalServerError("error during read instance", err)
 		}
 	}
 	return &instance, nil
@@ -68,14 +68,14 @@ func (r *MongoAbstractResourceRepository) List() ([]any, error) {
 	}
 	cursor, err := r.collection.Find(r.context, bson.M{}, opts)
 	if err != nil {
-		return nil, ErrInternalServerError
+		return nil, NewInternalServerError("error during read list", err)
 	}
 	var storedResources []bson.M
 	if err := cursor.All(r.context, &storedResources); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return []any{}, nil
 		} else {
-			return nil, ErrInternalServerError
+			return nil, NewInternalServerError("error during read list", err)
 		}
 	}
 	result := make([]any, len(storedResources))
@@ -94,11 +94,12 @@ func (r *MongoAbstractResourceRepository) Create(dto CreateDTO[any]) error {
 	// check if already exist
 	idValue, ok := doc[r.def.Id].(string)
 	if !ok {
-		return fmt.Errorf("document id is not a string")
+		return NewBadRequestError("", fmt.Errorf("document id is not a string"))
 	}
 	_, err = r.Instance(ReadInstanceDTO{Id: idValue})
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		var endorError *EndorError
+		if errors.As(err, &endorError) && endorError.StatusCode == 404 {
 			// TODO: create real document based on path name, not property name
 			// for now skip. Now document has the name fields as schema properties
 			_, err = r.collection.InsertOne(context.Background(), doc)
@@ -107,7 +108,7 @@ func (r *MongoAbstractResourceRepository) Create(dto CreateDTO[any]) error {
 			return err
 		}
 	}
-	return ErrAlreadyExists
+	return NewConfictErorr("", fmt.Errorf("resource already exist"))
 }
 
 func (r *MongoAbstractResourceRepository) Delete(dto DeleteByIdDTO) error {
@@ -151,7 +152,7 @@ func (r *MongoAbstractResourceRepository) Update(dto UpdateByIdDTO[any]) (any, e
 	// Perform the update
 	_, err = r.collection.UpdateOne(r.context, filter, update)
 	if err != nil {
-		return nil, ErrInternalServerError
+		return nil, err
 	}
 
 	// Return the updated instance
@@ -174,7 +175,7 @@ func (r *MongoAbstractResourceRepository) getIdMapping() (*MongoFieldMapping, er
 	// create id filter
 	idMapping := r.getMapping(r.def.Id)
 	if idMapping == nil {
-		return nil, ErrNotFound
+		return nil, NewNotFoundError("", fmt.Errorf("mapping not found"))
 	}
 	return idMapping, nil
 }
