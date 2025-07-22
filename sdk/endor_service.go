@@ -51,8 +51,8 @@ type endorServiceActionImpl[T any, R any] struct {
 func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		session := Session{
-			Id:       c.GetHeader("X-User-ID"),
-			Username: c.GetHeader("X-User-Session"),
+			Id:       c.GetHeader("X-User-Session"),
+			Username: c.GetHeader("X-User-ID"),
 		}
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
