@@ -53,6 +53,7 @@ type Schema struct {
 	Description *string            `json:"description,omitempty" yaml:"description,omitempty"`
 	Format      *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
 	ReadOnly    *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
+	WriteOnly   *bool              `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
 
 	// field dimension
 	MinLength *int `json:"minLength,omitempty" yaml:"minLength,omitempty"`
@@ -194,6 +195,10 @@ func resolveFieldSchema(f reflect.StructField, t reflect.Type, defs map[string]S
 		props := parseSchemaTag(tag)
 		applySchemaDecorators(&schema, props)
 	}
+	if tag := f.Tag.Get("ui-schema"); tag != "" {
+		props := parseSchemaTag(tag)
+		applyUISchemaDecorators(&schema, props)
+	}
 
 	return schema
 }
@@ -241,21 +246,53 @@ func parseSchemaTag(tag string) map[string]string {
 
 func applySchemaDecorators(s *Schema, props map[string]string) {
 	for key, val := range props {
+		v := val
+
 		switch key {
-		case "minLength":
-			if i, err := strconv.Atoi(val); err == nil {
-				s.MinLength = &i
+		// metadata
+		case "description":
+			s.Description = &v
+		case "title":
+			s.Title = &v
+		case "format":
+			f := SchemaFormatName(v)
+			s.Format = &f
+
+		// permissions
+		case "readOnly":
+			if v == "true" {
+				boolean := true
+				s.ReadOnly = &boolean
 			}
+		case "writeOnly":
+			if v == "true" {
+				boolean := true
+				s.WriteOnly = &boolean
+			}
+
+		// field size
 		case "maxLength":
-			if i, err := strconv.Atoi(val); err == nil {
+			if i, err := strconv.Atoi(v); err == nil {
 				s.MaxLength = &i
 			}
-		case "description":
-			v := val // create isolated copy
-			s.Description = &v
-		case "format":
-			f := SchemaFormatName(val) // isolated instance
-			s.Format = &f
+		case "minLength":
+			if i, err := strconv.Atoi(v); err == nil {
+				s.MinLength = &i
+			}
+		}
+	}
+}
+
+func applyUISchemaDecorators(s *Schema, props map[string]string) {
+	if s.UISchema == nil {
+		s.UISchema = &UISchema{}
+	}
+	for key, val := range props {
+		v := val
+
+		switch key {
+		case "resource":
+			s.UISchema.Resource = &v
 		}
 	}
 }
