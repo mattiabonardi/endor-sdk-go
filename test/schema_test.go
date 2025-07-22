@@ -26,6 +26,8 @@ type User struct {
 	Address    Address            `json:"address"`
 	Cars       []Car              `json:"cars"`
 	CurrentCar Car                `json:"car"`
+	DateTime   primitive.DateTime `json:"dateTime"`
+	Date       string             `json:"date" schema:"description=The Date,format=date"`
 }
 
 type CarTreeNode struct {
@@ -50,7 +52,7 @@ func TestSchemaTypes(t *testing.T) {
 	if userSchema.Type != sdk.ObjectType {
 		t.Fatalf("Received %v", schema.Type)
 	}
-	if len(userSchemaProperties) != 9 {
+	if len(userSchemaProperties) != 11 {
 		t.Fatalf("Received %v", len(userSchemaProperties))
 	}
 	if userSchemaProperties["id"].Type != sdk.StringType {
@@ -89,9 +91,26 @@ func TestSchemaTypes(t *testing.T) {
 	if len(carSchemaProperties) != 1 {
 		t.Fatalf("Received %v", len(carSchemaProperties))
 	}
+	// date time
+	if userSchemaProperties["dateTime"].Type != sdk.StringType {
+		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Type)
+	}
+	if *userSchemaProperties["dateTime"].Format != sdk.DateTimeFormat {
+		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Format)
+	}
+	// date (with decorators)
+	if userSchemaProperties["date"].Type != sdk.StringType {
+		t.Fatalf("Received %v", userSchemaProperties["date"].Type)
+	}
+	if *userSchemaProperties["date"].Description != "The Date" {
+		t.Fatalf("Received %v", userSchemaProperties["date"].Description)
+	}
+	if *userSchemaProperties["date"].Format != sdk.DateFormat {
+		t.Fatalf("Received %v", userSchemaProperties["date"].Format)
+	}
 
 	// ui schema
-	if len(*userSchema.UISchema.Order) != 9 {
+	if len(*userSchema.UISchema.Order) != 11 {
 		t.Fatalf("Received %v", len(*userSchema.UISchema.Order))
 	}
 	order := *userSchema.UISchema.Order

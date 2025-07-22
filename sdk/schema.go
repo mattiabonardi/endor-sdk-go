@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -52,6 +53,10 @@ type Schema struct {
 	Description *string            `json:"description,omitempty" yaml:"description,omitempty"`
 	Format      *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
 	ReadOnly    *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
+
+	// field dimension
+	MinLength *int `json:"minLength,omitempty" yaml:"minLength,omitempty"`
+	MaxLength *int `json:"maxLength,omitempty" yaml:"maxLength,omitempty"`
 
 	UISchema *UISchema `json:"x-ui,omitempty" yaml:"x-ui,omitempty"`
 }
@@ -136,7 +141,7 @@ func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 		// add field to order
 		*schema.UISchema.Order = append(*schema.UISchema.Order, name)
 
-		(*schema.Properties)[name] = resolveFieldSchema(field.Type, defs)
+		(*schema.Properties)[name] = resolveFieldSchema(field, field.Type, defs)
 	}
 
 	// Update the schema now that it's fully constructed
@@ -147,36 +152,50 @@ func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 	}
 }
 
-func resolveFieldSchema(t reflect.Type, defs map[string]Schema) Schema {
+func resolveFieldSchema(f reflect.StructField, t reflect.Type, defs map[string]Schema) Schema {
 	// Dereference pointers
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
+	var schema Schema
+
+	// Handle special types
 	if t.PkgPath() == "go.mongodb.org/mongo-driver/bson/primitive" && t.Name() == "ObjectID" {
-		return Schema{Type: StringType}
+		schema = Schema{Type: StringType}
+	} else if t.PkgPath() == "go.mongodb.org/mongo-driver/bson/primitive" && t.Name() == "DateTime" {
+		schema = Schema{Type: StringType, Format: NewSchemaFormat(DateTimeFormat)}
+	} else {
+		// Handle built-in kinds
+		switch t.Kind() {
+		case reflect.String:
+			schema = Schema{Type: StringType}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			schema = Schema{Type: IntegerType}
+		case reflect.Float32, reflect.Float64:
+			schema = Schema{Type: NumberType}
+		case reflect.Bool:
+			schema = Schema{Type: BooleanType}
+		case reflect.Slice, reflect.Array:
+			// Don't recurse with the same field – array element doesn't have tags
+			itemSchema := resolveFieldSchema(reflect.StructField{}, t.Elem(), defs)
+			schema = Schema{
+				Type:  ArrayType,
+				Items: &itemSchema,
+			}
+		case reflect.Struct:
+			schema = buildSchemaWithDefs(t, defs)
+		default:
+			schema = Schema{Type: StringType}
+		}
 	}
 
-	switch t.Kind() {
-	case reflect.String:
-		return Schema{Type: StringType}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Schema{Type: IntegerType}
-	case reflect.Float32, reflect.Float64:
-		return Schema{Type: NumberType}
-	case reflect.Bool:
-		return Schema{Type: BooleanType}
-	case reflect.Slice, reflect.Array:
-		itemSchema := resolveFieldSchema(t.Elem(), defs)
-		return Schema{
-			Type:  ArrayType,
-			Items: &itemSchema,
-		}
-	case reflect.Struct:
-		return buildSchemaWithDefs(t, defs)
-	default:
-		return Schema{Type: StringType}
+	if tag := f.Tag.Get("schema"); tag != "" {
+		props := parseSchemaTag(tag)
+		applySchemaDecorators(&schema, props)
 	}
+
+	return schema
 }
 
 func getTypeName(t reflect.Type) string {
@@ -206,4 +225,37 @@ func getTypeName(t reflect.Type) string {
 		return nameBefore + "_" + nameInside
 	}
 	return originalName
+}
+
+func parseSchemaTag(tag string) map[string]string {
+	parts := strings.Split(tag, ",")
+	props := make(map[string]string)
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 {
+			props[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return props
+}
+
+func applySchemaDecorators(s *Schema, props map[string]string) {
+	for key, val := range props {
+		switch key {
+		case "minLength":
+			if i, err := strconv.Atoi(val); err == nil {
+				s.MinLength = &i
+			}
+		case "maxLength":
+			if i, err := strconv.Atoi(val); err == nil {
+				s.MaxLength = &i
+			}
+		case "description":
+			v := val // create isolated copy
+			s.Description = &v
+		case "format":
+			f := SchemaFormatName(val) // isolated instance
+			s.Format = &f
+		}
+	}
 }
