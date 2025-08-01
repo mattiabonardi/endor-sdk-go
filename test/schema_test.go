@@ -27,7 +27,7 @@ type User struct {
 	Cars       []Car              `json:"cars"`
 	CurrentCar Car                `json:"car"`
 	DateTime   primitive.DateTime `json:"dateTime"`
-	Date       string             `json:"date" schema:"description=The Date,format=date" ui-schema:"resource=xxx"`
+	Date       string             `json:"date" schema:"description=The Date,format=date" ui-schema:"resource=xxx,hidden=true"`
 }
 
 type CarTreeNode struct {
@@ -108,11 +108,13 @@ func TestSchemaTypes(t *testing.T) {
 	if *userSchemaProperties["date"].Format != sdk.DateFormat {
 		t.Fatalf("Received %v", userSchemaProperties["date"].Format)
 	}
+	// ui schema
 	if *userSchemaProperties["date"].UISchema.Resource != "xxx" {
 		t.Fatalf("Received %v", userSchemaProperties["date"].UISchema.Resource)
 	}
-
-	// ui schema
+	if !*userSchemaProperties["date"].UISchema.Hidden {
+		t.Fatalf("Received %v", userSchemaProperties["date"].UISchema.Hidden)
+	}
 	if len(*userSchema.UISchema.Order) != 11 {
 		t.Fatalf("Received %v", len(*userSchema.UISchema.Order))
 	}

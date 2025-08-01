@@ -66,6 +66,7 @@ type UISchema struct {
 	Resource *string   `json:"resource,omitempty" yaml:"resource,omitempty"` // define the reference resource
 	Order    *[]string `json:"order,omitempty" yaml:"order,omitempty"`       // define the order of the attributes
 	Id       *string   `json:"id,omitempty" yaml:"id,omitempty"`             // define the property that refers to id
+	Hidden   *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"`     // define if the property is displayable
 }
 
 type RootSchema struct {
@@ -293,6 +294,11 @@ func applyUISchemaDecorators(s *Schema, props map[string]string) {
 		switch key {
 		case "resource":
 			s.UISchema.Resource = &v
+		case "hidden":
+			if v == "true" {
+				trueValue := true
+				s.UISchema.Hidden = &trueValue
+			}
 		}
 	}
 }
