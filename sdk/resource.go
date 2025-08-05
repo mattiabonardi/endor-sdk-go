@@ -7,10 +7,10 @@ import (
 )
 
 type Resource struct {
-	ID          string `json:"id" bson:"_id"`
-	Description string `json:"description"`
-	Service     string `json:"service"`
-	Definition  string `json:"definition"` // YAML string, raw
+	ID          string `json:"id" bson:"_id" schema:"title=Id"`
+	Description string `json:"description" schema:"title=Description"`
+	Service     string `json:"service" schema:"title=Service"`
+	Definition  string `json:"definition" schema:"title=Definition,format=yaml"` // YAML string, raw
 }
 
 type ResourceDefinition struct {
@@ -124,8 +124,8 @@ type ResourceSliceContext struct {
 
 type ResourceAction struct {
 	// version/resource/action
-	ID          string `json:"id"`
-	Resource    string `json:"resource"`
-	Description string `json:"description"`
-	InputSchema string `json:"inputSchema"`
+	ID          string `json:"id" schema:"title=Id"`
+	Resource    string `json:"resource" schema:"title=Resource" ui-schema:"resource=resource"`
+	Description string `json:"description" schema:"title=Description"`
+	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
 }

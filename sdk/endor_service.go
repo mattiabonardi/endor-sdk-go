@@ -37,6 +37,7 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 		Description:     description,
 		Public:          false,
 		ValidatePayload: true,
+		InputSchema:     nil,
 	}
 	// resolve input params dynamically
 	var zeroT T
@@ -45,7 +46,7 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 		tType = tType.Elem()
 	}
 	// convert type to schema
-	if tType != reflect.TypeOf(NoPayload{}) {
+	if tType != nil && tType != reflect.TypeOf(NoPayload{}) {
 		options.InputSchema = NewSchemaByType(tType)
 	}
 	return NewConfigurableAction(options, handler)

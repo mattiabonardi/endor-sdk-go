@@ -53,7 +53,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			Service:     h.microServiceId,
 		}
 		for methodName, method := range internalEndorService.Methods {
-			if methodName == "create" {
+			if methodName == "create" && method.GetOptions().InputSchema != nil {
 				definition := ResourceDefinition{
 					Schema: *method.GetOptions().InputSchema,
 				}
@@ -167,7 +167,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 				Service:     h.microServiceId,
 			}
 			for methodName, method := range service.Methods {
-				if methodName == "create" {
+				if methodName == "create" && method.GetOptions().InputSchema != nil {
 					definition := ResourceDefinition{
 						Schema: *method.GetOptions().InputSchema,
 					}
@@ -303,9 +303,11 @@ func (h *EndorServiceRepository) createAction(resourceName string, actionName st
 		Resource:    resourceName,
 		Description: endorServiceAction.GetOptions().Description,
 	}
-	inputSchema, err := endorServiceAction.GetOptions().InputSchema.ToYAML()
-	if err == nil {
-		action.InputSchema = inputSchema
+	if endorServiceAction.GetOptions().InputSchema != nil {
+		inputSchema, err := endorServiceAction.GetOptions().InputSchema.ToYAML()
+		if err == nil {
+			action.InputSchema = inputSchema
+		}
 	}
 	return &EndorServiceActionDictionary{
 		EndorServiceAction: endorServiceAction,
