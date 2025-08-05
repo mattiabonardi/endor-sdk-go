@@ -35,17 +35,54 @@ func NewAbstractResourceService(resource string, description string, definition 
 				service.list,
 				fmt.Sprintf("Search for available list of %s (%s)", resource, description),
 			),
-			"create": NewAction(
+			"create": NewConfigurableAction(
+				EndorServiceActionOptions{
+					Description:     fmt.Sprintf("Create the instance of %s (%s)", resource, description),
+					Public:          false,
+					ValidatePayload: true,
+					InputSchema: &RootSchema{
+						Schema: Schema{
+							Reference: fmt.Sprintf("#/$defs/CreateDTO_%s", resource),
+						},
+						Definitions: map[string]Schema{
+							fmt.Sprintf("CreateDTO_%s", resource): {
+								Type: ObjectType,
+								Properties: &map[string]Schema{
+									"data": definition.Schema.Schema,
+								},
+							},
+						},
+					},
+				},
 				service.create,
-				fmt.Sprintf("Create the instance of %s (%s)", resource, description),
 			),
 			"instance": NewAction(
 				service.instance,
 				fmt.Sprintf("Get the instance of %s (%s)", resource, description),
 			),
-			"update": NewAction(
+			"update": NewConfigurableAction(
+				EndorServiceActionOptions{
+					Description:     fmt.Sprintf("Update the existing instance of %s (%s)", resource, description),
+					Public:          false,
+					ValidatePayload: true,
+					InputSchema: &RootSchema{
+						Schema: Schema{
+							Reference: fmt.Sprintf("#/$defs/UpdateByIdDTO_%s", resource),
+						},
+						Definitions: map[string]Schema{
+							fmt.Sprintf("UpdateByIdDTO_%s", resource): {
+								Type: ObjectType,
+								Properties: &map[string]Schema{
+									"id": {
+										Type: StringType,
+									},
+									"data": definition.Schema.Schema,
+								},
+							},
+						},
+					},
+				},
 				service.update,
-				fmt.Sprintf("Update the existing instance of %s (%s)", resource, description),
 			),
 			"delete": NewAction(
 				service.delete,

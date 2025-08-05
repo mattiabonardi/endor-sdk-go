@@ -19,6 +19,7 @@ type EndorServiceActionOptions struct {
 	Description     string
 	Public          bool
 	ValidatePayload bool
+	InputSchema     *RootSchema
 }
 
 type EndorService struct {
@@ -32,11 +33,22 @@ type EndorService struct {
 }
 
 func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceAction {
-	return NewConfigurableAction(EndorServiceActionOptions{
+	options := EndorServiceActionOptions{
 		Description:     description,
 		Public:          false,
 		ValidatePayload: true,
-	}, handler)
+	}
+	// resolve input params dynamically
+	var zeroT T
+	tType := reflect.TypeOf(zeroT)
+	if tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	// convert type to schema
+	if tType != reflect.TypeOf(NoPayload{}) {
+		options.InputSchema = NewSchemaByType(tType)
+	}
+	return NewConfigurableAction(options, handler)
 }
 
 func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceAction {

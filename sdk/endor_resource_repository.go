@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"reflect"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,11 +53,9 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			Service:     h.microServiceId,
 		}
 		for methodName, method := range internalEndorService.Methods {
-			payload, _ := resolvePayloadType(method)
-			requestSchema := NewSchemaByType(payload)
 			if methodName == "create" {
 				definition := ResourceDefinition{
-					Schema: *requestSchema,
+					Schema: *method.GetOptions().InputSchema,
 				}
 				stringDefinition, _ := definition.ToYAML()
 				resource.Definition = stringDefinition
@@ -170,11 +167,9 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 				Service:     h.microServiceId,
 			}
 			for methodName, method := range service.Methods {
-				payload, _ := resolvePayloadType(method)
-				requestSchema := NewSchemaByType(payload)
 				if methodName == "create" {
 					definition := ResourceDefinition{
-						Schema: *requestSchema,
+						Schema: *method.GetOptions().InputSchema,
 					}
 					stringDefinition, _ := definition.ToYAML()
 					resource.Definition = stringDefinition
@@ -301,23 +296,19 @@ func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string)
 	return nil
 }
 
-func (h *EndorServiceRepository) createAction(resourceName string, actionName string, EndorServiceAction EndorServiceAction) (*EndorServiceActionDictionary, error) {
+func (h *EndorServiceRepository) createAction(resourceName string, actionName string, endorServiceAction EndorServiceAction) (*EndorServiceActionDictionary, error) {
 	actionId := path.Join(resourceName, actionName)
 	action := ResourceAction{
 		ID:          actionId,
 		Resource:    resourceName,
-		Description: EndorServiceAction.GetOptions().Description,
+		Description: endorServiceAction.GetOptions().Description,
 	}
-	payload, err := resolvePayloadType(EndorServiceAction)
-	if payload != reflect.TypeOf(NoPayload{}) && err == nil {
-		schema := NewSchemaByType(payload)
-		schemaYaml, err := schema.ToYAML()
-		if err == nil {
-			action.InputSchema = schemaYaml
-		}
+	inputSchema, err := endorServiceAction.GetOptions().InputSchema.ToYAML()
+	if err == nil {
+		action.InputSchema = inputSchema
 	}
 	return &EndorServiceActionDictionary{
-		EndorServiceAction: EndorServiceAction,
+		EndorServiceAction: endorServiceAction,
 		resourceAction:     action,
 	}, nil
 }
