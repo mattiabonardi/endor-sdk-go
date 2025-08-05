@@ -292,6 +292,8 @@ func applyUISchemaDecorators(s *Schema, props map[string]string) {
 		v := val
 
 		switch key {
+		case "id":
+			s.UISchema.Id = &v
 		case "resource":
 			s.UISchema.Resource = &v
 		case "hidden":
