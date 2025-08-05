@@ -7,10 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
-
-	"github.com/mattiabonardi/endor-sdk-go/sdk/dao"
 )
 
 //go:embed swagger/*
@@ -126,41 +123,6 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	return swaggerFolder, err
 }
 
-func GetSwaggerConfigurations() ([]OpenAPIConfiguration, error) {
-	configs := []OpenAPIConfiguration{}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return configs, err
-	}
-	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder)
-	baseFolderDao, err := dao.NewFileSystemDAO(swaggerFolder)
-	if err != nil {
-		return configs, err
-	}
-	folders, err := baseFolderDao.ListFolders()
-	if err != nil {
-		return configs, err
-	}
-	for _, folder := range folders {
-		configFilePath := filepath.Join(swaggerFolder, folder)
-		configFsDao, err := dao.NewFileSystemDAO(configFilePath)
-		if err != nil {
-			return configs, err
-		}
-		content, err := configFsDao.Instace(configurationFileName)
-		if err != nil {
-			return configs, err
-		}
-		var cfg OpenAPIConfiguration
-		err = json.Unmarshal([]byte(content), &cfg)
-		if err != nil {
-			return configs, err
-		}
-		configs = append(configs, cfg)
-	}
-	return configs, nil
-}
-
 func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
@@ -249,15 +211,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					},
 				},
 			}
-
-			// find payload using reflection
-			payload, err := resolvePayloadType(method)
-			// ignore NoPayload
-			if payload != reflect.TypeOf(NoPayload{}) {
-				if err != nil {
-					return swaggerConfiguration, err
-				}
-				requestSchema := NewSchemaByType(payload)
+			if method.GetOptions().InputSchema != nil {
+				requestSchema := method.GetOptions().InputSchema
 				originalRef := requestSchema.Reference
 				// put all payload schemas to components
 				for schemaName, schema := range requestSchema.Definitions {
@@ -319,71 +274,6 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 	return swaggerConfiguration, nil
 }
 
-func AdaptSwaggerSchemaToSchema(openApiComponents OpenApiComponents, schema *Schema) RootSchema {
-	visited := make(map[string]bool)
-	defs := make(map[string]Schema)
-
-	// resolve root schema
-	root := resolveSchema(schema, openApiComponents, defs, visited)
-
-	return RootSchema{
-		Schema:      *root,
-		Definitions: defs,
-	}
-}
-
-func resolveSchema(s *Schema, components OpenApiComponents, defs map[string]Schema, visited map[string]bool) *Schema {
-	if s == nil {
-		return nil
-	}
-
-	if s.Reference != "" {
-		refName := extractRefName(s.Reference)
-		if visited[refName] {
-			// Already visited
-			return &Schema{Reference: "#/$defs/" + refName}
-		}
-
-		refSchema, ok := components.Schemas[refName]
-		if !ok {
-			// Reference not found
-			return &Schema{}
-		}
-
-		// Mark as visited before resolving to prevent circular recursion
-		visited[refName] = true
-
-		// Recursively resolve referenced schema
-		resolved := resolveSchema(&refSchema, components, defs, visited)
-
-		// Add to $defs
-		defs[refName] = *resolved
-
-		// Return a $ref to the definition
-		return &Schema{
-			Reference: "#/$defs/" + refName,
-		}
-	}
-
-	// Deep copy of the schema
-	result := &Schema{
-		Type:  s.Type,
-		Enum:  s.Enum,
-		Items: resolveSchema(s.Items, components, defs, visited),
-	}
-
-	if s.Properties != nil {
-		props := make(map[string]Schema)
-		for key, prop := range *s.Properties {
-			resolvedProp := resolveSchema(&prop, components, defs, visited)
-			props[key] = *resolvedProp
-		}
-		result.Properties = &props
-	}
-
-	return result
-}
-
 func extractRefName(ref string) string {
 	// assuming refs look like "#/components/schemas/ModelName"
 	parts := strings.Split(ref, "/")
@@ -422,43 +312,6 @@ func copySwagger(toDir string) error {
 
 		return os.WriteFile(dstPath, data, 0644)
 	})
-}
-
-func resolvePayloadType(method EndorServiceAction) (reflect.Type, error) {
-	val := reflect.ValueOf(method)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-
-	handlerFunc := val.FieldByName("handler")
-	if !handlerFunc.IsValid() {
-		return nil, fmt.Errorf("invalid handler")
-	}
-
-	handlerType := handlerFunc.Type()
-
-	if handlerType.Kind() != reflect.Func || handlerType.NumIn() == 0 {
-		return nil, fmt.Errorf("invalid handler function")
-	}
-
-	argType := handlerType.In(0) // should be *sdk.EndorContext[T]
-	if argType.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("handler parameter is not a pointer")
-	}
-
-	elemType := argType.Elem() // should be sdk.EndorContext[T]
-
-	if elemType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("expected a struct, got: %s", elemType.Kind())
-	}
-
-	// Just check for presence of Payload field
-	payloadField, ok := elemType.FieldByName("Payload")
-	if !ok {
-		return nil, fmt.Errorf("payload field not found")
-	}
-
-	return payloadField.Type, nil
 }
 
 // extractFinalSegment extracts the final segment of a string after the last slash
