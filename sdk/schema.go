@@ -37,6 +37,10 @@ const (
 	CurrencyFormat     SchemaFormatName = "currency"      // Currency code (e.g., USD, EUR)
 	YAMLFormat         SchemaFormatName = "yaml"
 	JSONFormat         SchemaFormatName = "json"
+	AssetFormat        SchemaFormatName = "asset"
+	ImageAssetFormat   SchemaFormatName = "image-asset"
+	AudioAssetFormat   SchemaFormatName = "audio-asset"
+	VideoAssetFormat   SchemaFormatName = "video-asset"
 )
 
 func NewSchemaFormat(f SchemaFormatName) *SchemaFormatName {
