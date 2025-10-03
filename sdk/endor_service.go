@@ -40,19 +40,14 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 		InputSchema:     nil,
 	}
 	// resolve input params dynamically
-	var zeroT T
-	tType := reflect.TypeOf(zeroT)
-	if tType.Kind() == reflect.Ptr {
-		tType = tType.Elem()
-	}
-	// convert type to schema
-	if tType != nil && tType != reflect.TypeOf(NoPayload{}) {
-		options.InputSchema = NewSchemaByType(tType)
-	}
+	options.InputSchema = resolveInputSchema[T]()
 	return NewConfigurableAction(options, handler)
 }
 
 func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceAction {
+	if options.InputSchema == nil {
+		options.InputSchema = resolveInputSchema[T]()
+	}
 	return &endorServiceActionImpl[T, R]{handler: handler, options: options}
 }
 
@@ -63,9 +58,14 @@ type endorServiceActionImpl[T any, R any] struct {
 
 func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
 	return func(c *gin.Context) {
+		development := false
+		if c.GetHeader("x-development") == "true" {
+			development = true
+		}
 		session := Session{
-			Id:       c.GetHeader("x-user-session"),
-			Username: c.GetHeader("x-user-id"),
+			Id:          c.GetHeader("x-user-session"),
+			Username:    c.GetHeader("x-user-id"),
+			Development: development,
 		}
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
@@ -97,4 +97,17 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 
 func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 	return m.options
+}
+
+func resolveInputSchema[T any]() *RootSchema {
+	var zeroT T
+	tType := reflect.TypeOf(zeroT)
+	if tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	// convert type to schema
+	if tType != nil && tType != reflect.TypeOf(NoPayload{}) {
+		return NewSchemaByType(tType)
+	}
+	return nil
 }
