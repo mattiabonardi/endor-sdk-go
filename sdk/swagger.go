@@ -191,6 +191,15 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 						Description: "User session",
 						Required:    false,
 					},
+					{
+						Name: "X-Development",
+						In:   "header",
+						Schema: Schema{
+							Type: BooleanType,
+						},
+						Description: "Development flag",
+						Required:    false,
+					},
 				}...)
 			}
 			operation := OpenAPIOperation{

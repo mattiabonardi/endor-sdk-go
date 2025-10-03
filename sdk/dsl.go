@@ -24,6 +24,10 @@ func NewDSLDAO(username string, development bool) *DSLDAO {
 	}
 }
 
+func (dao *DSLDAO) GetBasePath() string {
+	return dao.BasePath
+}
+
 // ListAll returns a list of all files and folders (relative paths) in the base directory (recursive)
 func (dao *DSLDAO) ListAll() ([]string, error) {
 	var items []string
