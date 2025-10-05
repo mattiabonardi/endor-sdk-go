@@ -14,9 +14,9 @@ func NewDSLDAO(username string, development bool) *DSLDAO {
 	homeDir, _ := os.UserHomeDir()
 	var path string
 	if development {
-		path = filepath.Join(homeDir, "etc", "endor", "dsl", username)
+		path = filepath.Join(homeDir, "etc", "endor", "dsl", "dev", username)
 	} else {
-		path = filepath.Join(homeDir, "etc", "endor", "dsl", "_root")
+		path = filepath.Join(homeDir, "etc", "endor", "dsl", "prod")
 	}
 	os.MkdirAll(path, 0755)
 	return &DSLDAO{
