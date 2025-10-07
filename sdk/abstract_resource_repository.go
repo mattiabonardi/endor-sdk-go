@@ -1,10 +1,7 @@
 package sdk
 
 import (
-	"context"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AbstractResourceRepository struct {
@@ -12,7 +9,7 @@ type AbstractResourceRepository struct {
 	sliceContexts      []ResourceSliceContext
 }
 
-func NewAbstractResourceRepository(def ResourceDefinition, client *mongo.Client, dbName string, context context.Context) (*AbstractResourceRepository, error) {
+func NewAbstractResourceRepository(def ResourceDefinition, dbName string) (*AbstractResourceRepository, error) {
 	sliceContexts := []ResourceSliceContext{}
 	for _, ds := range def.DataSources {
 		switch ds.GetType() {
@@ -21,7 +18,7 @@ func NewAbstractResourceRepository(def ResourceDefinition, client *mongo.Client,
 			if !ok {
 				return nil, fmt.Errorf("expected *MongoDataSource, got %T", ds)
 			}
-			mongoRepo, err := NewMongoAbstractResourceRepository(client, dbName, def, *mongoDS, context)
+			mongoRepo, err := NewMongoAbstractResourceRepository(dbName, def, *mongoDS)
 			if err != nil {
 				return nil, err
 			}

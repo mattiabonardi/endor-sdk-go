@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,8 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func Init(microserviceId string, internalEndorServices *[]EndorService) {
@@ -29,31 +26,13 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	var client *mongo.Client
-	ctx := context.TODO()
-
 	if config.EndorResourceServiceEnabled {
-		if config.EndorDynamicResourcesEnabled {
-			// Connect to MongoDB
-			clientOptions := options.Client().ApplyURI(config.EndorServiceDBUri)
-			var err error
-			client, err = mongo.Connect(ctx, clientOptions)
-			if err != nil {
-				log.Fatal("MongoDB connection error:", err)
-			}
-
-			// Ping to test connection
-			err = client.Ping(ctx, nil)
-			if err != nil {
-				log.Fatal("MongoDB ping failed:", err)
-			}
-		}
-		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, client, ctx, microserviceId))
-		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, client, ctx, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, microserviceId))
 	}
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, client, ctx, microserviceId)
+	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, microserviceId)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)

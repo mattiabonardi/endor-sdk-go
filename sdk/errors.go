@@ -31,7 +31,7 @@ func NewInternalServerError(err error) *EndorError {
 	return &EndorError{StatusCode: http.StatusInternalServerError, InternalErr: err}
 }
 
-func NewConfictError(err error) *EndorError {
+func NewConflictError(err error) *EndorError {
 	return &EndorError{StatusCode: http.StatusConflict, InternalErr: err}
 }
 

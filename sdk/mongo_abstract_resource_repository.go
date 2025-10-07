@@ -17,7 +17,7 @@ type MongoAbstractResourceRepository struct {
 	context           context.Context
 }
 
-func NewMongoAbstractResourceRepository(client *mongo.Client, dbName string, def ResourceDefinition, currentDatasource MongoDataSource, context context.Context) (*MongoAbstractResourceRepository, error) {
+func NewMongoAbstractResourceRepository(dbName string, def ResourceDefinition, currentDatasource MongoDataSource) (*MongoAbstractResourceRepository, error) {
 	// Trova il primo datasource Mongo (per ora ne supportiamo solo uno)
 	var mongoDS *MongoDataSource
 	for _, ds := range def.DataSources {
@@ -30,12 +30,14 @@ func NewMongoAbstractResourceRepository(client *mongo.Client, dbName string, def
 		return nil, fmt.Errorf("no MongoDB data source found in definition")
 	}
 
+	client, _ := GetMongoClient()
+
 	coll := client.Database(dbName).Collection(mongoDS.Collection)
 	return &MongoAbstractResourceRepository{
 		collection:        coll,
 		def:               def,
 		currentDatasource: currentDatasource,
-		context:           context,
+		context:           context.TODO(),
 	}, nil
 }
 
@@ -108,7 +110,7 @@ func (r *MongoAbstractResourceRepository) Create(dto CreateDTO[any]) error {
 			return err
 		}
 	}
-	return NewConfictError(fmt.Errorf("resource already exist"))
+	return NewConflictError(fmt.Errorf("resource already exist"))
 }
 
 func (r *MongoAbstractResourceRepository) Delete(dto DeleteByIdDTO) error {

@@ -32,6 +32,7 @@ const (
 	URIFormat          SchemaFormatName = "uri"
 	UUIDFormat         SchemaFormatName = "uuid"
 	PasswordFormat     SchemaFormatName = "password"
+	SecretFormat       SchemaFormatName = "secret"
 	CountryCodeFormat  SchemaFormatName = "country-code"  // ISO 3166-1 alpha-2 country code
 	LanguageCodeFormat SchemaFormatName = "language-code" // Language tag (e.g., en-US)
 	CurrencyFormat     SchemaFormatName = "currency"      // Currency code (e.g., USD, EUR)

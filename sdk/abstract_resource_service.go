@@ -1,27 +1,20 @@
 package sdk
 
 import (
-	"context"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AbstractResourceService struct {
-	resource    string
-	definition  ResourceDefinition
-	mongoClient *mongo.Client
-	mongoDB     string
-	context     context.Context
+	resource   string
+	definition ResourceDefinition
+	mongoDB    string
 }
 
-func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoClient *mongo.Client, mongoDB string, context context.Context) EndorService {
+func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoDB string) EndorService {
 	service := AbstractResourceService{
-		resource:    resource,
-		definition:  definition,
-		mongoClient: mongoClient,
-		mongoDB:     mongoDB,
-		context:     context,
+		resource:   resource,
+		definition: definition,
+		mongoDB:    mongoDB,
 	}
 	return EndorService{
 		Resource:    resource,
@@ -97,7 +90,7 @@ func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) (*Response[
 }
 
 func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
+	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +102,7 @@ func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*R
 }
 
 func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) (*Response[[]any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
+	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +114,7 @@ func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) (*Response[[]
 }
 
 func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
+	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +126,7 @@ func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Resp
 }
 
 func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
+	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +138,7 @@ func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*
 }
 
 func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoClient, h.mongoDB, h.context)
+	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}

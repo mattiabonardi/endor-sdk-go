@@ -84,7 +84,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 		if err != nil {
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
-				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, endorError.InternalErr.Error())))
+				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, endorError.Error())))
 			} else {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())))
 			}

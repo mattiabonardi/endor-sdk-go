@@ -1,17 +1,9 @@
 package sdk
 
-import (
-	"context"
-
-	"go.mongodb.org/mongo-driver/mongo"
-)
-
-func NewResourceActionService(microServiceId string, services *[]EndorService, client *mongo.Client, context context.Context, databaseName string) *EndorService {
+func NewResourceActionService(microServiceId string, services *[]EndorService, databaseName string) *EndorService {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
-		mongoClient:    client,
-		context:        context,
 		databaseName:   databaseName,
 	}
 	return &EndorService{
@@ -37,8 +29,6 @@ func NewResourceActionService(microServiceId string, services *[]EndorService, c
 type ResourceActionService struct {
 	microServiceId string
 	services       *[]EndorService
-	mongoClient    *mongo.Client
-	context        context.Context
 	databaseName   string
 }
 
@@ -47,7 +37,7 @@ func (h *ResourceActionService) schema(c *EndorContext[NoPayload]) (*Response[an
 }
 
 func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]ResourceAction], error) {
-	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ResourceActionList()
+	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).ResourceActionList()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +45,7 @@ func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]Re
 }
 
 func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[ResourceAction], error) {
-	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.mongoClient, h.context, h.databaseName).ActionInstance(c.Payload)
+	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}

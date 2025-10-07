@@ -11,14 +11,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, client *mongo.Client, context context.Context, databaseName string) *EndorServiceRepository {
+func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, databaseName string) *EndorServiceRepository {
+	client, _ := GetMongoClient()
 	serviceRepository := &EndorServiceRepository{
 		microServiceId:        microServiceId,
 		internalEndorServices: internalEndorServices,
-		client:                client,
-		context:               context,
+		context:               context.TODO(),
 	}
-	if client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
+	if LoadConfiguration().EndorDynamicResourcesEnabled {
 		database := client.Database(databaseName)
 		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
 	}
@@ -28,9 +28,8 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]E
 type EndorServiceRepository struct {
 	microServiceId        string
 	internalEndorServices *[]EndorService
-	context               context.Context
-	client                *mongo.Client
 	collection            *mongo.Collection
+	context               context.Context
 }
 
 type EndorServiceDictionary struct {
@@ -66,7 +65,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			resource:     resource,
 		}
 	}
-	if h.client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
+	if LoadConfiguration().EndorDynamicResourcesEnabled {
 		// dynamic
 		dynamicResources, err := h.DynamiResourceList()
 		if err != nil {
@@ -77,7 +76,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			defintion, err := resource.UnmarshalDefinition()
 			if err == nil {
 				resources[resource.ID] = EndorServiceDictionary{
-					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.client, h.microServiceId, h.context),
+					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.microServiceId),
 					resource:     resource,
 				}
 			} else {
@@ -181,7 +180,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			}, nil
 		}
 	}
-	if h.client != nil && LoadConfiguration().EndorDynamicResourcesEnabled {
+	if LoadConfiguration().EndorDynamicResourcesEnabled {
 		// search from database
 		resource := Resource{}
 		filter := bson.M{"_id": dto.Id}
@@ -198,7 +197,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			return nil, err
 		}
 		return &EndorServiceDictionary{
-			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.client, h.microServiceId, h.context),
+			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.microServiceId),
 			resource:     resource,
 		}, nil
 	}
@@ -238,7 +237,7 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 		h.reloadRouteConfiguration(h.microServiceId)
 		return nil
 	} else {
-		return NewConfictError(fmt.Errorf("resource already exist"))
+		return NewConflictError(fmt.Errorf("resource already exist"))
 	}
 }
 
