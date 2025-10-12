@@ -17,7 +17,7 @@ type Car struct {
 }
 
 type User struct {
-	ID         primitive.ObjectID `json:"id"`
+	ID         primitive.ObjectID `json:"id" ui-schema:"id=true"`
 	Name       string             `json:"name"`
 	Email      string             `json:"email"`
 	Age        int                `json:"age"`
@@ -130,6 +130,9 @@ func TestSchemaTypes(t *testing.T) {
 	}
 	if order[8] != "car" {
 		t.Fatalf("Received %v", order[8])
+	}
+	if *userSchema.UISchema.Id != "id" {
+		t.Fatalf("Received %v", len(*userSchema.UISchema.Id))
 	}
 }
 
