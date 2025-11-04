@@ -101,12 +101,12 @@ func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*R
 	return NewResponseBuilder[any]().AddData(&instance).AddSchema(h.createSchema()).Build(), nil
 }
 
-func (h *AbstractResourceService) list(c *EndorContext[NoPayload]) (*Response[[]any], error) {
+func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]any], error) {
 	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
 	if err != nil {
 		return nil, err
 	}
-	list, err := repo.List()
+	list, err := repo.List(c.Payload)
 	if err != nil {
 		return nil, err
 	}

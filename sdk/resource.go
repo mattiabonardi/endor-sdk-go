@@ -111,7 +111,7 @@ func (h *Resource) UnmarshalDefinition() (*ResourceDefinition, error) {
 
 type ResurceRepositoryInterface interface {
 	Instance(dto ReadInstanceDTO) (any, error)
-	List() ([]any, error)
+	List(dto ReadDTO) ([]any, error)
 	Create(dto CreateDTO[any]) error
 	Delete(dto DeleteByIdDTO) error
 	Update(dto UpdateByIdDTO[any]) (any, error)

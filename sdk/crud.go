@@ -16,3 +16,8 @@ type UpdateByIdDTO[T any] struct {
 type DeleteByIdDTO struct {
 	Id string `json:"id,omitempty"`
 }
+
+type ReadDTO struct {
+	Filter     map[string]interface{} `json:"filter"`
+	Projection map[string]interface{} `json:"projection"`
+}

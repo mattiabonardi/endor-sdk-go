@@ -63,12 +63,12 @@ func (r *MongoAbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, er
 	return &instance, nil
 }
 
-func (r *MongoAbstractResourceRepository) List() ([]any, error) {
+func (r *MongoAbstractResourceRepository) List(dto ReadDTO) ([]any, error) {
 	var opts *options.FindOptions
 	if !r.has_IdPath() {
-		opts = options.Find().SetProjection(bson.M{"_id": 0})
+		opts = options.Find().SetProjection(dto.Projection)
 	}
-	cursor, err := r.collection.Find(r.context, bson.M{}, opts)
+	cursor, err := r.collection.Find(r.context, dto.Filter, opts)
 	if err != nil {
 		return nil, NewInternalServerError(err)
 	}

@@ -259,7 +259,7 @@ func resolveFieldSchema(f reflect.StructField, t reflect.Type, defs map[string]S
 
 	if tag := f.Tag.Get("schema"); tag != "" {
 		props := parseSchemaTag(tag)
-		applySchemaDecorators(&schema, props, rootSchema)
+		applySchemaDecorators(&schema, props)
 	}
 	if tag := f.Tag.Get("ui-schema"); tag != "" {
 		props := parseSchemaTag(tag)
@@ -310,7 +310,7 @@ func parseSchemaTag(tag string) map[string]string {
 	return props
 }
 
-func applySchemaDecorators(s *Schema, props map[string]string, rootSchema *Schema) {
+func applySchemaDecorators(s *Schema, props map[string]string) {
 	for key, val := range props {
 		v := val
 

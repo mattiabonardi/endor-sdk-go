@@ -46,8 +46,8 @@ func (r *AbstractResourceRepository) Instance(dto ReadInstanceDTO) (any, error) 
 	return r.sliceContexts[0].repository.Instance(dto)
 }
 
-func (r *AbstractResourceRepository) List() ([]any, error) {
-	return r.sliceContexts[0].repository.List()
+func (r *AbstractResourceRepository) List(dto ReadDTO) ([]any, error) {
+	return r.sliceContexts[0].repository.List(dto)
 }
 
 func (r *AbstractResourceRepository) Create(dto CreateDTO[any]) error {
