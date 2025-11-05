@@ -9,7 +9,7 @@ type AbstractResourceRepository struct {
 	sliceContexts      []ResourceSliceContext
 }
 
-func NewAbstractResourceRepository(def ResourceDefinition, dbName string) (*AbstractResourceRepository, error) {
+func NewAbstractResourceRepository(def ResourceDefinition, customizedRepositories map[string]ResurceRepositoryInterface) (*AbstractResourceRepository, error) {
 	sliceContexts := []ResourceSliceContext{}
 	for _, ds := range def.DataSources {
 		switch ds.GetType() {
@@ -18,7 +18,7 @@ func NewAbstractResourceRepository(def ResourceDefinition, dbName string) (*Abst
 			if !ok {
 				return nil, fmt.Errorf("expected *MongoDataSource, got %T", ds)
 			}
-			mongoRepo, err := NewMongoAbstractResourceRepository(dbName, def, *mongoDS)
+			mongoRepo, err := NewMongoAbstractResourceRepository(GetConfig().EndorDynamicResourceDBName, def, *mongoDS)
 			if err != nil {
 				return nil, err
 			}

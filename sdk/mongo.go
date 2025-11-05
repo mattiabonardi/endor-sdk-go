@@ -19,7 +19,7 @@ var (
 
 // GetMongoClient returns a singleton MongoDB client
 func GetMongoClient() (*mongo.Client, error) {
-	configuration := LoadConfiguration()
+	configuration := GetConfig()
 	mongoOnce.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 		defer cancel()

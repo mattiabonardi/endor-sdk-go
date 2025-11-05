@@ -28,7 +28,7 @@ func NewResourceService(microServiceId string, services *[]EndorService, databas
 			),
 		},
 	}
-	if LoadConfiguration().EndorDynamicResourcesEnabled {
+	if GetConfig().EndorDynamicResourcesEnabled {
 		service.Methods["create"] = NewAction(resourceService.create, "Create a new resource")
 		service.Methods["update"] = NewAction(resourceService.update, "Update an existing resource")
 		service.Methods["delete"] = NewAction(resourceService.delete, "Delete an existing resource")

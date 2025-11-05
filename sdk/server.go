@@ -12,7 +12,10 @@ import (
 
 func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	// load configuration
-	config := LoadConfiguration()
+	config := GetConfig()
+
+	// define runtime configuration
+	config.EndorDynamicResourceDBName = microserviceId
 
 	// create router
 	router := gin.New()

@@ -18,7 +18,7 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]E
 		internalEndorServices: internalEndorServices,
 		context:               context.TODO(),
 	}
-	if LoadConfiguration().EndorDynamicResourcesEnabled {
+	if GetConfig().EndorDynamicResourcesEnabled {
 		database := client.Database(databaseName)
 		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
 	}
@@ -65,7 +65,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			resource:     resource,
 		}
 	}
-	if LoadConfiguration().EndorDynamicResourcesEnabled {
+	if GetConfig().EndorDynamicResourcesEnabled {
 		// dynamic
 		dynamicResources, err := h.DynamiResourceList()
 		if err != nil {
@@ -76,7 +76,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			defintion, err := resource.UnmarshalDefinition()
 			if err == nil {
 				resources[resource.ID] = EndorServiceDictionary{
-					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.microServiceId),
+					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
 					resource:     resource,
 				}
 			} else {
@@ -180,7 +180,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			}, nil
 		}
 	}
-	if LoadConfiguration().EndorDynamicResourcesEnabled {
+	if GetConfig().EndorDynamicResourcesEnabled {
 		// search from database
 		resource := Resource{}
 		filter := bson.M{"_id": dto.Id}
@@ -197,7 +197,7 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			return nil, err
 		}
 		return &EndorServiceDictionary{
-			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion, h.microServiceId),
+			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
 			resource:     resource,
 		}, nil
 	}
@@ -279,7 +279,7 @@ func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO) error {
 }
 
 func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string) error {
-	config := LoadConfiguration()
+	config := GetConfig()
 	resources, err := h.EndorServiceList()
 	if err != nil {
 		return err

@@ -7,14 +7,12 @@ import (
 type AbstractResourceService struct {
 	resource   string
 	definition ResourceDefinition
-	mongoDB    string
 }
 
-func NewAbstractResourceService(resource string, description string, definition ResourceDefinition, mongoDB string) EndorService {
+func NewAbstractResourceService(resource string, description string, definition ResourceDefinition) EndorService {
 	service := AbstractResourceService{
 		resource:   resource,
 		definition: definition,
-		mongoDB:    mongoDB,
 	}
 	return EndorService{
 		Resource:    resource,
@@ -90,7 +88,7 @@ func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) (*Response[
 }
 
 func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
+	repo, err := NewAbstractResourceRepository(h.definition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +100,7 @@ func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*R
 }
 
 func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
+	repo, err := NewAbstractResourceRepository(h.definition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +112,7 @@ func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]an
 }
 
 func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
+	repo, err := NewAbstractResourceRepository(h.definition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +124,7 @@ func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Resp
 }
 
 func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
+	repo, err := NewAbstractResourceRepository(h.definition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +136,7 @@ func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*
 }
 
 func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, h.mongoDB)
+	repo, err := NewAbstractResourceRepository(h.definition, nil)
 	if err != nil {
 		return nil, err
 	}
