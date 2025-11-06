@@ -54,7 +54,7 @@ func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource
 	return NewResponseBuilder[[]Resource]().AddData(&resources).AddSchema(NewSchema(&Resource{})).Build(), nil
 }
 
-func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
+func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO[string]]) (*Response[Resource], error) {
 	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).Instance(c.Payload)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Respons
 	return NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build(), nil
 }
 
-func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Response[Resource], error) {
+func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource, string]]) (*Response[Resource], error) {
 	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Res
 	return NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build(), nil
 }
 
-func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[Resource], error) {
+func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO[string]]) (*Response[Resource], error) {
 	err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
 		return nil, err

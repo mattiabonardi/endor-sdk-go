@@ -53,11 +53,8 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 		}
 		for methodName, method := range internalEndorService.Methods {
 			if methodName == "create" && method.GetOptions().InputSchema != nil {
-				definition := ResourceDefinition{
-					Schema: *method.GetOptions().InputSchema,
-				}
-				stringDefinition, _ := definition.ToYAML()
-				resource.Definition = stringDefinition
+				schema, _ := method.GetOptions().InputSchema.ToYAML()
+				resource.Schema = schema
 			}
 		}
 		resources[internalEndorService.Resource] = EndorServiceDictionary{
@@ -73,7 +70,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 		}
 		// create endor resource
 		for _, resource := range dynamicResources {
-			defintion, err := resource.UnmarshalDefinition()
+			defintion, err := resource.UnmarshalAdditionalAttributes()
 			if err == nil {
 				resources[resource.ID] = EndorServiceDictionary{
 					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
@@ -156,7 +153,7 @@ func (h *EndorServiceRepository) DynamiResourceList() ([]Resource, error) {
 	return storedResources, nil
 }
 
-func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDictionary, error) {
+func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO[string]) (*EndorServiceDictionary, error) {
 	// search from internal services
 	for _, service := range *h.internalEndorServices {
 		if service.Resource == dto.Id {
@@ -167,11 +164,9 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			}
 			for methodName, method := range service.Methods {
 				if methodName == "create" && method.GetOptions().InputSchema != nil {
-					definition := ResourceDefinition{
-						Schema: *method.GetOptions().InputSchema,
+					if stringDefinition, err := method.GetOptions().InputSchema.ToYAML(); err == nil {
+						resource.Schema = stringDefinition
 					}
-					stringDefinition, _ := definition.ToYAML()
-					resource.Definition = stringDefinition
 				}
 			}
 			return &EndorServiceDictionary{
@@ -192,22 +187,22 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 				return nil, err
 			}
 		}
-		defintion, err := resource.UnmarshalDefinition()
+		additionalAttributesDefinition, err := resource.UnmarshalAdditionalAttributes()
 		if err != nil {
 			return nil, err
 		}
 		return &EndorServiceDictionary{
-			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
+			EndorService: NewAbstractResourceService(resource.ID, resource.Description, *additionalAttributesDefinition),
 			resource:     resource,
 		}, nil
 	}
 	return nil, NewNotFoundError(fmt.Errorf("resource %s not found", dto.Id))
 }
 
-func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
+func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO[string]) (*EndorServiceActionDictionary, error) {
 	idSegments := strings.Split(dto.Id, "/")
 	if len(idSegments) == 2 {
-		resourceInstance, err := h.Instance(ReadInstanceDTO{
+		resourceInstance, err := h.Instance(ReadInstanceDTO[string]{
 			Id: idSegments[0],
 		})
 		if err != nil {
@@ -225,7 +220,7 @@ func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServ
 
 func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	dto.Data.Service = h.microServiceId
-	_, err := h.Instance(ReadInstanceDTO{
+	_, err := h.Instance(ReadInstanceDTO[string]{
 		Id: dto.Data.ID,
 	})
 	var endorError *EndorError
@@ -241,9 +236,9 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	}
 }
 
-func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resource, error) {
+func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource, string]) (*Resource, error) {
 	var instance *Resource
-	_, err := h.Instance(ReadInstanceDTO{
+	_, err := h.Instance(ReadInstanceDTO[string]{
 		Id: dto.Data.ID,
 	})
 	if err != nil {
@@ -265,9 +260,9 @@ func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resour
 	return &dto.Data, nil
 }
 
-func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO) error {
+func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO[string]) error {
 	// check if resources already exist
-	_, err := h.Instance(ReadInstanceDTO(dto))
+	_, err := h.Instance(ReadInstanceDTO[string](dto))
 	if err != nil {
 		return err
 	}

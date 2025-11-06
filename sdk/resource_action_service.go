@@ -44,7 +44,7 @@ func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]Re
 	return NewResponseBuilder[[]ResourceAction]().AddData(&resourceMethods).AddSchema(NewSchema(&ResourceAction{})).Build(), nil
 }
 
-func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[ResourceAction], error) {
+func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO[string]]) (*Response[ResourceAction], error) {
 	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err

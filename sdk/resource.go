@@ -1,125 +1,42 @@
 package sdk
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Resource struct {
-	ID          string `json:"id" bson:"_id" schema:"title=Id"`
-	Description string `json:"description" schema:"title=Description"`
-	Service     string `json:"service" schema:"title=Service"`
-	Definition  string `json:"definition" schema:"title=Definition,format=yaml"` // YAML string, raw
+	ID                   string `json:"id" bson:"_id" schema:"title=Id"`
+	Description          string `json:"description" schema:"title=Description"`
+	Service              string `json:"service" schema:"title=Service"`
+	Schema               string `json:"schema" schema:"title=Schema,format=yaml"`
+	AdditionalAttributes string `json:"additionalAttributes" schema:"title=AdditionalAttributes,format=yaml"` // YAML string, raw
 }
 
-type ResourceDefinition struct {
-	Schema      RootSchema     `yaml:"schema"`
-	DataSources DataSourceList `yaml:"dataSources"`
-	Id          string         `yaml:"id"`
-}
-
-type DataSourceList []DataSource
-
-type DataSource interface {
-	GetName() string
-	GetType() string
-}
-
-type BaseDataSource struct {
-	Name string `yaml:"name"`
-	Type string `yaml:"type"`
-
-	// define the dependency of the data source. For example in the multi datasource case
-	Dependencies []string `yaml:"dependencies"`
-}
-
-func (b *BaseDataSource) GetName() string { return b.Name }
-func (b *BaseDataSource) GetType() string { return b.Type }
-
-type MongoDataSource struct {
-	BaseDataSource `yaml:",inline"`
-	Collection     string                       `yaml:"collection"`
-	Mappings       map[string]MongoFieldMapping `yaml:"mappings"`
-}
-
-type MongoFieldMapping struct {
-	Path string `yaml:"path"`
-}
-
-func (dsl *DataSourceList) UnmarshalYAML(value *yaml.Node) error {
-	if value.Kind != yaml.SequenceNode {
-		return fmt.Errorf("expected a sequence for dataSources")
-	}
-
-	var result []DataSource
-
-	for _, item := range value.Content {
-		if item.Kind != yaml.MappingNode {
-			return fmt.Errorf("expected a mapping node in dataSources")
-		}
-
-		var typeName string
-		for i := 0; i < len(item.Content); i += 2 {
-			keyNode := item.Content[i]
-			valNode := item.Content[i+1]
-			if keyNode.Value == "type" {
-				typeName = valNode.Value
-				break
-			}
-		}
-
-		if typeName == "" {
-			return fmt.Errorf("missing or invalid 'type' field in data source")
-		}
-
-		var ds DataSource
-		switch typeName {
-		case "mongodb":
-			ds = &MongoDataSource{}
-		default:
-			return fmt.Errorf("unsupported data source type: %s", typeName)
-		}
-
-		if err := item.Decode(ds); err != nil {
-			return fmt.Errorf("error decoding data source of type %s: %w", typeName, err)
-		}
-
-		result = append(result, ds)
-	}
-
-	*dsl = result
-	return nil
-}
-
-func (h *ResourceDefinition) ToYAML() (string, error) {
-	yamlData, err := yaml.Marshal(&h)
-	if err != nil {
-		return "", err
-	}
-	return string(yamlData), nil
-}
-
-func (h *Resource) UnmarshalDefinition() (*ResourceDefinition, error) {
-	var def ResourceDefinition
-	err := yaml.Unmarshal([]byte(h.Definition), &def)
+func (h *Resource) UnmarshalSchema() (*RootSchema, error) {
+	var def RootSchema
+	err := yaml.Unmarshal([]byte(h.Schema), &def)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
 	}
 	return &def, nil
 }
 
-type ResurceRepositoryInterface interface {
-	Instance(dto ReadInstanceDTO) (any, error)
-	List(dto ReadDTO) ([]any, error)
-	Create(dto CreateDTO[any]) error
-	Delete(dto DeleteByIdDTO) error
-	Update(dto UpdateByIdDTO[any]) (any, error)
-}
-
-type ResourceSliceContext struct {
-	dataSource DataSource
-	repository ResurceRepositoryInterface
+func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var def map[string]Schema
+	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
+	}
+	return &RootSchema{
+		Schema: Schema{
+			Type:       ObjectType,
+			Properties: &def,
+		},
+	}, nil
 }
 
 type ResourceAction struct {
@@ -128,4 +45,78 @@ type ResourceAction struct {
 	Resource    string `json:"resource" schema:"title=Resource" ui-schema:"resource=resource"`
 	Description string `json:"description" schema:"title=Description"`
 	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
+}
+
+type ResourceInstance[T any] struct {
+	This     T              `bson:",inline"`
+	Metadata map[string]any `bson:"metadata,omitempty"`
+}
+
+func (d ResourceInstance[T]) MarshalJSON() ([]byte, error) {
+	base, err := json.Marshal(d.This)
+	if err != nil {
+		return nil, err
+	}
+
+	var baseMap map[string]any
+	if err := json.Unmarshal(base, &baseMap); err != nil {
+		return nil, err
+	}
+
+	for k, v := range d.Metadata {
+		if _, exists := baseMap[k]; !exists {
+			baseMap[k] = v
+		}
+	}
+
+	return json.Marshal(baseMap)
+}
+
+func (d *ResourceInstance[T]) UnmarshalJSON(data []byte) error {
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	var temp T
+	t := reflect.TypeOf(temp)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	known := map[string]struct{}{}
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("json")
+		if tag == "" {
+			tag = t.Field(i).Name
+		}
+		known[tag] = struct{}{}
+	}
+
+	baseMap := make(map[string]any)
+	metaMap := make(map[string]any)
+
+	for k, v := range raw {
+		if _, isKnown := known[k]; isKnown {
+			baseMap[k] = v
+		} else {
+			metaMap[k] = v
+		}
+	}
+
+	baseBytes, err := json.Marshal(baseMap)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(baseBytes, &d.This); err != nil {
+		return err
+	}
+
+	d.Metadata = metaMap
+	return nil
+}
+
+type DynamicResource struct {
+	Id          string `json:"id" schema:"title=Id"`
+	Description string `json:"description" schema:"title=Description"`
 }

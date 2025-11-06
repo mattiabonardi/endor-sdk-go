@@ -1,18 +1,29 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 )
 
 type AbstractResourceService struct {
 	resource   string
-	definition ResourceDefinition
+	rootSchema *RootSchema
+	repository *ResourceInstanceRepository[DynamicResource, string]
 }
 
-func NewAbstractResourceService(resource string, description string, definition ResourceDefinition) EndorService {
+func NewAbstractResourceService(resource string, description string, additionalAttributes RootSchema) EndorService {
+	rootSchema := NewSchema(DynamicResource{})
+	// merge additional attributes
+	for k, v := range *additionalAttributes.Schema.Properties {
+		(*rootSchema.Definitions["DynamicResource"].Properties)[k] = v
+	}
+	for k, v := range additionalAttributes.Definitions {
+		rootSchema.Definitions[k] = v
+	}
 	service := AbstractResourceService{
 		resource:   resource,
-		definition: definition,
+		rootSchema: rootSchema,
+		repository: NewResourceInstanceRepository[DynamicResource, string](resource),
 	}
 	return EndorService{
 		Resource:    resource,
@@ -35,14 +46,20 @@ func NewAbstractResourceService(resource string, description string, definition 
 						Schema: Schema{
 							Reference: fmt.Sprintf("#/$defs/CreateDTO_%s", resource),
 						},
-						Definitions: map[string]Schema{
-							fmt.Sprintf("CreateDTO_%s", resource): {
-								Type: ObjectType,
-								Properties: &map[string]Schema{
-									"data": definition.Schema.Schema,
+						Definitions: func() map[string]Schema {
+							defs := map[string]Schema{
+								fmt.Sprintf("CreateDTO_%s", resource): {
+									Type: ObjectType,
+									Properties: &map[string]Schema{
+										"data": rootSchema.Schema,
+									},
 								},
-							},
-						},
+							}
+							for k, v := range rootSchema.Definitions {
+								defs[k] = v
+							}
+							return defs
+						}(),
 					},
 				},
 				service.create,
@@ -60,17 +77,23 @@ func NewAbstractResourceService(resource string, description string, definition 
 						Schema: Schema{
 							Reference: fmt.Sprintf("#/$defs/UpdateByIdDTO_%s", resource),
 						},
-						Definitions: map[string]Schema{
-							fmt.Sprintf("UpdateByIdDTO_%s", resource): {
-								Type: ObjectType,
-								Properties: &map[string]Schema{
-									"id": {
-										Type: StringType,
+						Definitions: func() map[string]Schema {
+							defs := map[string]Schema{
+								fmt.Sprintf("UpdateByIdDTO_%s", resource): {
+									Type: ObjectType,
+									Properties: &map[string]Schema{
+										"id": {
+											Type: StringType,
+										},
+										"data": rootSchema.Schema,
 									},
-									"data": definition.Schema.Schema,
 								},
-							},
-						},
+							}
+							for k, v := range rootSchema.Definitions {
+								defs[k] = v
+							}
+							return defs
+						}(),
 					},
 				},
 				service.update,
@@ -84,76 +107,45 @@ func NewAbstractResourceService(resource string, description string, definition 
 }
 
 func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) (*Response[any], error) {
-	return NewResponseBuilder[any]().AddSchema(h.createSchema()).Build(), nil
+	return NewResponseBuilder[any]().AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, nil)
+func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO[string]]) (*Response[*ResourceInstance[DynamicResource]], error) {
+	instance, err := h.repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	instance, err := repo.Instance(c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponseBuilder[any]().AddData(&instance).AddSchema(h.createSchema()).Build(), nil
+	return NewResponseBuilder[*ResourceInstance[DynamicResource]]().AddData(&instance).AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, nil)
+func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[DynamicResource]], error) {
+	list, err := h.repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	list, err := repo.List(c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponseBuilder[[]any]().AddData(&list).AddSchema(h.createSchema()).Build(), nil
+	return NewResponseBuilder[[]ResourceInstance[DynamicResource]]().AddData(&list).AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, nil)
+func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[ResourceInstance[DynamicResource]]]) (*Response[ResourceInstance[DynamicResource]], error) {
+	_, err := h.repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	err = repo.Create(c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponseBuilder[any]().AddData(&c.Payload.Data).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[DynamicResource]]().AddData(&c.Payload.Data).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[any]]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, nil)
+func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[ResourceInstance[DynamicResource], string]]) (*Response[ResourceInstance[DynamicResource]], error) {
+	updated, err := h.repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	updated, err := repo.Update(c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponseBuilder[any]().AddData(&updated).AddSchema(h.createSchema()).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[DynamicResource]]().AddData(updated).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
-	repo, err := NewAbstractResourceRepository(h.definition, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = repo.Delete(c.Payload)
+func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO[string]]) (*Response[any], error) {
+	err := h.repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.resource))).Build(), nil
-}
-
-func (h *AbstractResourceService) createSchema() *RootSchema {
-	schema := h.definition.Schema
-	// id
-	if h.definition.Id != "" {
-		schema.UISchema = &UISchema{
-			Id: &h.definition.Id,
-		}
-	}
-	return &schema
 }
