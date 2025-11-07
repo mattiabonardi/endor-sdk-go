@@ -2,6 +2,8 @@ package sdk
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,7 +29,10 @@ func (r *MongoResourceInstanceRepository[ID, T]) Instance(ctx context.Context, d
 	var result ResourceInstance[ID, T]
 	err := r.collection.FindOne(ctx, bson.M{"_id": dto.Id}).Decode(&result)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+		}
+		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
 	}
 	return &result, nil
 }
@@ -65,22 +70,81 @@ func (r *MongoResourceInstanceRepository[ID, T]) Create(ctx context.Context, dto
 		}
 	}
 
+	// Check if resource instance already exists (only if ID is not zero/empty)
+	if idPtr := dto.Data.This.GetID(); idPtr != nil {
+		// For primitive.ObjectID, check if it's not zero
+		if oid, ok := any(*idPtr).(primitive.ObjectID); ok && !oid.IsZero() {
+			_, err := r.Instance(ctx, ReadInstanceDTO[ID]{Id: *idPtr})
+			if err == nil {
+				return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", *idPtr))
+			}
+			// If it's a NotFoundError, that's good - we can proceed with creation
+			var endorErr *EndorError
+			if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
+				// If it's any other error besides NotFound, return it
+				return nil, err
+			}
+		}
+		// For other ID types, do a generic check
+		if _, ok := any(*idPtr).(primitive.ObjectID); !ok {
+			_, err := r.Instance(ctx, ReadInstanceDTO[ID]{Id: *idPtr})
+			if err == nil {
+				return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", *idPtr))
+			}
+			// If it's a NotFoundError, that's good - we can proceed with creation
+			var endorErr *EndorError
+			if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
+				// If it's any other error besides NotFound, return it
+				return nil, err
+			}
+		}
+	}
+
 	_, err := r.collection.InsertOne(ctx, dto.Data)
 	if err != nil {
-		return nil, err
+		// Handle MongoDB duplicate key error
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, NewConflictError(fmt.Errorf("resource instance already exists: %w", err))
+		}
+		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
 	}
 	return &dto.Data, nil
 }
 
 func (r *MongoResourceInstanceRepository[ID, T]) Update(ctx context.Context, dto UpdateByIdDTO[ID, ResourceInstance[ID, T]]) (*ResourceInstance[ID, T], error) {
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": dto.Id}, dto.Data)
+	// First, check if the resource instance exists
+	_, err := r.Instance(ctx, ReadInstanceDTO[ID]{Id: dto.Id})
 	if err != nil {
-		return nil, err
+		return nil, err // This will be a NotFoundError if the instance doesn't exist
 	}
+
+	result, err := r.collection.ReplaceOne(ctx, bson.M{"_id": dto.Id}, dto.Data)
+	if err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
+	}
+
+	if result.ModifiedCount == 0 && result.MatchedCount == 0 {
+		return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+	}
+
 	return &dto.Data, nil
 }
 
 func (r *MongoResourceInstanceRepository[ID, T]) Delete(ctx context.Context, dto DeleteByIdDTO[ID]) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": dto.Id})
-	return err
+	// First, check if the resource instance exists
+	_, err := r.Instance(ctx, ReadInstanceDTO[ID](dto))
+	if err != nil {
+		return err // This will be a NotFoundError if the instance doesn't exist
+	}
+
+	result, err := r.collection.DeleteOne(ctx, bson.M{"_id": dto.Id})
+	if err != nil {
+		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
+	}
+
+	if result.DeletedCount == 0 {
+		return NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+	}
+
+	return nil
 }
