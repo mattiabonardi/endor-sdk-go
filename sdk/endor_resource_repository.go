@@ -51,12 +51,6 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			Description: internalEndorService.Description,
 			Service:     h.microServiceId,
 		}
-		for methodName, method := range internalEndorService.Methods {
-			if methodName == "create" && method.GetOptions().InputSchema != nil {
-				schema, _ := method.GetOptions().InputSchema.ToYAML()
-				resource.Schema = schema
-			}
-		}
 		resources[internalEndorService.Resource] = EndorServiceDictionary{
 			EndorService: internalEndorService,
 			resource:     resource,
@@ -162,13 +156,6 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO[string]) (*EndorSe
 				Description: service.Description,
 				Service:     h.microServiceId,
 			}
-			for methodName, method := range service.Methods {
-				if methodName == "create" && method.GetOptions().InputSchema != nil {
-					if stringDefinition, err := method.GetOptions().InputSchema.ToYAML(); err == nil {
-						resource.Schema = stringDefinition
-					}
-				}
-			}
 			return &EndorServiceDictionary{
 				EndorService: service,
 				resource:     resource,
@@ -236,10 +223,10 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	}
 }
 
-func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource, string]) (*Resource, error) {
+func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[string, Resource]) (*Resource, error) {
 	var instance *Resource
 	_, err := h.Instance(ReadInstanceDTO[string]{
-		Id: dto.Data.ID,
+		Id: dto.Id,
 	})
 	if err != nil {
 		return instance, err

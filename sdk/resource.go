@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
 )
 
@@ -12,17 +13,7 @@ type Resource struct {
 	ID                   string `json:"id" bson:"_id" schema:"title=Id"`
 	Description          string `json:"description" schema:"title=Description"`
 	Service              string `json:"service" schema:"title=Service"`
-	Schema               string `json:"schema" schema:"title=Schema,format=yaml"`
 	AdditionalAttributes string `json:"additionalAttributes" schema:"title=AdditionalAttributes,format=yaml"` // YAML string, raw
-}
-
-func (h *Resource) UnmarshalSchema() (*RootSchema, error) {
-	var def RootSchema
-	err := yaml.Unmarshal([]byte(h.Schema), &def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
-	}
-	return &def, nil
 }
 
 func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -47,12 +38,16 @@ type ResourceAction struct {
 	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
 }
 
-type ResourceInstance[T any] struct {
+type ResourceInstanceInterface[ID comparable] interface {
+	GetID() *ID
+}
+
+type ResourceInstance[ID comparable, T ResourceInstanceInterface[ID]] struct {
 	This     T              `bson:",inline"`
 	Metadata map[string]any `bson:"metadata,omitempty"`
 }
 
-func (d ResourceInstance[T]) MarshalJSON() ([]byte, error) {
+func (d ResourceInstance[ID, T]) MarshalJSON() ([]byte, error) {
 	base, err := json.Marshal(d.This)
 	if err != nil {
 		return nil, err
@@ -72,7 +67,7 @@ func (d ResourceInstance[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(baseMap)
 }
 
-func (d *ResourceInstance[T]) UnmarshalJSON(data []byte) error {
+func (d *ResourceInstance[ID, T]) UnmarshalJSON(data []byte) error {
 	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -116,7 +111,32 @@ func (d *ResourceInstance[T]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (d *ResourceInstance[ID, T]) GetID() *ID {
+	return d.This.GetID()
+}
+
 type DynamicResource struct {
-	Id          string `json:"id" schema:"title=Id"`
-	Description string `json:"description" schema:"title=Description"`
+	Id          primitive.ObjectID `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
+	Description string             `json:"description" bson:"description" schema:"title=Description"`
+}
+
+func (h DynamicResource) GetID() *primitive.ObjectID {
+	return &h.Id
+}
+
+func (h *DynamicResource) SetID(id primitive.ObjectID) {
+	h.Id = id
+}
+
+// MarshalJSON implements custom JSON marshaling for DynamicResource
+func (h DynamicResource) MarshalJSON() ([]byte, error) {
+	// Create a temporary struct to avoid recursion
+	temp := struct {
+		Id          string `json:"id"`
+		Description string `json:"description"`
+	}{
+		Id:          h.Id.Hex(),
+		Description: h.Description,
+	}
+	return json.Marshal(temp)
 }

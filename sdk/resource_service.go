@@ -70,7 +70,7 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Respons
 	return NewResponseBuilder[Resource]().AddData(&c.Payload.Data).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build(), nil
 }
 
-func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource, string]]) (*Response[Resource], error) {
+func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[string, Resource]]) (*Response[Resource], error) {
 	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		return nil, err
