@@ -78,7 +78,7 @@ func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Res
 	return NewResponseBuilder[Resource]().AddData(resource).AddSchema(NewSchema(&Resource{})).AddMessage(NewMessage(Info, "resource updated")).Build(), nil
 }
 
-func (h *ResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[Resource], error) {
+func (h *ResourceService) delete(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
 	err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
 		return nil, err

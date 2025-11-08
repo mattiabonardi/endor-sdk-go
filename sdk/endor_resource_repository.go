@@ -247,11 +247,9 @@ func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resour
 	return &dto.Data, nil
 }
 
-func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO) error {
+func (h *EndorServiceRepository) DeleteOne(dto ReadInstanceDTO) error {
 	// check if resources already exist
-	_, err := h.Instance(ReadInstanceDTO{
-		Id: dto.Id,
-	})
+	_, err := h.Instance(dto)
 	if err != nil {
 		return err
 	}

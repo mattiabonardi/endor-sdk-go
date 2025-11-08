@@ -14,14 +14,16 @@ import (
 
 type MongoResourceInstanceRepository[T ResourceInstanceInterface] struct {
 	collection *mongo.Collection
+	options    ResourceInstanceRepositoryOptions
 }
 
-func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId string) *MongoResourceInstanceRepository[T] {
+func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId string, options ResourceInstanceRepositoryOptions) *MongoResourceInstanceRepository[T] {
 	client, _ := GetMongoClient()
 
 	collection := client.Database(GetConfig().EndorDynamicResourceDBName).Collection(resourceId)
 	return &MongoResourceInstanceRepository[T]{
 		collection: collection,
+		options:    options,
 	}
 }
 
@@ -53,32 +55,40 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 }
 
 func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto CreateDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
-	// Auto-generate string ID if empty
-	if idPtr := dto.Data.This.GetID(); idPtr != nil && *idPtr == "" {
-		newID := primitive.NewObjectID().Hex()
+	// Handle ID based on configuration
+	if idPtr := dto.Data.This.GetID(); idPtr != nil {
+		if *r.options.AutoGenerateID {
+			// Auto-generate string ID if empty (using ObjectID.Hex())
+			if *idPtr == "" {
+				newID := primitive.NewObjectID().Hex()
 
-		// Use reflection to set the ID field generically
-		thisValue := reflect.ValueOf(&dto.Data.This).Elem()
-		if thisValue.Kind() == reflect.Struct {
-			// Look for a field named "Id" of type string
-			idField := thisValue.FieldByName("Id")
-			if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
-				idField.Set(reflect.ValueOf(newID))
+				// Use reflection to set the ID field generically
+				thisValue := reflect.ValueOf(&dto.Data.This).Elem()
+				if thisValue.Kind() == reflect.Struct {
+					// Look for a field named "Id" of type string
+					idField := thisValue.FieldByName("Id")
+					if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
+						idField.Set(reflect.ValueOf(newID))
+					}
+				}
 			}
-		}
-	}
+		} else {
+			// Auto-generation disabled: ID must be provided and must not exist
+			if *idPtr == "" {
+				return nil, NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
+			}
 
-	// Check if resource instance already exists (only if ID is not empty)
-	if idPtr := dto.Data.This.GetID(); idPtr != nil && *idPtr != "" {
-		_, err := r.Instance(ctx, ReadInstanceDTO{Id: *idPtr})
-		if err == nil {
-			return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", *idPtr))
-		}
-		// If it's a NotFoundError, that's good - we can proceed with creation
-		var endorErr *EndorError
-		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
-			// If it's any other error besides NotFound, return it
-			return nil, err
+			// Check if resource instance already exists
+			_, err := r.Instance(ctx, ReadInstanceDTO{Id: *idPtr})
+			if err == nil {
+				return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", *idPtr))
+			}
+			// If it's a NotFoundError, that's good - we can proceed with creation
+			var endorErr *EndorError
+			if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
+				// If it's any other error besides NotFound, return it
+				return nil, err
+			}
 		}
 	}
 
@@ -112,7 +122,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto DeleteByIdDTO) error {
+func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
 	// First, check if the resource instance exists
 	_, err := r.Instance(ctx, ReadInstanceDTO{Id: dto.Id})
 	if err != nil {

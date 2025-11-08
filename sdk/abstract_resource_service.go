@@ -20,10 +20,13 @@ func NewAbstractResourceService(resource string, description string, additionalA
 	for k, v := range additionalAttributes.Definitions {
 		rootSchema.Definitions[k] = v
 	}
+	autogenerateID := true
 	service := AbstractResourceService{
 		resource:   resource,
 		rootSchema: rootSchema,
-		repository: NewResourceInstanceRepository[DynamicResource](resource),
+		repository: NewResourceInstanceRepository[DynamicResource](resource, ResourceInstanceRepositoryOptions{
+			AutoGenerateID: &autogenerateID,
+		}),
 	}
 	return EndorService{
 		Resource:    resource,
@@ -142,7 +145,7 @@ func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[ResourceI
 	return NewResponseBuilder[ResourceInstance[DynamicResource]]().AddData(updated).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
+func (h *AbstractResourceService) delete(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
 	err := h.repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
