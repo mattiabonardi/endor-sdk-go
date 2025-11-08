@@ -147,7 +147,7 @@ func (h *EndorServiceRepository) DynamiResourceList() ([]Resource, error) {
 	return storedResources, nil
 }
 
-func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO[string]) (*EndorServiceDictionary, error) {
+func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDictionary, error) {
 	// search from internal services
 	for _, service := range *h.internalEndorServices {
 		if service.Resource == dto.Id {
@@ -186,10 +186,10 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO[string]) (*EndorSe
 	return nil, NewNotFoundError(fmt.Errorf("resource %s not found", dto.Id))
 }
 
-func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO[string]) (*EndorServiceActionDictionary, error) {
+func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
 	idSegments := strings.Split(dto.Id, "/")
 	if len(idSegments) == 2 {
-		resourceInstance, err := h.Instance(ReadInstanceDTO[string]{
+		resourceInstance, err := h.Instance(ReadInstanceDTO{
 			Id: idSegments[0],
 		})
 		if err != nil {
@@ -207,7 +207,7 @@ func (h *EndorServiceRepository) ActionInstance(dto ReadInstanceDTO[string]) (*E
 
 func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	dto.Data.Service = h.microServiceId
-	_, err := h.Instance(ReadInstanceDTO[string]{
+	_, err := h.Instance(ReadInstanceDTO{
 		Id: dto.Data.ID,
 	})
 	var endorError *EndorError
@@ -223,9 +223,9 @@ func (h *EndorServiceRepository) Create(dto CreateDTO[Resource]) error {
 	}
 }
 
-func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[string, Resource]) (*Resource, error) {
+func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[Resource]) (*Resource, error) {
 	var instance *Resource
-	_, err := h.Instance(ReadInstanceDTO[string]{
+	_, err := h.Instance(ReadInstanceDTO{
 		Id: dto.Id,
 	})
 	if err != nil {
@@ -247,9 +247,11 @@ func (h *EndorServiceRepository) UpdateOne(dto UpdateByIdDTO[string, Resource]) 
 	return &dto.Data, nil
 }
 
-func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO[string]) error {
+func (h *EndorServiceRepository) DeleteOne(dto DeleteByIdDTO) error {
 	// check if resources already exist
-	_, err := h.Instance(ReadInstanceDTO[string](dto))
+	_, err := h.Instance(ReadInstanceDTO{
+		Id: dto.Id,
+	})
 	if err != nil {
 		return err
 	}

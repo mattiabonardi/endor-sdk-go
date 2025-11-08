@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,16 +37,16 @@ type ResourceAction struct {
 	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
 }
 
-type ResourceInstanceInterface[ID comparable] interface {
-	GetID() *ID
+type ResourceInstanceInterface interface {
+	GetID() *string
 }
 
-type ResourceInstance[ID comparable, T ResourceInstanceInterface[ID]] struct {
+type ResourceInstance[T ResourceInstanceInterface] struct {
 	This     T              `bson:",inline"`
 	Metadata map[string]any `bson:"metadata,omitempty"`
 }
 
-func (d ResourceInstance[ID, T]) MarshalJSON() ([]byte, error) {
+func (d ResourceInstance[T]) MarshalJSON() ([]byte, error) {
 	base, err := json.Marshal(d.This)
 	if err != nil {
 		return nil, err
@@ -67,7 +66,7 @@ func (d ResourceInstance[ID, T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(baseMap)
 }
 
-func (d *ResourceInstance[ID, T]) UnmarshalJSON(data []byte) error {
+func (d *ResourceInstance[T]) UnmarshalJSON(data []byte) error {
 	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -111,32 +110,19 @@ func (d *ResourceInstance[ID, T]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (d *ResourceInstance[ID, T]) GetID() *ID {
+func (d *ResourceInstance[T]) GetID() *string {
 	return d.This.GetID()
 }
 
 type DynamicResource struct {
-	Id          primitive.ObjectID `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
-	Description string             `json:"description" bson:"description" schema:"title=Description"`
+	Id          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
+	Description string `json:"description" bson:"description" schema:"title=Description"`
 }
 
-func (h DynamicResource) GetID() *primitive.ObjectID {
+func (h DynamicResource) GetID() *string {
 	return &h.Id
 }
 
-func (h *DynamicResource) SetID(id primitive.ObjectID) {
+func (h *DynamicResource) SetID(id string) {
 	h.Id = id
-}
-
-// MarshalJSON implements custom JSON marshaling for DynamicResource
-func (h DynamicResource) MarshalJSON() ([]byte, error) {
-	// Create a temporary struct to avoid recursion
-	temp := struct {
-		Id          string `json:"id"`
-		Description string `json:"description"`
-	}{
-		Id:          h.Id.Hex(),
-		Description: h.Description,
-	}
-	return json.Marshal(temp)
 }

@@ -3,14 +3,12 @@ package sdk
 import (
 	"context"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type AbstractResourceService struct {
 	resource   string
 	rootSchema *RootSchema
-	repository *ResourceInstanceRepository[primitive.ObjectID, DynamicResource]
+	repository *ResourceInstanceRepository[DynamicResource]
 }
 
 func NewAbstractResourceService(resource string, description string, additionalAttributes RootSchema) EndorService {
@@ -25,7 +23,7 @@ func NewAbstractResourceService(resource string, description string, additionalA
 	service := AbstractResourceService{
 		resource:   resource,
 		rootSchema: rootSchema,
-		repository: NewResourceInstanceRepository[primitive.ObjectID, DynamicResource](resource),
+		repository: NewResourceInstanceRepository[DynamicResource](resource),
 	}
 	return EndorService{
 		Resource:    resource,
@@ -112,39 +110,39 @@ func (h *AbstractResourceService) schema(c *EndorContext[NoPayload]) (*Response[
 	return NewResponseBuilder[any]().AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO[primitive.ObjectID]]) (*Response[*ResourceInstance[primitive.ObjectID, DynamicResource]], error) {
+func (h *AbstractResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstance[DynamicResource]], error) {
 	instance, err := h.repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[*ResourceInstance[primitive.ObjectID, DynamicResource]]().AddData(&instance).AddSchema(h.rootSchema).Build(), nil
+	return NewResponseBuilder[*ResourceInstance[DynamicResource]]().AddData(&instance).AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[primitive.ObjectID, DynamicResource]], error) {
+func (h *AbstractResourceService) list(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[DynamicResource]], error) {
 	list, err := h.repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceInstance[primitive.ObjectID, DynamicResource]]().AddData(&list).AddSchema(h.rootSchema).Build(), nil
+	return NewResponseBuilder[[]ResourceInstance[DynamicResource]]().AddData(&list).AddSchema(h.rootSchema).Build(), nil
 }
 
-func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[ResourceInstance[primitive.ObjectID, DynamicResource]]]) (*Response[ResourceInstance[primitive.ObjectID, DynamicResource]], error) {
+func (h *AbstractResourceService) create(c *EndorContext[CreateDTO[ResourceInstance[DynamicResource]]]) (*Response[ResourceInstance[DynamicResource]], error) {
 	_, err := h.repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[primitive.ObjectID, DynamicResource]]().AddData(&c.Payload.Data).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[DynamicResource]]().AddData(&c.Payload.Data).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[primitive.ObjectID, ResourceInstance[primitive.ObjectID, DynamicResource]]]) (*Response[ResourceInstance[primitive.ObjectID, DynamicResource]], error) {
+func (h *AbstractResourceService) update(c *EndorContext[UpdateByIdDTO[ResourceInstance[DynamicResource]]]) (*Response[ResourceInstance[DynamicResource]], error) {
 	updated, err := h.repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[primitive.ObjectID, DynamicResource]]().AddData(updated).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[DynamicResource]]().AddData(updated).AddSchema(h.rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.resource))).Build(), nil
 }
 
-func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO[primitive.ObjectID]]) (*Response[any], error) {
+func (h *AbstractResourceService) delete(c *EndorContext[DeleteByIdDTO]) (*Response[any], error) {
 	err := h.repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err

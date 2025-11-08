@@ -47,7 +47,7 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 		if len(pathSegments) > 4 {
 			resource := pathSegments[3]
 			action := pathSegments[4]
-			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO[string]{
+			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
 				Id: resource,
 			})
 			if err == nil {
