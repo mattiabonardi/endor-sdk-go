@@ -26,8 +26,6 @@ func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId 
 	}
 }
 
-// ------------------------- INSTANCE -------------------------
-
 func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstance[T], error) {
 	var rawResult bson.M
 
@@ -98,8 +96,6 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 	}, nil
 }
 
-// ------------------------- LIST -------------------------
-
 func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadDTO) ([]ResourceInstance[T], error) {
 	mongoFilter, err := prepareFilter[T](dto.Filter)
 	if err != nil {
@@ -168,8 +164,6 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 	return results, nil
 }
 
-// ------------------------- CREATE -------------------------
-
 func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto CreateDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
 	idPtr := dto.Data.This.GetID()
 	var idStr string
@@ -225,8 +219,6 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto Cre
 	return &dto.Data, nil
 }
 
-// ------------------------- UPDATE -------------------------
-
 func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
 	_, err := r.Instance(ctx, ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
@@ -274,8 +266,6 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 	dto.Data.This.SetID(dto.Id)
 	return &dto.Data, nil
 }
-
-// ------------------------- DELETE -------------------------
 
 func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
 	_, err := r.Instance(ctx, ReadInstanceDTO{Id: dto.Id})
