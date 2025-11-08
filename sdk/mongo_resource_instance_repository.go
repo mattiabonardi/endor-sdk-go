@@ -29,13 +29,39 @@ func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId 
 
 func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstance[T], error) {
 	var result ResourceInstance[T]
-	err := r.collection.FindOne(ctx, bson.M{"_id": dto.Id}).Decode(&result)
+
+	// Convert string ID to ObjectID for MongoDB query if auto-generation is enabled
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	err := r.collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 		}
 		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
 	}
+
+	// Convert ObjectID back to string in the result if using auto-generation
+	if *r.options.AutoGenerateID {
+		thisValue := reflect.ValueOf(&result.This).Elem()
+		if thisValue.Kind() == reflect.Struct {
+			idField := thisValue.FieldByName("Id")
+			if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
+				// Set the string representation of the ID
+				idField.Set(reflect.ValueOf(dto.Id))
+			}
+		}
+	}
+
 	return &result, nil
 }
 
@@ -51,55 +77,91 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 	if err := cursor.All(ctx, &results); err != nil {
 		return nil, err
 	}
-	return results, nil
-}
 
-func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto CreateDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
-	// Handle ID based on configuration
-	if idPtr := dto.Data.This.GetID(); idPtr != nil {
-		if *r.options.AutoGenerateID {
-			// Auto-generate string ID if empty (using ObjectID.Hex())
-			if *idPtr == "" {
-				newID := primitive.NewObjectID().Hex()
-
-				// Use reflection to set the ID field generically
-				thisValue := reflect.ValueOf(&dto.Data.This).Elem()
-				if thisValue.Kind() == reflect.Struct {
-					// Look for a field named "Id" of type string
-					idField := thisValue.FieldByName("Id")
-					if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
-						idField.Set(reflect.ValueOf(newID))
+	// Convert ObjectID back to string in each result if using auto-generation
+	if *r.options.AutoGenerateID {
+		for i := range results {
+			thisValue := reflect.ValueOf(&results[i].This).Elem()
+			if thisValue.Kind() == reflect.Struct {
+				idField := thisValue.FieldByName("Id")
+				if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
+					// Extract ObjectID from the database result and convert to string
+					if objectIDPtr := results[i].This.GetID(); objectIDPtr != nil && *objectIDPtr != "" {
+						// The ID should already be converted, but ensure it's a string
+						idField.Set(reflect.ValueOf(*objectIDPtr))
 					}
 				}
-			}
-		} else {
-			// Auto-generation disabled: ID must be provided and must not exist
-			if *idPtr == "" {
-				return nil, NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
-			}
-
-			// Check if resource instance already exists
-			_, err := r.Instance(ctx, ReadInstanceDTO{Id: *idPtr})
-			if err == nil {
-				return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", *idPtr))
-			}
-			// If it's a NotFoundError, that's good - we can proceed with creation
-			var endorErr *EndorError
-			if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
-				// If it's any other error besides NotFound, return it
-				return nil, err
 			}
 		}
 	}
 
-	_, err := r.collection.InsertOne(ctx, dto.Data)
+	return results, nil
+}
+
+func (r *MongoResourceInstanceRepository[T]) Create(
+	ctx context.Context,
+	dto CreateDTO[ResourceInstance[T]],
+) (*ResourceInstance[T], error) {
+
+	idPtr := dto.Data.This.GetID()
+	var idStr string
+
+	if *r.options.AutoGenerateID {
+		// Generazione automatica dell’ObjectID
+		oid := primitive.NewObjectID()
+		idStr = oid.Hex()
+		dto.Data.This.SetID(idStr)
+	} else {
+		// L'ID deve essere fornito
+		if idPtr == nil || *idPtr == "" {
+			return nil, NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
+		}
+		idStr = *idPtr
+
+		// Verifica che non esista già
+		_, err := r.Instance(ctx, ReadInstanceDTO{Id: idStr})
+		if err == nil {
+			return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", idStr))
+		}
+		var endorErr *EndorError
+		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
+			return nil, err
+		}
+	}
+
+	// Marshal del modello T in mappa BSON
+	resourceBytes, err := bson.Marshal(dto.Data.This)
 	if err != nil {
-		// Handle MongoDB duplicate key error
+		return nil, NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
+	}
+	var resourceMap bson.M
+	if err := bson.Unmarshal(resourceBytes, &resourceMap); err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
+	}
+
+	// Imposta l’_id corretto
+	if *r.options.AutoGenerateID {
+		oid, _ := primitive.ObjectIDFromHex(idStr)
+		resourceMap["_id"] = oid
+	} else {
+		resourceMap["_id"] = idStr
+	}
+
+	// Aggiunge i metadata al documento
+	for k, v := range dto.Data.Metadata {
+		resourceMap[k] = v
+	}
+
+	// Inserisci nel DB
+	_, err = r.collection.InsertOne(ctx, resourceMap)
+	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return nil, NewConflictError(fmt.Errorf("resource instance already exists: %w", err))
 		}
 		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
 	}
+
+	// Restituisce il modello con l’ID string impostato
 	return &dto.Data, nil
 }
 
@@ -110,7 +172,49 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 		return nil, err // This will be a NotFoundError if the instance doesn't exist
 	}
 
-	result, err := r.collection.ReplaceOne(ctx, bson.M{"_id": dto.Id}, dto.Data)
+	// Prepare filter and update document based on auto-generation setting
+	var filter bson.M
+	var updateDoc interface{}
+
+	if *r.options.AutoGenerateID {
+		// Convert string ID to ObjectID for MongoDB query
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+
+		// Prepare update document with ObjectID
+		resourceBytes, err := bson.Marshal(dto.Data.This)
+		if err != nil {
+			return nil, NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
+		}
+
+		var resourceMap bson.M
+		if err := bson.Unmarshal(resourceBytes, &resourceMap); err != nil {
+			return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
+		}
+
+		// Replace _id with ObjectID
+		resourceMap["_id"] = objectID
+
+		// Add metadata to the document
+		mongoDoc := bson.M{}
+		for k, v := range resourceMap {
+			mongoDoc[k] = v
+		}
+		for k, v := range dto.Data.Metadata {
+			mongoDoc[k] = v
+		}
+
+		updateDoc = mongoDoc
+	} else {
+		// Use string ID as-is
+		filter = bson.M{"_id": dto.Id}
+		updateDoc = dto.Data
+	}
+
+	result, err := r.collection.ReplaceOne(ctx, filter, updateDoc)
 	if err != nil {
 		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
 	}
@@ -119,7 +223,20 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 		return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 	}
 
-	return &dto.Data, nil
+	// Return the updated data with correct string ID
+	updatedData := dto.Data
+	if idPtr := updatedData.This.GetID(); idPtr != nil {
+		// Ensure the returned object has the correct string ID
+		thisValue := reflect.ValueOf(&updatedData.This).Elem()
+		if thisValue.Kind() == reflect.Struct {
+			idField := thisValue.FieldByName("Id")
+			if idField.IsValid() && idField.CanSet() && idField.Type() == reflect.TypeOf("") {
+				idField.Set(reflect.ValueOf(dto.Id))
+			}
+		}
+	}
+
+	return &updatedData, nil
 }
 
 func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
@@ -129,7 +246,21 @@ func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto Rea
 		return err // This will be a NotFoundError if the instance doesn't exist
 	}
 
-	result, err := r.collection.DeleteOne(ctx, bson.M{"_id": dto.Id})
+	// Prepare filter based on auto-generation setting
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		// Convert string ID to ObjectID for MongoDB query
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		// Use string ID as-is
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
 		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
 	}

@@ -39,6 +39,7 @@ type ResourceAction struct {
 
 type ResourceInstanceInterface interface {
 	GetID() *string
+	SetID(id string)
 }
 
 type ResourceInstance[T ResourceInstanceInterface] struct {
@@ -119,7 +120,7 @@ type DynamicResource struct {
 	Description string `json:"description" bson:"description" schema:"title=Description"`
 }
 
-func (h DynamicResource) GetID() *string {
+func (h *DynamicResource) GetID() *string {
 	return &h.Id
 }
 
