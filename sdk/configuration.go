@@ -42,12 +42,14 @@ func loadConfiguration() *ServerConfig {
 
 	EndorResourceServiceEnabled := getEnvAsBool("ENDOR_RESOURCE_SERVICE_ENABLED", false)
 	EndorDynamicResourcesEnabled := getEnvAsBool("ENDOR_DYNAMIC_RESOURCES_ENABLED", false)
+	EndorDynamicResourceDBName := getEnv("ENDOR_DYNAMIC_RESOURCE_DB_NAME", "endor-resources")
 
 	return &ServerConfig{
 		ServerPort:                   port,
 		EndorServiceDBUri:            dbUri,
 		EndorResourceServiceEnabled:  EndorResourceServiceEnabled,
 		EndorDynamicResourcesEnabled: EndorDynamicResourcesEnabled,
+		EndorDynamicResourceDBName:   EndorDynamicResourceDBName,
 	}
 }
 
