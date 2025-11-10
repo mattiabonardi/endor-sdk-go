@@ -152,45 +152,48 @@ func NewSchemaWithRootOverride(model any, overrideAttributes Schema) *RootSchema
 }
 
 func NewSchemaByType(t reflect.Type) *RootSchema {
-	defs := make(map[string]Schema)
-	refSchema := buildSchemaWithDefs(t, defs)
+	// New implementation that expands schemas directly
+	visited := make(map[string]bool)
+	expandedSchema := buildExpandedSchema(t, visited)
 
 	return &RootSchema{
-		Schema:      refSchema,
-		Definitions: defs,
+		Schema:      expandedSchema,
+		Definitions: make(map[string]Schema), // Keep empty but present
 	}
 }
 
-func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
-	rootSchema := Schema{}
-
+func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 	// Dereference pointer types
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
 	typeName := getTypeName(t)
-	if _, ok := defs[typeName]; ok {
+
+	// Check for infinite recursion - if we've seen this type before, return a simple string schema
+	if visited[typeName] {
 		return Schema{
-			Reference: "#/$defs/" + typeName,
+			Type:        StringType,
+			Description: &[]string{"Recursive reference to " + typeName}[0],
 		}
 	}
 
 	if t.Kind() != reflect.Struct {
-		panic("buildSchemaWithDefs: input must be a struct or pointer to struct")
+		panic("buildExpandedSchema: input must be a struct or pointer to struct")
 	}
+
+	// Mark this type as visited
+	visited[typeName] = true
 
 	schema := Schema{
 		Type:       ObjectType,
 		Properties: &map[string]Schema{},
 	}
 
-	// Prevent infinite recursion
-	defs[typeName] = schema
-
 	schema.UISchema = &UISchema{
 		Order: &[]string{},
 	}
+
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.PkgPath != "" {
@@ -209,17 +212,16 @@ func buildSchemaWithDefs(t reflect.Type, defs map[string]Schema) Schema {
 		// add field to order
 		*schema.UISchema.Order = append(*schema.UISchema.Order, name)
 
-		(*schema.Properties)[name] = resolveFieldSchema(field, field.Type, defs, &schema, name)
+		(*schema.Properties)[name] = resolveExpandedFieldSchema(field, field.Type, visited, &schema, name)
 	}
 
-	// Update the schema now that it's fully constructed
-	defs[typeName] = schema
+	// Unmark this type as we're done processing it
+	visited[typeName] = false
 
-	rootSchema.Reference = "#/$defs/" + typeName
-	return rootSchema
+	return schema
 }
 
-func resolveFieldSchema(f reflect.StructField, t reflect.Type, defs map[string]Schema, rootSchema *Schema, fieldName string) Schema {
+func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited map[string]bool, rootSchema *Schema, fieldName string) Schema {
 	// Dereference pointers
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -245,13 +247,13 @@ func resolveFieldSchema(f reflect.StructField, t reflect.Type, defs map[string]S
 			schema = Schema{Type: BooleanType}
 		case reflect.Slice, reflect.Array:
 			// Don't recurse with the same field – array element doesn't have tags
-			itemSchema := resolveFieldSchema(reflect.StructField{}, t.Elem(), defs, rootSchema, fieldName)
+			itemSchema := resolveExpandedFieldSchema(reflect.StructField{}, t.Elem(), visited, rootSchema, fieldName)
 			schema = Schema{
 				Type:  ArrayType,
 				Items: &itemSchema,
 			}
 		case reflect.Struct:
-			schema = buildSchemaWithDefs(t, defs)
+			schema = buildExpandedSchema(t, visited)
 		default:
 			schema = Schema{Type: StringType}
 		}

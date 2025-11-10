@@ -13,12 +13,8 @@ type AbstractResourceService struct {
 
 func NewAbstractResourceService(resource string, description string, additionalAttributes RootSchema) EndorService {
 	rootSchema := NewSchema(DynamicResource{})
-	// merge additional attributes
-	for k, v := range *additionalAttributes.Schema.Properties {
-		(*rootSchema.Definitions["DynamicResource"].Properties)[k] = v
-	}
-	for k, v := range additionalAttributes.Definitions {
-		rootSchema.Definitions[k] = v
+	for k, v := range *additionalAttributes.Properties {
+		(*rootSchema.Properties)[k] = v
 	}
 	autogenerateID := true
 	service := AbstractResourceService{
@@ -47,22 +43,11 @@ func NewAbstractResourceService(resource string, description string, additionalA
 					ValidatePayload: true,
 					InputSchema: &RootSchema{
 						Schema: Schema{
-							Reference: fmt.Sprintf("#/$defs/CreateDTO_%s", resource),
+							Type: ObjectType,
+							Properties: &map[string]Schema{
+								"data": rootSchema.Schema,
+							},
 						},
-						Definitions: func() map[string]Schema {
-							defs := map[string]Schema{
-								fmt.Sprintf("CreateDTO_%s", resource): {
-									Type: ObjectType,
-									Properties: &map[string]Schema{
-										"data": rootSchema.Schema,
-									},
-								},
-							}
-							for k, v := range rootSchema.Definitions {
-								defs[k] = v
-							}
-							return defs
-						}(),
 					},
 				},
 				service.create,
@@ -78,25 +63,14 @@ func NewAbstractResourceService(resource string, description string, additionalA
 					ValidatePayload: true,
 					InputSchema: &RootSchema{
 						Schema: Schema{
-							Reference: fmt.Sprintf("#/$defs/UpdateByIdDTO_%s", resource),
-						},
-						Definitions: func() map[string]Schema {
-							defs := map[string]Schema{
-								fmt.Sprintf("UpdateByIdDTO_%s", resource): {
-									Type: ObjectType,
-									Properties: &map[string]Schema{
-										"id": {
-											Type: StringType,
-										},
-										"data": rootSchema.Schema,
-									},
+							Type: ObjectType,
+							Properties: &map[string]Schema{
+								"id": {
+									Type: StringType,
 								},
-							}
-							for k, v := range rootSchema.Definitions {
-								defs[k] = v
-							}
-							return defs
-						}(),
+								"data": rootSchema.Schema,
+							},
+						},
 					},
 				},
 				service.update,
