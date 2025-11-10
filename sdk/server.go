@@ -11,6 +11,10 @@ import (
 )
 
 func Init(microserviceId string, internalEndorServices *[]EndorService) {
+	InitWithHybrid(microserviceId, internalEndorServices, nil)
+}
+
+func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService) {
 	// load configuration
 	config := GetConfig()
 
@@ -35,7 +39,7 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	}
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, microserviceId)
+	EndorServiceRepository := NewEndorServiceRepositoryWithHybrid(microserviceId, internalEndorServices, internalHybridServices, microserviceId)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
