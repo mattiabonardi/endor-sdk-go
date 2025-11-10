@@ -33,9 +33,8 @@ type EndorServiceRepository struct {
 }
 
 type EndorServiceDictionary struct {
-	EndorService           EndorService
-	resource               Resource
-	resourceMetadataSchema RootSchema
+	EndorService EndorService
+	resource     Resource
 }
 
 type EndorServiceActionDictionary struct {
@@ -67,14 +66,9 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 		for _, resource := range dynamicResources {
 			defintion, err := resource.UnmarshalAdditionalAttributes()
 			if err == nil {
-				// if endorService already exist and is hybrid put metadata schema
-				if endorHybridService, ok := resources[resource.ID]; ok {
-					endorHybridService.resourceMetadataSchema = *defintion
-				} else {
-					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
-						resource:     resource,
-					}
+				resources[resource.ID] = EndorServiceDictionary{
+					EndorService: NewAbstractResourceService(resource.ID, resource.Description, *defintion),
+					resource:     resource,
 				}
 			} else {
 				// TODO: non blocked log
