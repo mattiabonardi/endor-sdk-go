@@ -52,7 +52,7 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					method.CreateHTTPCallback(microserviceId)(c)
+					method.CreateHTTPCallback(microserviceId, endorRepositoryDictionary.resourceMetadataSchema)(c)
 					return
 				}
 			}

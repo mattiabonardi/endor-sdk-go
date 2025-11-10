@@ -11,7 +11,7 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceAction interface {
-	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, resourceMetadataSchema RootSchema) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
 }
 
@@ -23,10 +23,11 @@ type EndorServiceActionOptions struct {
 }
 
 type EndorService struct {
-	Resource    string
-	Description string
-	Methods     map[string]EndorServiceAction
-	Priority    *int
+	Resource         string
+	Description      string
+	Methods          map[string]EndorServiceAction
+	Priority         *int
+	ResourceMetadata bool
 
 	// optionals
 	Version string
@@ -56,7 +57,7 @@ type endorServiceActionImpl[T any, R any] struct {
 	options EndorServiceActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, resourceMetadataSchema RootSchema) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -68,9 +69,10 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 			Development: development,
 		}
 		ec := &EndorContext[T]{
-			MicroServiceId: microserviceId,
-			Session:        session,
-			GinContext:     c,
+			MicroServiceId:         microserviceId,
+			Session:                session,
+			GinContext:             c,
+			ResourceMetadataSchema: resourceMetadataSchema,
 		}
 		var t T
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {

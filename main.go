@@ -14,6 +14,5 @@ type Payload struct {
 func main() {
 	sdk.Init("endor-sdk-service", &[]sdk.EndorService{
 		services_test.NewService1(),
-		services_test.NewHybridService(),
 	})
 }
