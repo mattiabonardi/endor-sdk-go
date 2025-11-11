@@ -12,7 +12,6 @@ import (
 )
 
 func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService) *EndorServiceRepository {
-	client, _ := GetMongoClient()
 	serviceRepository := &EndorServiceRepository{
 		microServiceId:         microServiceId,
 		internalEndorServices:  internalEndorServices,
@@ -20,6 +19,7 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]E
 		context:                context.TODO(),
 	}
 	if GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled {
+		client, _ := GetMongoClient()
 		database := client.Database(GetConfig().DynamicResourceDocumentDBName)
 		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
 	}

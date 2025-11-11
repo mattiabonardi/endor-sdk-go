@@ -11,7 +11,7 @@ import (
 type Resource struct {
 	ID                   string `json:"id" bson:"_id" schema:"title=Id"`
 	Description          string `json:"description" schema:"title=Description"`
-	Service              string `json:"service" schema:"title=Service"`
+	Service              string `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
 	AdditionalAttributes string `json:"additionalAttributes" schema:"title=AdditionalAttributes,format=yaml"` // YAML string, raw
 }
 
