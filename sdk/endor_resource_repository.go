@@ -157,8 +157,8 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						resource:     resource,
 					}
 				} else {
-					// Create abstract hybrid service
-					hybridService := NewAbstractHybridResourceService(resource.ID, resource.Description)
+					// Create default hybrid service with all 6 actions
+					hybridService := NewHybridService(resource.ID, resource.Description)
 					resources[resource.ID] = EndorServiceDictionary{
 						EndorService: hybridService.ToEndorService(defintion.Schema),
 						resource:     resource,
@@ -292,8 +292,8 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 				resource:     resource,
 			}, nil
 		} else {
-			// Create abstract hybrid service
-			hybridService := NewAbstractHybridResourceService(resource.ID, resource.Description)
+			// Create default hybrid service with all 6 actions
+			hybridService := NewHybridService(resource.ID, resource.Description)
 			return &EndorServiceDictionary{
 				EndorService: hybridService.ToEndorService(additionalAttributesDefinition.Schema),
 				resource:     resource,
