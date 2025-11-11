@@ -3,48 +3,70 @@ package sdk
 import (
 	"log"
 	"os"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
 
 type ServerConfig struct {
-	ServerPort        string
-	EndorServiceDBUri string
-	// @default false
-	EndorResourceServiceEnabled bool
-	// @default false
+	ServerPort                   string
+	EndorServiceDBUri            string
+	EndorResourceServiceEnabled  bool
 	EndorDynamicResourcesEnabled bool
+	EndorDynamicResourceDBName   string
 }
 
-func LoadConfiguration() ServerConfig {
+// Variabili globali per il singleton
+var (
+	instance *ServerConfig
+	once     sync.Once
+)
+
+// GetConfig restituisce l'istanza singleton di ServerConfig
+func GetConfig() *ServerConfig {
+	once.Do(func() {
+		instance = loadConfiguration()
+	})
+	return instance
+}
+
+// funzione privata per caricare la configurazione
+func loadConfiguration() *ServerConfig {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Printf("Error loading .env file: %s. Ignore this in production.", err)
 	}
 
-	port, exists := os.LookupEnv("PORT")
-	if !exists || port == "" {
-		port = "8080"
-	}
-	EndorServiceDBUri, exists := os.LookupEnv("ENDOR_RESOURCE_DB_URI")
-	if !exists || EndorServiceDBUri == "" {
-		EndorServiceDBUri = "mongodb://localhost:27017"
-	}
-	EndorResourceServiceEnabledStr, exists := os.LookupEnv("ENDOR_RESOURCE_SERVICE_ENABLED")
-	EndorResourceServiceEnabled := true
-	if !exists || EndorResourceServiceEnabledStr == "" || EndorResourceServiceEnabledStr == "false" {
-		EndorResourceServiceEnabled = false
-	}
-	EndorDynamicResourcesEnabledStr, exists := os.LookupEnv("ENDOR_DYNAMIC_RESOURCES_ENABLED")
-	EndorDynamicResourcesEnabled := true
-	if !exists || EndorDynamicResourcesEnabledStr == "" || EndorDynamicResourcesEnabledStr == "false" {
-		EndorDynamicResourcesEnabled = false
-	}
+	port := getEnv("PORT", "8080")
+	dbUri := getEnv("ENDOR_RESOURCE_DB_URI", "mongodb://localhost:27017")
 
-	return ServerConfig{
+	EndorResourceServiceEnabled := getEnvAsBool("ENDOR_RESOURCE_SERVICE_ENABLED", false)
+	EndorDynamicResourcesEnabled := getEnvAsBool("ENDOR_DYNAMIC_RESOURCES_ENABLED", false)
+	EndorDynamicResourceDBName := getEnv("ENDOR_DYNAMIC_RESOURCE_DB_NAME", "endor-resources")
+
+	return &ServerConfig{
 		ServerPort:                   port,
-		EndorServiceDBUri:            EndorServiceDBUri,
+		EndorServiceDBUri:            dbUri,
 		EndorResourceServiceEnabled:  EndorResourceServiceEnabled,
 		EndorDynamicResourcesEnabled: EndorDynamicResourcesEnabled,
+		EndorDynamicResourceDBName:   EndorDynamicResourceDBName,
 	}
+}
+
+// Helpers
+func getEnv(key, defaultVal string) string {
+	if value, exists := os.LookupEnv(key); exists && value != "" {
+		return value
+	}
+	return defaultVal
+}
+
+func getEnvAsBool(key string, defaultVal bool) bool {
+	if value, exists := os.LookupEnv(key); exists {
+		if value == "true" || value == "1" {
+			return true
+		}
+		return false
+	}
+	return defaultVal
 }

@@ -222,40 +222,50 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 			}
 			if method.GetOptions().InputSchema != nil {
 				requestSchema := method.GetOptions().InputSchema
-				originalRef := requestSchema.Reference
-				// put all payload schemas to components
-				for schemaName, schema := range requestSchema.Definitions {
-					if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
-						swaggerConfiguration.Components.Schemas[schemaName] = schema
-						// normalize attributes references
-						for propertyname, property := range *swaggerConfiguration.Components.Schemas[schemaName].Properties {
-							if property.Reference != "" {
-								propertyName := extractRefName(property.Reference)
-								// set reference to the schema
-								prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
-								prop.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
-								(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
-							}
-							if property.Items != nil && property.Items.Reference != "" {
-								propertyName := extractRefName(property.Items.Reference)
-								// set reference to the schema
-								prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
-								prop.Items.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
-								(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+
+				// With expanded schemas, we need to handle differently
+				if requestSchema.Reference != "" {
+					// Old style with reference - extract name and add to components
+					originalRef := requestSchema.Reference
+					for schemaName, schema := range requestSchema.Definitions {
+						if _, ok := swaggerConfiguration.Components.Schemas[schemaName]; !ok {
+							swaggerConfiguration.Components.Schemas[schemaName] = schema
+							// normalize attributes references
+							for propertyname, property := range *swaggerConfiguration.Components.Schemas[schemaName].Properties {
+								if property.Reference != "" {
+									propertyName := extractRefName(property.Reference)
+									// set reference to the schema
+									prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+									prop.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+									(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+								}
+								if property.Items != nil && property.Items.Reference != "" {
+									propertyName := extractRefName(property.Items.Reference)
+									// set reference to the schema
+									prop := (*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname]
+									prop.Items.Reference = fmt.Sprintf("#/components/schemas/%s", propertyName)
+									(*swaggerConfiguration.Components.Schemas[schemaName].Properties)[propertyname] = prop
+								}
 							}
 						}
 					}
-				}
-				// add payload
-				if originalRef != "" {
+					// add payload with reference
 					last := extractFinalSegment(originalRef)
 					operation.RequestBody = &OpenAPIRequestBody{
 						Content: map[string]OpenAPIMediaType{
 							"application/json": {
 								Schema: Schema{
-									// calculate reference
 									Reference: fmt.Sprintf("#/components/schemas/%s", last),
 								},
+							},
+						},
+					}
+				} else {
+					// New style with expanded schema - use inline
+					operation.RequestBody = &OpenAPIRequestBody{
+						Content: map[string]OpenAPIMediaType{
+							"application/json": {
+								Schema: requestSchema.Schema,
 							},
 						},
 					}

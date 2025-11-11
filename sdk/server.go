@@ -11,8 +11,15 @@ import (
 )
 
 func Init(microserviceId string, internalEndorServices *[]EndorService) {
+	InitWithHybrid(microserviceId, internalEndorServices, nil)
+}
+
+func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService) {
 	// load configuration
-	config := LoadConfiguration()
+	config := GetConfig()
+
+	// define runtime configuration
+	config.EndorDynamicResourceDBName = microserviceId
 
 	// create router
 	router := gin.New()
@@ -27,12 +34,12 @@ func Init(microserviceId string, internalEndorServices *[]EndorService) {
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	if config.EndorResourceServiceEnabled {
-		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, microserviceId))
-		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
 	}
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, microserviceId)
+	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, internalHybridServices, microserviceId)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)

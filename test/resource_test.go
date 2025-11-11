@@ -7,32 +7,17 @@ import (
 )
 
 func TestNewResourceDefinitionFromYAML(t *testing.T) {
-	yamlInput := `
-schema:
-  type: object
-  properties:
-    name:
-      type: string
-    surname:
-      type: string
-dataSources:
-  - name: main
-    type: mongodb
-    collection: customers
-    mappings:
-      name:
-        path: name
-      surname:
-        path: surname
-id: name
-`
+	yamlInput := `name:
+  type: string
+surname:
+  type: string`
 	resource := sdk.Resource{
-		ID:          "customer",
-		Description: "Customers",
-		Service:     "",
-		Definition:  yamlInput,
+		ID:                   "customer",
+		Description:          "Customers",
+		Service:              "",
+		AdditionalAttributes: yamlInput,
 	}
-	def, err := resource.UnmarshalDefinition()
+	def, err := resource.UnmarshalAdditionalAttributes()
 	if err != nil {
 		t.Fatalf("Error parsing definition: %v", err)
 	}
@@ -44,29 +29,5 @@ id: name
 	properties := *def.Schema.Properties
 	if _, ok := properties["name"]; !ok {
 		t.Errorf("Schema properties missing 'name'")
-	}
-
-	if len(def.DataSources) != 1 {
-		t.Fatalf("Expected 1 data source, got %d", len(def.DataSources))
-	}
-
-	ds := def.DataSources[0]
-	if ds.GetType() != "mongodb" {
-		t.Errorf("Expected data source type 'mongodb', got %q", ds.GetType())
-	}
-
-	if mongoDS, ok := ds.(*sdk.MongoDataSource); ok {
-		if mongoDS.Collection != "customers" {
-			t.Errorf("Expected collection 'customers', got %q", mongoDS.Collection)
-		}
-		if path, ok := mongoDS.Mappings["name"]; !ok || path.Path != "name" {
-			t.Errorf("Expected mapping for 'name' to path 'name', got %v", path)
-		}
-	} else {
-		t.Errorf("DataSource is not MongoDataSource")
-	}
-
-	if def.Id != "name" {
-		t.Errorf("Expected id 'name', got %s", def.Id)
 	}
 }

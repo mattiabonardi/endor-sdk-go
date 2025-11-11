@@ -23,10 +23,11 @@ type EndorServiceActionOptions struct {
 }
 
 type EndorService struct {
-	Resource    string
-	Description string
-	Methods     map[string]EndorServiceAction
-	Priority    *int
+	Resource         string
+	Description      string
+	Methods          map[string]EndorServiceAction
+	Priority         *int
+	ResourceMetadata bool
 
 	// optionals
 	Version string

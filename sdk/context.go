@@ -9,9 +9,10 @@ type Session struct {
 }
 
 type EndorContext[T any] struct {
-	MicroServiceId string
-	Session        Session
-	Payload        T
+	MicroServiceId         string
+	Session                Session
+	Payload                T
+	ResourceMetadataSchema RootSchema
 
 	GinContext *gin.Context
 }
