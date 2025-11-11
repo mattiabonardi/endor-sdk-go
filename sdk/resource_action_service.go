@@ -1,10 +1,9 @@
 package sdk
 
-func NewResourceActionService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService, databaseName string) *EndorService {
+func NewResourceActionService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService) *EndorService {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
-		databaseName:   databaseName,
 	}
 	return &EndorService{
 		Resource:    "resource-action",
@@ -30,7 +29,6 @@ type ResourceActionService struct {
 	microServiceId string
 	services       *[]EndorService
 	hybridServices *[]EndorHybridService
-	databaseName   string
 }
 
 func (h *ResourceActionService) schema(c *EndorContext[NoPayload]) (*Response[any], error) {
@@ -38,7 +36,7 @@ func (h *ResourceActionService) schema(c *EndorContext[NoPayload]) (*Response[an
 }
 
 func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]ResourceAction], error) {
-	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).ResourceActionList()
+	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ResourceActionList()
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +44,7 @@ func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]Re
 }
 
 func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[ResourceAction], error) {
-	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).ActionInstance(c.Payload)
+	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}

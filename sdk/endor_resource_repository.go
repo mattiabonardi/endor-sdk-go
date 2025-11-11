@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService, databaseName string) *EndorServiceRepository {
+func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService) *EndorServiceRepository {
 	client, _ := GetMongoClient()
 	serviceRepository := &EndorServiceRepository{
 		microServiceId:         microServiceId,
@@ -19,8 +19,8 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]E
 		internalHybridServices: internalHybridServices,
 		context:                context.TODO(),
 	}
-	if GetConfig().EndorDynamicResourcesEnabled {
-		database := client.Database(databaseName)
+	if GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled {
+		database := client.Database(GetConfig().DynamicResourceDocumentDBName)
 		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
 	}
 
@@ -47,28 +47,26 @@ type EndorServiceActionDictionary struct {
 
 // ensureHybridServiceDocument ensures that a MongoDB document exists for the hybrid service
 func (h *EndorServiceRepository) ensureHybridServiceDocument(hybridService EndorHybridService) {
-	if !GetConfig().EndorDynamicResourcesEnabled || h.collection == nil {
-		return
-	}
+	if (GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled) && h.collection != nil {
+		// Check if document exists in MongoDB
+		var existingDoc Resource
+		filter := bson.M{"_id": hybridService.Resource}
+		err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
 
-	// Check if document exists in MongoDB
-	var existingDoc Resource
-	filter := bson.M{"_id": hybridService.Resource}
-	err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
+		// If document doesn't exist, create it
+		if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
+			newResource := Resource{
+				ID:                   hybridService.Resource,
+				Description:          hybridService.Description,
+				Service:              h.microServiceId,
+				AdditionalAttributes: "{}", // Empty JSON for additional attributes
+			}
 
-	// If document doesn't exist, create it
-	if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
-		newResource := Resource{
-			ID:                   hybridService.Resource,
-			Description:          hybridService.Description,
-			Service:              h.microServiceId,
-			AdditionalAttributes: "{}", // Empty JSON for additional attributes
-		}
-
-		_, insertErr := h.collection.InsertOne(h.context, newResource)
-		if insertErr != nil {
-			// Log error but don't fail the initialization
-			// TODO: Add proper logging
+			_, insertErr := h.collection.InsertOne(h.context, newResource)
+			if insertErr != nil {
+				// Log error but don't fail the initialization
+				// TODO: Add proper logging
+			}
 		}
 	}
 }
@@ -116,7 +114,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 	}
 
 	// 3. Dynamic resources from MongoDB (lowest priority + schema injection)
-	if GetConfig().EndorDynamicResourcesEnabled {
+	if GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled {
 		dynamicResources, err := h.DynamiResourceList()
 		if err != nil {
 			return map[string]EndorServiceDictionary{}, nil
@@ -256,14 +254,14 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 			}, nil
 		}
 	}
-	if GetConfig().EndorDynamicResourcesEnabled {
+	if GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled {
 		// search from database
 		resource := Resource{}
 		filter := bson.M{"_id": dto.Id}
 		err := h.collection.FindOne(h.context, filter).Decode(&resource)
 		if err != nil {
 			if errors.Is(err, mongo.ErrNoDocuments) {
-				return nil, NewNotFoundError(fmt.Errorf("resourse not found"))
+				return nil, NewNotFoundError(fmt.Errorf("resource not found"))
 			} else {
 				return nil, err
 			}

@@ -9,11 +9,11 @@ import (
 )
 
 type ServerConfig struct {
-	ServerPort                   string
-	EndorServiceDBUri            string
-	EndorResourceServiceEnabled  bool
-	EndorDynamicResourcesEnabled bool
-	EndorDynamicResourceDBName   string
+	ServerPort                    string
+	DocumentDBUri                 string
+	HybridResourcesEnabled        bool
+	DynamicResourcesEnabled       bool
+	DynamicResourceDocumentDBName string
 }
 
 // Variabili globali per il singleton
@@ -38,18 +38,16 @@ func loadConfiguration() *ServerConfig {
 	}
 
 	port := getEnv("PORT", "8080")
-	dbUri := getEnv("ENDOR_RESOURCE_DB_URI", "mongodb://localhost:27017")
+	dbUri := getEnv("DOCUMENT_DB_URI", "mongodb://localhost:27017")
 
-	EndorResourceServiceEnabled := getEnvAsBool("ENDOR_RESOURCE_SERVICE_ENABLED", false)
-	EndorDynamicResourcesEnabled := getEnvAsBool("ENDOR_DYNAMIC_RESOURCES_ENABLED", false)
-	EndorDynamicResourceDBName := getEnv("ENDOR_DYNAMIC_RESOURCE_DB_NAME", "endor-resources")
+	hybridResourcesEnabled := getEnvAsBool("HYBRID_RESOURCES_ENABLED", false)
+	dynamicResourcesEnabled := getEnvAsBool("DYNAMIC_RESOURCES_ENABLED", false)
 
 	return &ServerConfig{
-		ServerPort:                   port,
-		EndorServiceDBUri:            dbUri,
-		EndorResourceServiceEnabled:  EndorResourceServiceEnabled,
-		EndorDynamicResourcesEnabled: EndorDynamicResourcesEnabled,
-		EndorDynamicResourceDBName:   EndorDynamicResourceDBName,
+		ServerPort:              port,
+		DocumentDBUri:           dbUri,
+		HybridResourcesEnabled:  hybridResourcesEnabled,
+		DynamicResourcesEnabled: dynamicResourcesEnabled,
 	}
 }
 

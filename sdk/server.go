@@ -10,16 +10,47 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Init(microserviceId string, internalEndorServices *[]EndorService) {
-	InitWithHybrid(microserviceId, internalEndorServices, nil)
+type Endor struct {
+	internalEndorServices  *[]EndorService
+	internalHybridServices *[]EndorHybridService
+	postInitFunc           func()
 }
 
-func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService) {
+type EndorInitializer struct {
+	endor *Endor
+}
+
+func NewEndorInitializer() *EndorInitializer {
+	return &EndorInitializer{
+		endor: &Endor{},
+	}
+}
+
+func (b *EndorInitializer) WithEndorServices(services *[]EndorService) *EndorInitializer {
+	b.endor.internalEndorServices = services
+	return b
+}
+
+func (b *EndorInitializer) WithHybridServices(services *[]EndorHybridService) *EndorInitializer {
+	b.endor.internalHybridServices = services
+	return b
+}
+
+func (b *EndorInitializer) WithPostInitFunc(f func()) *EndorInitializer {
+	b.endor.postInitFunc = f
+	return b
+}
+
+func (b *EndorInitializer) Build() *Endor {
+	return b.endor
+}
+
+func (h *Endor) Init(microserviceId string) {
 	// load configuration
 	config := GetConfig()
 
 	// define runtime configuration
-	config.EndorDynamicResourceDBName = microserviceId
+	config.DynamicResourceDocumentDBName = microserviceId
 
 	// create router
 	router := gin.New()
@@ -33,13 +64,11 @@ func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	if config.EndorResourceServiceEnabled {
-		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
-		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
-	}
+	*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+	*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, internalHybridServices, microserviceId)
+	EndorServiceRepository := NewEndorServiceRepository(microserviceId, h.internalEndorServices, h.internalHybridServices)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
@@ -77,6 +106,11 @@ func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService
 
 	// swagger
 	router.StaticFS("/swagger", http.Dir(swaggerPath))
+
+	// post initialization
+	if h.postInitFunc != nil {
+		h.postInitFunc()
+	}
 
 	// start http server
 	router.Run()

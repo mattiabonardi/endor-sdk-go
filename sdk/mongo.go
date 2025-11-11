@@ -24,7 +24,7 @@ func GetMongoClient() (*mongo.Client, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 		defer cancel()
 
-		clientOptions := options.Client().ApplyURI(configuration.EndorServiceDBUri)
+		clientOptions := options.Client().ApplyURI(configuration.DocumentDBUri)
 		client, err := mongo.Connect(ctx, clientOptions)
 		if err != nil {
 			clientInstanceErr = err

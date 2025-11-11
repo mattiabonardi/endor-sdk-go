@@ -19,7 +19,7 @@ type MongoResourceInstanceRepository[T ResourceInstanceInterface] struct {
 func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId string, options ResourceInstanceRepositoryOptions) *MongoResourceInstanceRepository[T] {
 	client, _ := GetMongoClient()
 
-	collection := client.Database(GetConfig().EndorDynamicResourceDBName).Collection(resourceId)
+	collection := client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(resourceId)
 	return &MongoResourceInstanceRepository[T]{
 		collection: collection,
 		options:    options,
