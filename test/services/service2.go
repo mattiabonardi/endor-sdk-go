@@ -26,12 +26,12 @@ func (h *Service2) getSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[
 
 func NewService2() sdk.EndorHybridService {
 	service2 := Service2{}
-	
+
 	return sdk.NewHybridService("test-hybrid", "Testing hybrid resource").
 		WithActions(func(getSchema func() sdk.Schema) map[string]sdk.EndorServiceAction {
 			// Qui possiamo accedere allo schema dinamico tramite getSchema() se necessario
 			// schema := getSchema()
-			
+
 			return map[string]sdk.EndorServiceAction{
 				"hybrid-test": sdk.NewAction(
 					service2.hybridTest,

@@ -4,10 +4,11 @@ import (
 	"fmt"
 )
 
-func NewResourceService(microServiceId string, services *[]EndorService, databaseName string) *EndorService {
+func NewResourceService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService, databaseName string) *EndorService {
 	resourceService := ResourceService{
 		microServiceId: microServiceId,
 		services:       services,
+		hybridServices: hybridServices,
 		databaseName:   databaseName,
 	}
 	service := &EndorService{
@@ -39,6 +40,7 @@ func NewResourceService(microServiceId string, services *[]EndorService, databas
 type ResourceService struct {
 	microServiceId string
 	services       *[]EndorService
+	hybridServices *[]EndorHybridService
 	databaseName   string
 }
 
@@ -47,7 +49,7 @@ func (h *ResourceService) schema(c *EndorContext[NoPayload]) (*Response[any], er
 }
 
 func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource], error) {
-	resources, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).ResourceList()
+	resources, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).ResourceList()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +57,7 @@ func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource
 }
 
 func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).Instance(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).Instance(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,7 @@ func (h *ResourceService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[
 }
 
 func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Response[Resource], error) {
-	err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).Create(c.Payload)
+	err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).Create(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +73,7 @@ func (h *ResourceService) create(c *EndorContext[CreateDTO[Resource]]) (*Respons
 }
 
 func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Response[Resource], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).UpdateOne(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).UpdateOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +81,7 @@ func (h *ResourceService) update(c *EndorContext[UpdateByIdDTO[Resource]]) (*Res
 }
 
 func (h *ResourceService) delete(c *EndorContext[ReadInstanceDTO]) (*Response[Resource], error) {
-	err := NewEndorServiceRepository(h.microServiceId, h.services, h.databaseName).DeleteOne(c.Payload)
+	err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices, h.databaseName).DeleteOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}

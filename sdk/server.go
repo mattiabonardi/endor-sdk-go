@@ -34,12 +34,12 @@ func InitWithHybrid(microserviceId string, internalEndorServices *[]EndorService
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	if config.EndorResourceServiceEnabled {
-		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, microserviceId))
-		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
+		*internalEndorServices = append(*internalEndorServices, *NewResourceActionService(microserviceId, internalEndorServices, internalHybridServices, microserviceId))
 	}
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepositoryWithHybrid(microserviceId, internalEndorServices, internalHybridServices, microserviceId)
+	EndorServiceRepository := NewEndorServiceRepository(microserviceId, internalEndorServices, internalHybridServices, microserviceId)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)

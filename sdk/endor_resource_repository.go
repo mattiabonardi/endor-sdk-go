@@ -11,11 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, databaseName string) *EndorServiceRepository {
-	return NewEndorServiceRepositoryWithHybrid(microServiceId, internalEndorServices, nil, databaseName)
-}
-
-func NewEndorServiceRepositoryWithHybrid(microServiceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService, databaseName string) *EndorServiceRepository {
+func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]EndorService, internalHybridServices *[]EndorHybridService, databaseName string) *EndorServiceRepository {
 	client, _ := GetMongoClient()
 	serviceRepository := &EndorServiceRepository{
 		microServiceId:         microServiceId,
@@ -27,6 +23,7 @@ func NewEndorServiceRepositoryWithHybrid(microServiceId string, internalEndorSer
 		database := client.Database(databaseName)
 		serviceRepository.collection = database.Collection(COLLECTION_RESOURCES)
 	}
+
 	return serviceRepository
 }
 
@@ -48,9 +45,38 @@ type EndorServiceActionDictionary struct {
 	resourceAction     ResourceAction
 }
 
+// ensureHybridServiceDocument ensures that a MongoDB document exists for the hybrid service
+func (h *EndorServiceRepository) ensureHybridServiceDocument(hybridService EndorHybridService) {
+	if !GetConfig().EndorDynamicResourcesEnabled || h.collection == nil {
+		return
+	}
+
+	// Check if document exists in MongoDB
+	var existingDoc Resource
+	filter := bson.M{"_id": hybridService.Resource}
+	err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
+
+	// If document doesn't exist, create it
+	if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
+		newResource := Resource{
+			ID:                   hybridService.Resource,
+			Description:          hybridService.Description,
+			Service:              h.microServiceId,
+			AdditionalAttributes: "{}", // Empty JSON for additional attributes
+		}
+
+		_, insertErr := h.collection.InsertOne(h.context, newResource)
+		if insertErr != nil {
+			// Log error but don't fail the initialization
+			// TODO: Add proper logging
+		}
+	}
+}
+
 func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error) {
 	resources := map[string]EndorServiceDictionary{}
-	// internal
+
+	// 1. Internal EndorServices (highest priority)
 	if h.internalEndorServices != nil {
 		for _, internalEndorService := range *h.internalEndorServices {
 			resource := Resource{
@@ -64,45 +90,38 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			}
 		}
 	}
-	// internal hybrid services (need to be converted to EndorService with empty schema)
-	// Only include hybrid services that don't have corresponding dynamic resources
+
+	// 2. Internal EndorHybridServices (medium priority - with empty schema initially)
 	if h.internalHybridServices != nil {
-		for _, internalHybridService := range *h.internalHybridServices {
-			// Check if this hybrid service has a corresponding dynamic resource
-			hasDynamicResource := false
-			if GetConfig().EndorDynamicResourcesEnabled {
-				dynamicResources, _ := h.DynamiResourceList()
-				for _, dynResource := range dynamicResources {
-					if dynResource.ID == internalHybridService.Resource {
-						hasDynamicResource = true
-						break
-					}
-				}
+		for _, hybridService := range *h.internalHybridServices {
+			// Skip if already handled by EndorService
+			if _, exists := resources[hybridService.Resource]; exists {
+				continue
 			}
 
-			// Only add if no dynamic resource exists for this hybrid service
-			if !hasDynamicResource {
-				resource := Resource{
-					ID:          internalHybridService.Resource,
-					Description: internalHybridService.Description,
-					Service:     h.microServiceId,
-				}
-				// Convert hybrid to standard service with empty schema
-				endorService := internalHybridService.ToEndorService(Schema{})
-				resources[internalHybridService.Resource] = EndorServiceDictionary{
-					EndorService: endorService,
-					resource:     resource,
-				}
+			// Ensure MongoDB document exists for this hybrid service
+			h.ensureHybridServiceDocument(hybridService)
+
+			resource := Resource{
+				ID:          hybridService.Resource,
+				Description: hybridService.Description,
+				Service:     h.microServiceId,
+			}
+			// Convert hybrid service with empty schema (will be updated if MongoDB document exists)
+			resources[hybridService.Resource] = EndorServiceDictionary{
+				EndorService: hybridService.ToEndorService(Schema{}),
+				resource:     resource,
 			}
 		}
 	}
+
+	// 3. Dynamic resources from MongoDB (lowest priority + schema injection)
 	if GetConfig().EndorDynamicResourcesEnabled {
-		// dynamic
 		dynamicResources, err := h.DynamiResourceList()
 		if err != nil {
 			return map[string]EndorServiceDictionary{}, nil
 		}
-		// create endor resource
+
 		for _, resource := range dynamicResources {
 			defintion, err := resource.UnmarshalAdditionalAttributes()
 			if err == nil {
@@ -117,7 +136,20 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					}
 				}
 
-				// Use existing hybrid service or create abstract one
+				// If this resource already exists (EndorService or HybridService)
+				if _, exists := resources[resource.ID]; exists {
+					// Update ONLY hybrid services with MongoDB schema
+					if foundHybridService != nil {
+						resources[resource.ID] = EndorServiceDictionary{
+							EndorService: foundHybridService.ToEndorService(defintion.Schema),
+							resource:     resource,
+						}
+					}
+					// Skip EndorServices (they have absolute priority)
+					continue
+				}
+
+				// Create new service for resources not handled internally
 				if foundHybridService != nil {
 					// Use the existing hybrid service with the dynamic schema
 					resources[resource.ID] = EndorServiceDictionary{
