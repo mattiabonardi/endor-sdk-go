@@ -160,9 +160,6 @@ func TestSchemaTypes(t *testing.T) {
 	if order[8] != "car" {
 		t.Fatalf("Expected ninth field to be 'car', got %v", order[8])
 	}
-	if *schema.UISchema.Id != "id" {
-		t.Fatalf("Expected UI schema id to be 'id', got %v", *schema.UISchema.Id)
-	}
 }
 
 func TestRicorsionTypes(t *testing.T) {

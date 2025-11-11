@@ -152,7 +152,7 @@ func (h EndorHybridService) getRootSchema(getSchema func() Schema) *RootSchema {
 }
 
 // Implementazioni dei metodi di default
-func (h EndorHybridService) defaultSchema(c *EndorContext[NoPayload], getSchema func() Schema) (*Response[any], error) {
+func (h EndorHybridService) defaultSchema(_ *EndorContext[NoPayload], getSchema func() Schema) (*Response[any], error) {
 	rootSchema := h.getRootSchema(getSchema)
 	return NewResponseBuilder[any]().AddSchema(rootSchema).Build(), nil
 }

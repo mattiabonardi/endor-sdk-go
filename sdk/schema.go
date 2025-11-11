@@ -69,7 +69,6 @@ type Schema struct {
 type UISchema struct {
 	Resource *string   `json:"resource,omitempty" yaml:"resource,omitempty"` // define the reference resource
 	Order    *[]string `json:"order,omitempty" yaml:"order,omitempty"`       // define the order of the attributes
-	Id       *string   `json:"id,omitempty" yaml:"id,omitempty"`             // define the property that refers to id
 	Hidden   *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"`     // define if the property is displayable
 }
 
@@ -89,66 +88,6 @@ func (h *RootSchema) ToYAML() (string, error) {
 func NewSchema(model any) *RootSchema {
 	t := reflect.TypeOf(model)
 	return NewSchemaByType(t)
-}
-
-func NewSchemaWithRootOverride(model any, overrideAttributes Schema) *RootSchema {
-	baseSchema := NewSchema(model)
-	// Override baseSchema with overrideAttributes if values are defined
-	if overrideAttributes.Type != "" {
-		baseSchema.Type = overrideAttributes.Type
-	}
-	if overrideAttributes.Reference != "" {
-		baseSchema.Reference = overrideAttributes.Reference
-	}
-	if overrideAttributes.Properties != nil {
-		baseSchema.Properties = overrideAttributes.Properties
-	}
-	if overrideAttributes.Items != nil {
-		baseSchema.Items = overrideAttributes.Items
-	}
-	if overrideAttributes.Enum != nil {
-		baseSchema.Enum = overrideAttributes.Enum
-	}
-	if overrideAttributes.Title != nil {
-		baseSchema.Title = overrideAttributes.Title
-	}
-	if overrideAttributes.Description != nil {
-		baseSchema.Description = overrideAttributes.Description
-	}
-	if overrideAttributes.Format != nil {
-		baseSchema.Format = overrideAttributes.Format
-	}
-	if overrideAttributes.ReadOnly != nil {
-		baseSchema.ReadOnly = overrideAttributes.ReadOnly
-	}
-	if overrideAttributes.WriteOnly != nil {
-		baseSchema.WriteOnly = overrideAttributes.WriteOnly
-	}
-	if overrideAttributes.MinLength != nil {
-		baseSchema.MinLength = overrideAttributes.MinLength
-	}
-	if overrideAttributes.MaxLength != nil {
-		baseSchema.MaxLength = overrideAttributes.MaxLength
-	}
-
-	if overrideAttributes.UISchema != nil {
-		if baseSchema.UISchema == nil {
-			baseSchema.UISchema = &UISchema{}
-		}
-		if overrideAttributes.UISchema.Resource != nil {
-			baseSchema.UISchema.Resource = overrideAttributes.UISchema.Resource
-		}
-		if overrideAttributes.UISchema.Order != nil {
-			baseSchema.UISchema.Order = overrideAttributes.UISchema.Order
-		}
-		if overrideAttributes.UISchema.Id != nil {
-			baseSchema.UISchema.Id = overrideAttributes.UISchema.Id
-		}
-		if overrideAttributes.UISchema.Hidden != nil {
-			baseSchema.UISchema.Hidden = overrideAttributes.UISchema.Hidden
-		}
-	}
-	return baseSchema
 }
 
 func NewSchemaByType(t reflect.Type) *RootSchema {
@@ -212,7 +151,7 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 		// add field to order
 		*schema.UISchema.Order = append(*schema.UISchema.Order, name)
 
-		(*schema.Properties)[name] = resolveExpandedFieldSchema(field, field.Type, visited, &schema, name)
+		(*schema.Properties)[name] = resolveExpandedFieldSchema(field, field.Type, visited)
 	}
 
 	// Unmark this type as we're done processing it
@@ -221,7 +160,7 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 	return schema
 }
 
-func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited map[string]bool, rootSchema *Schema, fieldName string) Schema {
+func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited map[string]bool) Schema {
 	// Dereference pointers
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -247,7 +186,7 @@ func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited m
 			schema = Schema{Type: BooleanType}
 		case reflect.Slice, reflect.Array:
 			// Don't recurse with the same field – array element doesn't have tags
-			itemSchema := resolveExpandedFieldSchema(reflect.StructField{}, t.Elem(), visited, rootSchema, fieldName)
+			itemSchema := resolveExpandedFieldSchema(reflect.StructField{}, t.Elem(), visited)
 			schema = Schema{
 				Type:  ArrayType,
 				Items: &itemSchema,
@@ -265,7 +204,7 @@ func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited m
 	}
 	if tag := f.Tag.Get("ui-schema"); tag != "" {
 		props := parseSchemaTag(tag)
-		applyUISchemaDecorators(&schema, props, rootSchema, fieldName)
+		applyUISchemaDecorators(&schema, props)
 	}
 
 	return schema
@@ -351,17 +290,13 @@ func applySchemaDecorators(s *Schema, props map[string]string) {
 	}
 }
 
-func applyUISchemaDecorators(s *Schema, props map[string]string, rootSchema *Schema, fieldName string) {
+func applyUISchemaDecorators(s *Schema, props map[string]string) {
 	if s.UISchema == nil {
 		s.UISchema = &UISchema{}
 	}
 	for key, val := range props {
 		v := val
 		switch key {
-		case "id":
-			if v == "true" {
-				rootSchema.UISchema.Id = &fieldName
-			}
 		case "resource":
 			s.UISchema.Resource = &v
 		case "hidden":
