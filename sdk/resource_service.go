@@ -53,6 +53,13 @@ func (h *ResourceService) list(c *EndorContext[NoPayload]) (*Response[[]Resource
 	if err != nil {
 		return nil, err
 	}
+	filtered := make([]Resource, 0, len(resources))
+	for _, r := range resources {
+		if r.ID != "resource" && r.ID != "resource-action" {
+			filtered = append(filtered, r)
+		}
+	}
+	resources = filtered
 	return NewResponseBuilder[[]Resource]().AddData(&resources).AddSchema(NewSchema(&Resource{})).Build(), nil
 }
 
