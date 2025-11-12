@@ -64,8 +64,20 @@ func (h *Endor) Init(microserviceId string) {
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
-	*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+	// Check if an EndorService with resource == "resource" is already defined
+	resourceServiceExists := false
+	if h.internalEndorServices != nil {
+		for _, svc := range *h.internalEndorServices {
+			if svc.Resource == "resource" {
+				resourceServiceExists = true
+				break
+			}
+		}
+	}
+	if !resourceServiceExists {
+		*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+		*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+	}
 
 	// get all resources
 	EndorServiceRepository := NewEndorServiceRepository(microserviceId, h.internalEndorServices, h.internalHybridServices)
