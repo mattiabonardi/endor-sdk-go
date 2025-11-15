@@ -47,6 +47,26 @@ type ResourceInstance[T ResourceInstanceInterface] struct {
 	Metadata map[string]any `bson:"metadata,omitempty"`
 }
 
+// ToSchema genera lo schema della risorsa, includendo lo schema dei metadata
+func (d *ResourceInstance[T]) ToSchema(metadataSchema *Schema) *RootSchema {
+	t := reflect.TypeOf(d.This)
+	// Se T è un puntatore, ottieni il tipo sottostante
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	rootSchema := NewSchema(reflect.New(t).Interface())
+	if metadataSchema != nil && metadataSchema.Properties != nil {
+		if rootSchema.Schema.Properties == nil {
+			props := make(map[string]Schema)
+			rootSchema.Schema.Properties = &props
+		}
+		for k, v := range *metadataSchema.Properties {
+			(*rootSchema.Schema.Properties)[k] = v
+		}
+	}
+	return rootSchema
+}
+
 func (d ResourceInstance[T]) MarshalJSON() ([]byte, error) {
 	base, err := json.Marshal(d.This)
 	if err != nil {

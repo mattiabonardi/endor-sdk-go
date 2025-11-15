@@ -11,8 +11,10 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceAction interface {
-	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, eventBus EventBus) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
+	AddEvent(eventDef *EventDefinition) EndorServiceAction
+	GetEvent(name string) (*EventDefinition, bool)
 }
 
 type EndorServiceActionOptions struct {
@@ -20,6 +22,7 @@ type EndorServiceActionOptions struct {
 	Public          bool
 	ValidatePayload bool
 	InputSchema     *RootSchema
+	Events          map[string]*EventDefinition
 }
 
 type EndorService struct {
@@ -39,6 +42,7 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 		Public:          false,
 		ValidatePayload: true,
 		InputSchema:     nil,
+		Events:          make(map[string]*EventDefinition),
 	}
 	// resolve input params dynamically
 	options.InputSchema = resolveInputSchema[T]()
@@ -49,6 +53,9 @@ func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, hand
 	if options.InputSchema == nil {
 		options.InputSchema = resolveInputSchema[T]()
 	}
+	if options.Events == nil {
+		options.Events = make(map[string]*EventDefinition)
+	}
 	return &endorServiceActionImpl[T, R]{handler: handler, options: options}
 }
 
@@ -57,7 +64,7 @@ type endorServiceActionImpl[T any, R any] struct {
 	options EndorServiceActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, eventBus EventBus) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -69,9 +76,11 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 			Development: development,
 		}
 		ec := &EndorContext[T]{
-			MicroServiceId: microserviceId,
-			Session:        session,
-			GinContext:     c,
+			MicroServiceId:  microserviceId,
+			Session:         session,
+			EventBus:        eventBus,
+			AvailableEvents: m.options.Events,
+			GinContext:      c,
 		}
 		var t T
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
@@ -100,6 +109,22 @@ func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 	return m.options
 }
 
+func (m *endorServiceActionImpl[T, R]) AddEvent(eventDef *EventDefinition) EndorServiceAction {
+	if m.options.Events == nil {
+		m.options.Events = make(map[string]*EventDefinition)
+	}
+	m.options.Events[eventDef.Name] = eventDef
+	return m
+}
+
+func (m *endorServiceActionImpl[T, R]) GetEvent(name string) (*EventDefinition, bool) {
+	if m.options.Events == nil {
+		return nil, false
+	}
+	eventDef, exists := m.options.Events[name]
+	return eventDef, exists
+}
+
 func resolveInputSchema[T any]() *RootSchema {
 	var zeroT T
 	tType := reflect.TypeOf(zeroT)
@@ -111,4 +136,30 @@ func resolveInputSchema[T any]() *RootSchema {
 		return NewSchemaByType(tType)
 	}
 	return nil
+}
+
+// NewActionWithEvents crea una nuova action con eventi predefiniti
+func NewActionWithEvents[T any, R any](
+	handler EndorHandlerFunc[T, R],
+	description string,
+	events ...*EventDefinition,
+) EndorServiceAction {
+	action := NewAction(handler, description)
+	for _, event := range events {
+		action.AddEvent(event)
+	}
+	return action
+}
+
+// NewConfigurableActionWithEvents crea una nuova action configurabile con eventi predefiniti
+func NewConfigurableActionWithEvents[T any, R any](
+	options EndorServiceActionOptions,
+	handler EndorHandlerFunc[T, R],
+	events ...*EventDefinition,
+) EndorServiceAction {
+	action := NewConfigurableAction(options, handler)
+	for _, event := range events {
+		action.AddEvent(event)
+	}
+	return action
 }
