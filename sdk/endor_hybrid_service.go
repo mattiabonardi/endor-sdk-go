@@ -142,7 +142,7 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 // Helper method per creare rootSchema
 func (h EndorHybridService) getRootSchema(getSchema func() Schema) *RootSchema {
 	schema := getSchema()
-	rootSchema := NewSchema(DynamicResource{})
+	rootSchema := NewSchema(h.baseModel)
 	if schema.Properties != nil {
 		for k, v := range *schema.Properties {
 			(*rootSchema.Properties)[k] = v
