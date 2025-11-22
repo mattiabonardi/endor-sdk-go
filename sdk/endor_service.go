@@ -75,11 +75,20 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			Username:    c.GetHeader("x-user-id"),
 			Development: development,
 		}
+		// Recupera categoryID dal context Gin se presente
+		var categoryID *string
+		if catID, exists := c.Get("categoryID"); exists {
+			if catIDStr, ok := catID.(string); ok {
+				categoryID = &catIDStr
+			}
+		}
+
 		ec := &EndorContext[T]{
 			MicroServiceId:  microserviceId,
 			Session:         session,
 			EventBus:        eventBus,
 			AvailableEvents: m.options.Events,
+			CategoryID:      categoryID,
 			GinContext:      c,
 		}
 		var t T

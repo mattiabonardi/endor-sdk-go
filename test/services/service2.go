@@ -24,13 +24,27 @@ func (h *Service2) getSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[
 		Build(), nil
 }
 
+func (h *Service2) testCategory(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	message := "Test category action"
+	if c.CategoryID != nil {
+		message += " for category: " + *c.CategoryID
+	} else {
+		message += " (no category specified)"
+	}
+	return sdk.NewResponseBuilder[any]().
+		AddMessage(sdk.NewMessage(sdk.Info, message)).
+		Build(), nil
+}
+
 func NewService2() sdk.EndorHybridService {
 	service2 := Service2{}
 
 	return sdk.NewHybridService("test-hybrid", "Testing hybrid resource").
-		WithActions(func(getSchema func() sdk.Schema) map[string]sdk.EndorServiceAction {
+		WithActions(func(getSchema func() sdk.Schema, getCategorySchema func(categoryID string) sdk.Schema) map[string]sdk.EndorServiceAction {
 			// Qui possiamo accedere allo schema dinamico tramite getSchema() se necessario
 			// schema := getSchema()
+			// E possiamo anche accedere agli schemi delle categorie tramite getCategorySchema()
+			// categorySchema := getCategorySchema("some-category-id")
 
 			return map[string]sdk.EndorServiceAction{
 				"hybrid-test": sdk.NewAction(
@@ -40,6 +54,10 @@ func NewService2() sdk.EndorHybridService {
 				"get-schema": sdk.NewAction(
 					service2.getSchema,
 					"Get the current schema of the hybrid resource",
+				),
+				"test-category": sdk.NewAction(
+					service2.testCategory,
+					"Test action to verify category ID injection",
 				),
 			}
 		})

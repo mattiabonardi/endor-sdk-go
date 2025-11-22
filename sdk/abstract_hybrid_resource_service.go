@@ -20,7 +20,7 @@ func NewAbstractHybridResourceService(resource string, description string) Endor
 	}
 
 	return NewHybridService(resource, description).WithActions(
-		func(getSchema func() Schema) map[string]EndorServiceAction {
+		func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction {
 			// Otteniamo lo schema dinamico al momento della chiamata
 			schema := getSchema()
 

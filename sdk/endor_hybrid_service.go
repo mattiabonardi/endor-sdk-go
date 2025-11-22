@@ -10,8 +10,9 @@ type EndorHybridService struct {
 	Description    string
 	Priority       *int
 	metadataSchema Schema
-	methodsFn      func(getSchema func() Schema) map[string]EndorServiceAction
-	baseModel      any // Modello base per ResourceInstanceRepository
+	methodsFn      func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction
+	baseModel      any                 // Modello base per ResourceInstanceRepository
+	categories     map[string]Category // Cache delle categorie disponibili
 }
 
 func NewHybridService(resource, description string) EndorHybridService {
@@ -28,11 +29,22 @@ func (h EndorHybridService) WithBaseModel(model any) EndorHybridService {
 	return h
 }
 
-// Definizione dei metodi tramite funzione che riceve getSchema()
+// Definizione dei metodi tramite funzione che riceve getSchema() e getCategorySchema()
 func (h EndorHybridService) WithActions(
-	fn func(getSchema func() Schema) map[string]EndorServiceAction,
+	fn func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction,
 ) EndorHybridService {
 	h.methodsFn = fn
+	return h
+}
+
+// WithCategories permette di configurare le categorie disponibili
+func (h EndorHybridService) WithCategories(categories []Category) EndorHybridService {
+	if h.categories == nil {
+		h.categories = make(map[string]Category)
+	}
+	for _, category := range categories {
+		h.categories[category.ID] = category
+	}
 	return h
 }
 
@@ -115,6 +127,14 @@ func (h EndorHybridService) getDefaultActions(getSchema func() Schema) map[strin
 func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 	h.metadataSchema = attrs
 	getSchema := func() Schema { return h.metadataSchema }
+	getCategorySchema := func(categoryID string) Schema {
+		if category, exists := h.categories[categoryID]; exists {
+			if categorySchema, err := category.UnmarshalAdditionalAttributes(); err == nil {
+				return categorySchema.Schema
+			}
+		}
+		return Schema{} // Schema vuoto se categoria non trovata o errore
+	}
 
 	var methods map[string]EndorServiceAction
 
@@ -125,7 +145,7 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 		// Inizia con i metodi di default
 		methods = h.getDefaultActions(getSchema)
 		// Sovrascrivi con i metodi personalizzati
-		customMethods := h.methodsFn(getSchema)
+		customMethods := h.methodsFn(getSchema, getCategorySchema)
 		for name, action := range customMethods {
 			methods[name] = action
 		}

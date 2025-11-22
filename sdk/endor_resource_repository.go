@@ -151,14 +151,14 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				if foundHybridService != nil {
 					// Use the existing hybrid service with the dynamic schema
 					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: foundHybridService.ToEndorService(defintion.Schema),
+						EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
 						resource:     resource,
 					}
 				} else {
 					// Create default hybrid service with all 6 actions
 					hybridService := NewHybridService(resource.ID, resource.Description)
 					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema),
+						EndorService: hybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
 						resource:     resource,
 					}
 				}
@@ -286,14 +286,14 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 		if foundHybridService != nil {
 			// Use the existing hybrid service with the dynamic schema
 			return &EndorServiceDictionary{
-				EndorService: foundHybridService.ToEndorService(additionalAttributesDefinition.Schema),
+				EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(additionalAttributesDefinition.Schema),
 				resource:     resource,
 			}, nil
 		} else {
 			// Create default hybrid service with all 6 actions
 			hybridService := NewHybridService(resource.ID, resource.Description)
 			return &EndorServiceDictionary{
-				EndorService: hybridService.ToEndorService(additionalAttributesDefinition.Schema),
+				EndorService: hybridService.WithCategories(resource.Categories).ToEndorService(additionalAttributesDefinition.Schema),
 				resource:     resource,
 			}, nil
 		}

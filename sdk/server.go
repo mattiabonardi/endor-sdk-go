@@ -98,25 +98,54 @@ func (h *Endor) Init(microserviceId string) {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		// find the resource in path /api/{version}/{resource}/{method}
-		pathSegments := strings.Split(c.Request.URL.Path, "/")
-		if len(pathSegments) > 4 {
-			resource := pathSegments[3]
-			action := pathSegments[4]
-			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
-				Id: resource,
-			})
-			if err == nil {
-				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					method.CreateHTTPCallback(microserviceId, h.eventBus)(c)
-					return
-				}
-			}
-		}
-		response := NewDefaultResponseBuilder()
-		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
-		c.JSON(http.StatusNotFound, response.Build())
-	})
+// find the resource in path /api/{version}/{resource}/{method}
+pathSegments := strings.Split(c.Request.URL.Path, "/")
+if len(pathSegments) > 4 {
+resource := pathSegments[3]
+action := pathSegments[4]
+
+// Check se il resource path contiene il pattern resource__categoryID
+var actualResource string
+var categoryID *string
+
+if strings.Contains(resource, "__") {
+// Pattern categorizzato: resource__categoryID
+parts := strings.Split(resource, "__")
+if len(parts) == 2 {
+actualResource = parts[0]
+categoryID = &parts[1]
+} else {
+actualResource = resource
+}
+} else {
+// Pattern normale: resource
+actualResource = resource
+}
+
+endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
+Id: actualResource,
+})
+if err == nil {
+if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
+// Crea l'handler che inietta categoryID nel context
+handler := method.CreateHTTPCallback(microserviceId, h.eventBus)
+// Wrapper per iniettare categoryID
+categoryAwareHandler := func(ginCtx *gin.Context) {
+// Se c'è una categoria, la aggiungiamo al context Gin per poterla recuperare
+if categoryID != nil {
+ginCtx.Set("categoryID", *categoryID)
+}
+handler(ginCtx)
+}
+categoryAwareHandler(c)
+return
+}
+}
+}
+response := NewDefaultResponseBuilder()
+response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
+c.JSON(http.StatusNotFound, response.Build())
+})
 
 	err = InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), resources)
 	if err != nil {

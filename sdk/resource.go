@@ -8,11 +8,34 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Category rappresenta una categoria con attributi dinamici specifici
+type Category struct {
+	ID                   string `json:"id" bson:"id" schema:"title=Category ID"`
+	Description          string `json:"description" bson:"description" schema:"title=Category Description"`
+	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
+}
+
+// UnmarshalAdditionalAttributes deserializza gli attributi aggiuntivi della categoria
+func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var def map[string]Schema
+	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
+	}
+	return &RootSchema{
+		Schema: Schema{
+			Type:       ObjectType,
+			Properties: &def,
+		},
+	}, nil
+}
+
 type Resource struct {
-	ID                   string `json:"id" bson:"_id" schema:"title=Id"`
-	Description          string `json:"description" schema:"title=Description"`
-	Service              string `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
-	AdditionalAttributes string `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
+	ID                   string     `json:"id" bson:"_id" schema:"title=Id"`
+	Description          string     `json:"description" schema:"title=Description"`
+	Service              string     `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
+	AdditionalAttributes string     `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
+	Categories           []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
 }
 
 func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -27,6 +50,66 @@ func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 			Properties: &def,
 		},
 	}, nil
+}
+
+// GetCategoryByID trova una categoria per ID
+func (h *Resource) GetCategoryByID(categoryID string) (*Category, bool) {
+	for i, category := range h.Categories {
+		if category.ID == categoryID {
+			return &h.Categories[i], true
+		}
+	}
+	return nil, false
+}
+
+// GetCategorySchema restituisce lo schema combinato di base e categoria specifica
+func (h *Resource) GetCategorySchema(categoryID string) (*RootSchema, error) {
+	// Schema di base della risorsa
+	baseSchema, err := h.UnmarshalAdditionalAttributes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Se non c'è categoria specificata, restituisci solo lo schema di base
+	if categoryID == "" {
+		return baseSchema, nil
+	}
+
+	// Trova la categoria
+	category, found := h.GetCategoryByID(categoryID)
+	if !found {
+		return nil, fmt.Errorf("category '%s' not found", categoryID)
+	}
+
+	// Schema della categoria
+	categorySchema, err := category.UnmarshalAdditionalAttributes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Combina gli schemi (categoria estende il base)
+	combined := &RootSchema{
+		Schema: Schema{
+			Type:       ObjectType,
+			Properties: &map[string]Schema{},
+		},
+	}
+
+	// Aggiungi proprietà di base
+	if baseSchema.Properties != nil {
+		for k, v := range *baseSchema.Properties {
+			(*combined.Properties)[k] = v
+		}
+	}
+
+	// Aggiungi proprietà della categoria (sovrascrivono se esistenti)
+	if categorySchema.Properties != nil {
+		for k, v := range *categorySchema.Properties {
+			(*combined.Properties)[k] = v
+		}
+	}
+
+	return combined, nil
 }
 
 type ResourceAction struct {

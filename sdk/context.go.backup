@@ -19,8 +19,7 @@ type EndorContext[T any] struct {
 	Payload                T
 	ResourceMetadataSchema RootSchema
 	EventBus               EventBus
-	AvailableEvents        map[string]*EventDefinition
-	CategoryID             *string // ID della categoria per API specializzate, nil se non categorizzata
+	AvailableEvents        map[string]*EventDefinition\n	CategoryID             *string // ID della categoria per API specializzate, nil se non categorizzata
 
 	GinContext *gin.Context
 }
