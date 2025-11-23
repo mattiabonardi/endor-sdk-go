@@ -130,33 +130,61 @@ func (h EndorHybridService) getDefaultActions(getSchema func() Schema) map[strin
 func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 	h.metadataSchema = attrs
 	getSchema := func() Schema { return h.metadataSchema }
-	var methods map[string]EndorServiceAction
+	var methods = make(map[string]EndorServiceAction)
 
-	// Se non ci sono metodi personalizzati, usa quelli di default
-	if h.methodsFn == nil {
+	// Se non ci sono categorie, usa i metodi di default normali
+	if len(h.categories) == 0 {
 		methods = h.getDefaultActions(getSchema)
+
+		// Aggiungi metodi custom se esistono
+		if h.methodsFn != nil {
+			wrapperMethods := h.methodsFn()
+			for methodName, wrapperAction := range wrapperMethods {
+				methods[methodName] = h.createActionForCategory(wrapperAction, "", getSchema)
+			}
+		}
 	} else {
-		// Inizia con i metodi di default
-		methods = h.getDefaultActions(getSchema)
+		// Con categorie: esplodi sia i metodi di default che quelli custom
 
-		// Ottieni i metodi wrapper
-		wrapperMethods := h.methodsFn()
+		// 1. Aggiungi i metodi di default base (senza categoria)
+		defaultMethods := h.getDefaultActions(getSchema)
+		for methodName, action := range defaultMethods {
+			methods[methodName] = action
+		}
 
-		// Esplodi ogni metodo wrapper per ogni categoria
-		for methodName, wrapperAction := range wrapperMethods {
-			// Aggiungi il metodo base (senza categoria)
-			methods[methodName] = h.createActionForCategory(wrapperAction, "", getSchema)
+		// 2. Esplodi i metodi di default per ogni categoria
+		for categoryID, category := range h.categories {
+			// Crea lo schema combinato per questa categoria
+			combinedSchemaFunc := func() Schema {
+				return h.getCombinedSchemaForCategory(category, getSchema)
+			}
 
-			// Esplodi per ogni categoria
-			for categoryID, category := range h.categories {
-				// Crea il nome del metodo esploso
+			// Ottieni le azioni di default con lo schema della categoria
+			categoryDefaultMethods := h.getDefaultActions(combinedSchemaFunc)
+
+			for methodName, action := range categoryDefaultMethods {
+				// Crea il nome del metodo esploso per default actions
 				explodedMethodName := categoryID + "/" + methodName
+				methods[explodedMethodName] = h.createActionForCategory(action, categoryID, combinedSchemaFunc)
+			}
+		}
 
-				// Crea lo schema combinato per questa categoria
-				combinedSchema := h.getCombinedSchemaForCategory(category, getSchema)
+		// 3. Esplodi i metodi custom per ogni categoria (se esistono)
+		if h.methodsFn != nil {
+			wrapperMethods := h.methodsFn()
 
-				// Crea l'action per questa categoria specifica
-				methods[explodedMethodName] = h.createActionForCategory(wrapperAction, categoryID, func() Schema { return combinedSchema })
+			for methodName, wrapperAction := range wrapperMethods {
+				// Aggiungi il metodo base (senza categoria)
+				methods[methodName] = h.createActionForCategory(wrapperAction, "", getSchema)
+
+				// Esplodi per ogni categoria
+				for categoryID, category := range h.categories {
+					explodedMethodName := categoryID + "/" + methodName
+					combinedSchemaFunc := func() Schema {
+						return h.getCombinedSchemaForCategory(category, getSchema)
+					}
+					methods[explodedMethodName] = h.createActionForCategory(wrapperAction, categoryID, combinedSchemaFunc)
+				}
 			}
 		}
 	}
@@ -236,12 +264,18 @@ func (h EndorHybridService) createActionForCategory(wrapperAction EndorServiceAc
 	// Ottieni le opzioni dell'action wrapper
 	options := wrapperAction.GetOptions()
 
+	// Aggiorna l'InputSchema se presente per riflettere lo schema della categoria
+	newInputSchema := options.InputSchema
+	if newInputSchema != nil && categoryID != "" {
+		newInputSchema = h.updateInputSchemaForCategory(options.InputSchema, getSchemaForCategory)
+	}
+
 	// Crea nuove opzioni con lo schema specifico della categoria
 	newOptions := EndorServiceActionOptions{
 		Description:     options.Description,
 		Public:          options.Public,
 		ValidatePayload: options.ValidatePayload,
-		InputSchema:     options.InputSchema, // Mantieni lo schema originale per ora
+		InputSchema:     newInputSchema,
 	}
 
 	// Crea un wrapper che inietta il categoryID nel context
@@ -299,6 +333,55 @@ func (h EndorHybridService) combineSchemas(baseSchema, categorySchema Schema) Sc
 	}
 
 	return combined
+}
+
+// updateInputSchemaForCategory aggiorna l'InputSchema di un'azione per riflettere lo schema della categoria
+func (h EndorHybridService) updateInputSchemaForCategory(originalSchema *RootSchema, getSchemaForCategory func() Schema) *RootSchema {
+	if originalSchema == nil {
+		return nil
+	}
+
+	// Crea una copia dello schema originale
+	newSchema := &RootSchema{
+		Schema: Schema{
+			Type:       originalSchema.Schema.Type,
+			Properties: &map[string]Schema{},
+		},
+	}
+
+	// Copia tutte le proprietà originali
+	if originalSchema.Schema.Properties != nil {
+		for k, v := range *originalSchema.Schema.Properties {
+			(*newSchema.Schema.Properties)[k] = v
+		}
+	}
+
+	// Se c'è una proprietà "data", aggiornala con lo schema della categoria
+	if _, exists := (*newSchema.Schema.Properties)["data"]; exists {
+		// Crea il rootSchema con il modello base + categoria
+		updatedRootSchema := h.getRootSchemaWithCategory(getSchemaForCategory)
+
+		// Aggiorna la proprietà "data" con il nuovo schema
+		(*newSchema.Schema.Properties)["data"] = updatedRootSchema.Schema
+	}
+
+	return newSchema
+}
+
+// getRootSchemaWithCategory crea un rootSchema che include sia il base model che lo schema della categoria
+func (h EndorHybridService) getRootSchemaWithCategory(getSchemaForCategory func() Schema) *RootSchema {
+	// Inizia con il base model
+	rootSchema := NewSchema(h.baseModel)
+
+	// Aggiungi le proprietà dello schema della categoria
+	categorySchema := getSchemaForCategory()
+	if categorySchema.Properties != nil {
+		for k, v := range *categorySchema.Properties {
+			(*rootSchema.Properties)[k] = v
+		}
+	}
+
+	return rootSchema
 }
 
 // hybridActionWrapper implementa EndorServiceAction per le azioni esplose

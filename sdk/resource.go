@@ -17,17 +17,12 @@ type Category struct {
 
 // UnmarshalAdditionalAttributes deserializza gli attributi aggiuntivi della categoria
 func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var def map[string]Schema
-	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &def)
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
 	}
-	return &RootSchema{
-		Schema: Schema{
-			Type:       ObjectType,
-			Properties: &def,
-		},
-	}, nil
+	return &schema, nil
 }
 
 type Resource struct {
@@ -39,17 +34,12 @@ type Resource struct {
 }
 
 func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var def map[string]Schema
-	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &def)
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
 	}
-	return &RootSchema{
-		Schema: Schema{
-			Type:       ObjectType,
-			Properties: &def,
-		},
-	}, nil
+	return &schema, nil
 }
 
 // GetCategoryByID trova una categoria per ID
