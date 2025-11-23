@@ -13,7 +13,6 @@ import (
 type Endor struct {
 	internalEndorServices  *[]EndorService
 	internalHybridServices *[]EndorHybridService
-	eventBus               EventBus
 	postInitFunc           func()
 }
 
@@ -37,11 +36,6 @@ func (b *EndorInitializer) WithHybridServices(services *[]EndorHybridService) *E
 	return b
 }
 
-func (b *EndorInitializer) WithEventBus(eventBus EventBus) *EndorInitializer {
-	b.endor.eventBus = eventBus
-	return b
-}
-
 func (b *EndorInitializer) WithPostInitFunc(f func()) *EndorInitializer {
 	b.endor.postInitFunc = f
 	return b
@@ -54,11 +48,6 @@ func (b *EndorInitializer) Build() *Endor {
 func (h *Endor) Init(microserviceId string) {
 	// load configuration
 	config := GetConfig()
-
-	// initialize EventBus if not provided
-	if h.eventBus == nil {
-		h.eventBus = NewDefaultEventBus()
-	}
 
 	// define runtime configuration
 	config.DynamicResourceDocumentDBName = microserviceId
@@ -111,7 +100,7 @@ func (h *Endor) Init(microserviceId string) {
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					method.CreateHTTPCallback(microserviceId, h.eventBus)(c)
+					method.CreateHTTPCallback(microserviceId)(c)
 					return
 				}
 			}
