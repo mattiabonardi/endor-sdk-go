@@ -103,41 +103,15 @@ func (h *Endor) Init(microserviceId string) {
 		if len(pathSegments) > 4 {
 			resource := pathSegments[3]
 			action := pathSegments[4]
-
-			// Check se il resource path contiene il pattern resource__categoryID
-			var actualResource string
-			var categoryID *string
-
-			if strings.Contains(resource, "__") {
-				// Pattern categorizzato: resource__categoryID
-				parts := strings.Split(resource, "__")
-				if len(parts) == 2 {
-					actualResource = parts[0]
-					categoryID = &parts[1]
-				} else {
-					actualResource = resource
-				}
-			} else {
-				// Pattern normale: resource
-				actualResource = resource
+			if len(pathSegments) == 6 {
+				action = pathSegments[4] + "/" + pathSegments[5]
 			}
-
 			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
-				Id: actualResource,
+				Id: resource,
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					// Crea l'handler che inietta categoryID nel context
-					handler := method.CreateHTTPCallback(microserviceId, h.eventBus)
-					// Wrapper per iniettare categoryID
-					categoryAwareHandler := func(ginCtx *gin.Context) {
-						// Se c'è una categoria, la aggiungiamo al context Gin per poterla recuperare
-						if categoryID != nil {
-							ginCtx.Set("categoryID", *categoryID)
-						}
-						handler(ginCtx)
-					}
-					categoryAwareHandler(c)
+					method.CreateHTTPCallback(microserviceId, h.eventBus)(c)
 					return
 				}
 			}
