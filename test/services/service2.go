@@ -4,60 +4,66 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/sdk"
 )
 
-type TestHybridPayload struct {
+type Service2BaseModel struct {
+	ID                  string `json:"id" bson:"_id"`
+	AdditionalAttribute string `json:"additionalAttribute"`
+}
+
+func (h Service2BaseModel) GetID() *string {
+	return &h.ID
+}
+
+func (h *Service2BaseModel) SetID(id string) {
+	h.ID = id
+}
+
+type Service2Action1Payload struct {
 	Name string `json:"name"`
 	Age  int    `json:"age"`
+}
+
+type Category1Schema struct {
+	VATNumber string `json:"vatNumber"`
+}
+
+type Category2Schema struct {
+	TaxID string `json:"taxId"`
 }
 
 type Service2 struct {
 }
 
-func (h *Service2) hybridTest(c *sdk.EndorContext[TestHybridPayload]) (*sdk.Response[any], error) {
+func (h *Service2) action1(c *sdk.EndorContext[Service2Action1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
 		AddMessage(sdk.NewMessage(sdk.Info, "Hello from Hybrid Service")).
-		Build(), nil
-}
-
-func (h *Service2) getSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.Info, "Schema retrieved from hybrid service")).
-		Build(), nil
-}
-
-func (h *Service2) testCategory(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	message := "Test category action"
-	if c.CategoryID != nil {
-		message += " for category: " + *c.CategoryID
-	} else {
-		message += " (no category specified)"
-	}
-	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.Info, message)).
 		Build(), nil
 }
 
 func NewService2() sdk.EndorHybridService {
 	service2 := Service2{}
 
-	return sdk.NewHybridService("test-hybrid", "Testing hybrid resource").
-		WithActions(func(getSchema func() sdk.Schema, getCategorySchema func(categoryID string) sdk.Schema) map[string]sdk.EndorServiceAction {
-			// Qui possiamo accedere allo schema dinamico tramite getSchema() se necessario
-			// schema := getSchema()
-			// E possiamo anche accedere agli schemi delle categorie tramite getCategorySchema()
-			// categorySchema := getCategorySchema("some-category-id")
+	category1Schema, _ := sdk.NewSchema(Category1Schema{}).ToYAML()
+	category2Schema, _ := sdk.NewSchema(Category2Schema{}).ToYAML()
 
+	return sdk.NewHybridService("resource-2", "Resource 2 (EndorHybridService with static categories)").
+		WithBaseModel(&Service2BaseModel{}).
+		WithCategories([]sdk.Category{
+			{
+				ID:                   "cat-1",
+				Description:          "Category 1",
+				AdditionalAttributes: category1Schema,
+			},
+			{
+				ID:                   "cat-2",
+				Description:          "Category 2",
+				AdditionalAttributes: category2Schema,
+			},
+		}).
+		WithActions(func() map[string]sdk.EndorServiceAction {
 			return map[string]sdk.EndorServiceAction{
-				"hybrid-test": sdk.NewAction(
-					service2.hybridTest,
-					"Test hybrid action with dynamic schema",
-				),
-				"get-schema": sdk.NewAction(
-					service2.getSchema,
-					"Get the current schema of the hybrid resource",
-				),
-				"test-category": sdk.NewAction(
-					service2.testCategory,
-					"Test action to verify category ID injection",
+				"action-1": sdk.NewAction(
+					service2.action1,
+					"Test hybrid action",
 				),
 			}
 		})

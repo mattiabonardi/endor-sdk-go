@@ -3,6 +3,8 @@ package sdk
 import (
 	"context"
 	"fmt"
+
+	"github.com/gin-gonic/gin"
 )
 
 type EndorHybridService struct {
@@ -10,9 +12,9 @@ type EndorHybridService struct {
 	Description    string
 	Priority       *int
 	metadataSchema Schema
-	methodsFn      func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction
-	baseModel      any                 // Modello base per ResourceInstanceRepository
-	categories     map[string]Category // Cache delle categorie disponibili
+	methodsFn      func() map[string]EndorServiceAction // Metodi wrapper che gestiscono tutte le categorie
+	baseModel      ResourceInstanceInterface            // Modello base per ResourceInstanceRepository
+	categories     map[string]Category                  // Cache delle categorie disponibili
 }
 
 func NewHybridService(resource, description string) EndorHybridService {
@@ -24,14 +26,15 @@ func NewHybridService(resource, description string) EndorHybridService {
 }
 
 // WithBaseModel permette di specificare un modello base personalizzato
-func (h EndorHybridService) WithBaseModel(model any) EndorHybridService {
+func (h EndorHybridService) WithBaseModel(model ResourceInstanceInterface) EndorHybridService {
 	h.baseModel = model
 	return h
 }
 
-// Definizione dei metodi tramite funzione che riceve getSchema() e getCategorySchema()
+// Definizione dei metodi tramite funzione che restituisce metodi wrapper
+// I metodi wrapper gestiranno tutte le categorie e verranno esplosi in ToEndorService
 func (h EndorHybridService) WithActions(
-	fn func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction,
+	fn func() map[string]EndorServiceAction,
 ) EndorHybridService {
 	h.methodsFn = fn
 	return h
@@ -127,15 +130,6 @@ func (h EndorHybridService) getDefaultActions(getSchema func() Schema) map[strin
 func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 	h.metadataSchema = attrs
 	getSchema := func() Schema { return h.metadataSchema }
-	getCategorySchema := func(categoryID string) Schema {
-		if category, exists := h.categories[categoryID]; exists {
-			if categorySchema, err := category.UnmarshalAdditionalAttributes(); err == nil {
-				return categorySchema.Schema
-			}
-		}
-		return Schema{} // Schema vuoto se categoria non trovata o errore
-	}
-
 	var methods map[string]EndorServiceAction
 
 	// Se non ci sono metodi personalizzati, usa quelli di default
@@ -144,10 +138,26 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 	} else {
 		// Inizia con i metodi di default
 		methods = h.getDefaultActions(getSchema)
-		// Sovrascrivi con i metodi personalizzati
-		customMethods := h.methodsFn(getSchema, getCategorySchema)
-		for name, action := range customMethods {
-			methods[name] = action
+
+		// Ottieni i metodi wrapper
+		wrapperMethods := h.methodsFn()
+
+		// Esplodi ogni metodo wrapper per ogni categoria
+		for methodName, wrapperAction := range wrapperMethods {
+			// Aggiungi il metodo base (senza categoria)
+			methods[methodName] = h.createActionForCategory(wrapperAction, "", getSchema)
+
+			// Esplodi per ogni categoria
+			for categoryID, category := range h.categories {
+				// Crea il nome del metodo esploso
+				explodedMethodName := categoryID + "/" + methodName
+
+				// Crea lo schema combinato per questa categoria
+				combinedSchema := h.getCombinedSchemaForCategory(category, getSchema)
+
+				// Crea l'action per questa categoria specifica
+				methods[explodedMethodName] = h.createActionForCategory(wrapperAction, categoryID, func() Schema { return combinedSchema })
+			}
 		}
 	}
 
@@ -219,4 +229,88 @@ func (h EndorHybridService) defaultDelete(c *EndorContext[ReadInstanceDTO], repo
 		return nil, err
 	}
 	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.Resource))).Build(), nil
+}
+
+// createActionForCategory crea un'azione specifica per una categoria
+func (h EndorHybridService) createActionForCategory(wrapperAction EndorServiceAction, categoryID string, getSchemaForCategory func() Schema) EndorServiceAction {
+	// Ottieni le opzioni dell'action wrapper
+	options := wrapperAction.GetOptions()
+
+	// Crea nuove opzioni con lo schema specifico della categoria
+	newOptions := EndorServiceActionOptions{
+		Description:     options.Description,
+		Public:          options.Public,
+		ValidatePayload: options.ValidatePayload,
+		InputSchema:     options.InputSchema, // Mantieni lo schema originale per ora
+	}
+
+	// Crea un wrapper che inietta il categoryID nel context
+	callback := wrapperAction.CreateHTTPCallback
+	newCallback := func(microserviceId string) func(c *gin.Context) {
+		originalHandler := callback(microserviceId)
+		return func(c *gin.Context) {
+			// Inietta il categoryID nel context se specificato
+			if categoryID != "" {
+				c.Set("categoryID", categoryID)
+			}
+			originalHandler(c)
+		}
+	}
+
+	// Restituisci una nuova action con le opzioni aggiornate
+	return &hybridActionWrapper{
+		options:         newOptions,
+		callbackCreator: newCallback,
+	}
+}
+
+// getCombinedSchemaForCategory combina lo schema base con quello della categoria
+func (h EndorHybridService) getCombinedSchemaForCategory(category Category, getBaseSchema func() Schema) Schema {
+	baseSchema := getBaseSchema()
+
+	// Ottieni lo schema della categoria
+	categorySchema, err := category.UnmarshalAdditionalAttributes()
+	if err != nil {
+		return baseSchema // Ritorna solo lo schema base se c'è un errore
+	}
+
+	return h.combineSchemas(baseSchema, categorySchema.Schema)
+}
+
+// combineSchemas combina due schemi
+func (h EndorHybridService) combineSchemas(baseSchema, categorySchema Schema) Schema {
+	combined := Schema{
+		Type:       ObjectType,
+		Properties: &map[string]Schema{},
+	}
+
+	// Aggiungi proprietà dello schema base
+	if baseSchema.Properties != nil {
+		for k, v := range *baseSchema.Properties {
+			(*combined.Properties)[k] = v
+		}
+	}
+
+	// Aggiungi proprietà dello schema categoria (sovrascrivono se esistenti)
+	if categorySchema.Properties != nil {
+		for k, v := range *categorySchema.Properties {
+			(*combined.Properties)[k] = v
+		}
+	}
+
+	return combined
+}
+
+// hybridActionWrapper implementa EndorServiceAction per le azioni esplose
+type hybridActionWrapper struct {
+	options         EndorServiceActionOptions
+	callbackCreator func(microserviceId string) func(c *gin.Context)
+}
+
+func (h *hybridActionWrapper) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+	return h.callbackCreator(microserviceId)
+}
+
+func (h *hybridActionWrapper) GetOptions() EndorServiceActionOptions {
+	return h.options
 }

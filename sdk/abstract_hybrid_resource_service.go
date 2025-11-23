@@ -20,17 +20,9 @@ func NewAbstractHybridResourceService(resource string, description string) Endor
 	}
 
 	return NewHybridService(resource, description).WithActions(
-		func(getSchema func() Schema, getCategorySchema func(categoryID string) Schema) map[string]EndorServiceAction {
-			// Otteniamo lo schema dinamico al momento della chiamata
-			schema := getSchema()
-
+		func() map[string]EndorServiceAction {
 			// Creiamo la rootSchema che combina DynamicResource con gli attributi aggiuntivi
 			rootSchema := NewSchema(DynamicResource{})
-			if schema.Properties != nil {
-				for k, v := range *schema.Properties {
-					(*rootSchema.Properties)[k] = v
-				}
-			}
 
 			return map[string]EndorServiceAction{
 				"schema": NewAction(
