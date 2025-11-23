@@ -139,7 +139,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					// Update ONLY hybrid services with MongoDB schema
 					if foundHybridService != nil {
 						resources[resource.ID] = EndorServiceDictionary{
-							EndorService: foundHybridService.ToEndorService(defintion.Schema),
+							EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
 							resource:     resource,
 						}
 					}

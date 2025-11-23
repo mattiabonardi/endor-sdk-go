@@ -53,3 +53,16 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 		t.Fatalf("Expected value property to be object type, got %v", valueProp.Type)
 	}
 }
+
+func TestCreateSwaggerDefinitionWithCategories(t *testing.T) {
+	def, err := sdk.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService3()}, "/api")
+	if err != nil {
+		t.Fail()
+	}
+	if _, ok := def.Paths["/api/v1/resource-3/action1"]; !ok {
+		t.Fatalf("Expected /api/v1/resource-3/action1 to exist")
+	}
+	if _, ok := def.Paths["/api/v1/resource-3/cat_1/action1"]; !ok {
+		t.Fatalf("Expected /api/v1/resource-3/cat_1/action1 to exist")
+	}
+}
