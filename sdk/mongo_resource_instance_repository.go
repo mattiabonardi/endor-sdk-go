@@ -12,17 +12,14 @@ import (
 )
 
 type MongoResourceInstanceRepository[T ResourceInstanceInterface] struct {
-	collection *mongo.Collection
-	options    ResourceInstanceRepositoryOptions
+	collectionName string
+	options        ResourceInstanceRepositoryOptions
 }
 
 func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId string, options ResourceInstanceRepositoryOptions) *MongoResourceInstanceRepository[T] {
-	client, _ := GetMongoClient()
-
-	collection := client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(resourceId)
 	return &MongoResourceInstanceRepository[T]{
-		collection: collection,
-		options:    options,
+		collectionName: resourceId,
+		options:        options,
 	}
 }
 
@@ -42,7 +39,7 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 	}
 
 	// Esegui la query
-	err := r.collection.FindOne(ctx, filter).Decode(&rawResult)
+	err := r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
@@ -102,7 +99,7 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 		return nil, err
 	}
 	opts := options.Find().SetProjection(prepareProjection[T](dto.Projection))
-	cursor, err := r.collection.Find(ctx, mongoFilter, opts)
+	cursor, err := r.getCollection().Find(ctx, mongoFilter, opts)
 	if err != nil {
 		return nil, NewInternalServerError(fmt.Errorf("failed to list resources: %w", err))
 	}
@@ -208,7 +205,7 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto Cre
 	// Aggiungi metadata in oggetto separato
 	resourceMap["metadata"] = dto.Data.Metadata
 
-	_, err = r.collection.InsertOne(ctx, resourceMap)
+	_, err = r.getCollection().InsertOne(ctx, resourceMap)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return nil, NewConflictError(fmt.Errorf("resource instance already exists: %w", err))
@@ -255,7 +252,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 
 	resourceMap["metadata"] = dto.Data.Metadata
 
-	result, err := r.collection.ReplaceOne(ctx, filter, resourceMap)
+	result, err := r.getCollection().ReplaceOne(ctx, filter, resourceMap)
 	if err != nil {
 		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
 	}
@@ -284,7 +281,7 @@ func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto Rea
 		filter = bson.M{"_id": dto.Id}
 	}
 
-	result, err := r.collection.DeleteOne(ctx, filter)
+	result, err := r.getCollection().DeleteOne(ctx, filter)
 	if err != nil {
 		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
 	}
@@ -338,4 +335,9 @@ func prepareFilter[T ResourceInstanceInterface](filter map[string]interface{}) (
 	}
 
 	return result, nil
+}
+
+func (r *MongoResourceInstanceRepository[T]) getCollection() *mongo.Collection {
+	client, _ := GetMongoClient()
+	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }

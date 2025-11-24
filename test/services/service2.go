@@ -5,8 +5,8 @@ import (
 )
 
 type Service2BaseModel struct {
-	ID                  string `json:"id" bson:"_id"`
-	AdditionalAttribute string `json:"additionalAttribute"`
+	ID        string `json:"id" bson:"_id"`
+	Attribute string `json:"attribute"`
 }
 
 func (h Service2BaseModel) GetID() *string {
@@ -23,11 +23,11 @@ type Service2Action1Payload struct {
 }
 
 type Category1Schema struct {
-	VATNumber string `json:"vatNumber"`
+	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
 }
 
 type Category2Schema struct {
-	TaxID string `json:"taxId"`
+	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
 type Service2 struct {
