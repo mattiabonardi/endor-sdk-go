@@ -72,7 +72,6 @@ func TestEndorHybridService(t *testing.T) {
 	if _, ok := (*endorService.Methods["delete"].GetOptions().InputSchema.Properties)["id"]; !ok {
 		t.Errorf("'id' property not found in input schema for method 'delete'")
 	}
-	// check additional method
 	if _, ok := endorService.Methods["action-1"]; !ok {
 		t.Errorf("method 'action-1' not found in endorService methods map")
 	}
@@ -134,6 +133,9 @@ func TestEndorHybridService(t *testing.T) {
 	if _, ok := (*endorService.Methods["cat-1/delete"].GetOptions().InputSchema.Properties)["id"]; !ok {
 		t.Errorf("'id' property not found in input schema for method 'cat-1/delete'")
 	}
+	if _, ok := endorService.Methods["cat-1/action-1"]; !ok {
+		t.Errorf("method 'cat-1/action-1' not found in endorService methods map")
+	}
 	// check categories default methods (cat-2)
 	if _, ok := endorService.Methods["cat-2/create"]; !ok {
 		t.Errorf("method 'cat-2/create' not found in endorService methods map")
@@ -153,5 +155,8 @@ func TestEndorHybridService(t *testing.T) {
 		}
 	} else {
 		t.Errorf("'data' property not found in input schema for method 'cat-2/create'")
+	}
+	if _, ok := endorService.Methods["cat-2/action-1"]; !ok {
+		t.Errorf("method 'cat-2/action-1' not found in endorService methods map")
 	}
 }

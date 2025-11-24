@@ -7,10 +7,12 @@ import (
 )
 
 func TestNewResourceDefinitionFromYAML(t *testing.T) {
-	yamlInput := `name:
-  type: string
-surname:
-  type: string`
+	yamlInput := `type: object
+properties:
+  name:
+    type: string
+  surname:
+    type: string`
 	resource := sdk.Resource{
 		ID:                   "customer",
 		Description:          "Customers",
