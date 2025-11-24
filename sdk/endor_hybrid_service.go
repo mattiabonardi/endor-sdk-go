@@ -154,9 +154,13 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 
 		// 2. Esplodi i metodi di default per ogni categoria
 		for categoryID, category := range h.categories {
+			// Copia la categoria per evitare problemi di closure
+			currentCategory := category
+			currentCategoryID := categoryID
+
 			// Crea lo schema combinato per questa categoria
 			combinedSchemaFunc := func() Schema {
-				return h.getCombinedSchemaForCategory(category, getSchema)
+				return h.getCombinedSchemaForCategory(currentCategory, getSchema)
 			}
 
 			// Ottieni le azioni di default con lo schema della categoria
@@ -164,8 +168,8 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 
 			for methodName, action := range categoryDefaultMethods {
 				// Crea il nome del metodo esploso per default actions
-				explodedMethodName := categoryID + "/" + methodName
-				methods[explodedMethodName] = h.createActionForCategory(action, categoryID, combinedSchemaFunc)
+				explodedMethodName := currentCategoryID + "/" + methodName
+				methods[explodedMethodName] = h.createActionForCategory(action, currentCategoryID, combinedSchemaFunc)
 			}
 		}
 
@@ -179,11 +183,15 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 
 				// Esplodi per ogni categoria
 				for categoryID, category := range h.categories {
-					explodedMethodName := categoryID + "/" + methodName
+					// Copia la categoria per evitare problemi di closure
+					currentCategory := category
+					currentCategoryID := categoryID
+
+					explodedMethodName := currentCategoryID + "/" + methodName
 					combinedSchemaFunc := func() Schema {
-						return h.getCombinedSchemaForCategory(category, getSchema)
+						return h.getCombinedSchemaForCategory(currentCategory, getSchema)
 					}
-					methods[explodedMethodName] = h.createActionForCategory(wrapperAction, categoryID, combinedSchemaFunc)
+					methods[explodedMethodName] = h.createActionForCategory(wrapperAction, currentCategoryID, combinedSchemaFunc)
 				}
 			}
 		}
