@@ -341,3 +341,232 @@ func (r *MongoResourceInstanceRepository[T]) getCollection() *mongo.Collection {
 	client, _ := GetMongoClient()
 	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
+
+// ==== SPECIALIZED REPOSITORY IMPLEMENTATION ====
+
+type MongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any] struct {
+	collectionName string
+	options        ResourceInstanceRepositoryOptions
+	categoryInfo   *CategorySpecialized[C]
+}
+
+func NewMongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any](
+	resourceId string,
+	options ResourceInstanceRepositoryOptions,
+	categoryInfo *CategorySpecialized[C],
+) *MongoResourceInstanceSpecializedRepository[T, C] {
+	return &MongoResourceInstanceSpecializedRepository[T, C]{
+		collectionName: resourceId,
+		options:        options,
+		categoryInfo:   categoryInfo,
+	}
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstanceSpecialized[T, C], error) {
+	var rawResult bson.M
+
+	// Preparazione del filtro
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	// Esegui la query
+	err := r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+		}
+		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
+	}
+
+	// Converti in ResourceInstanceSpecialized
+	return r.convertToSpecialized(rawResult)
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Context, dto ReadDTO) ([]ResourceInstanceSpecialized[T, C], error) {
+	// Usa la stessa logica del repository base ma converte in specialized
+	cursor, err := r.getCollection().Find(ctx, bson.M{})
+	if err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instances: %w", err))
+	}
+	defer cursor.Close(ctx)
+
+	var rawResults []bson.M
+	if err = cursor.All(ctx, &rawResults); err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to decode resource instances: %w", err))
+	}
+
+	specializedResults := make([]ResourceInstanceSpecialized[T, C], len(rawResults))
+	for i, rawResult := range rawResults {
+		converted, err := r.convertToSpecialized(rawResult)
+		if err != nil {
+			return nil, err
+		}
+		specializedResults[i] = *converted
+	}
+
+	return specializedResults, nil
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Context, dto CreateDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
+	// Converte ResourceInstanceSpecialized in documento BSON
+	doc, err := r.convertFromSpecialized(dto.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Genera ID se necessario
+	if *r.options.AutoGenerateID {
+		idValue := dto.Data.This.GetID()
+		if idValue == nil || *idValue == "" {
+			objectID := primitive.NewObjectID()
+			dto.Data.This.SetID(objectID.Hex())
+			doc["_id"] = objectID
+		}
+	}
+
+	// Inserisci in MongoDB
+	_, err = r.getCollection().InsertOne(ctx, doc)
+	if err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
+	}
+
+	return &dto.Data, nil
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
+	// Usa la stessa logica del repository base
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	result, err := r.getCollection().DeleteOne(ctx, filter)
+	if err != nil {
+		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
+	}
+
+	if result.DeletedCount == 0 {
+		return NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+	}
+
+	return nil
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
+	// Converte in documento BSON
+	doc, err := r.convertFromSpecialized(dto.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Preparazione del filtro
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	// Update in MongoDB
+	update := bson.M{"$set": doc}
+	_, err = r.getCollection().UpdateOne(ctx, filter, update)
+	if err != nil {
+		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
+	}
+
+	return &dto.Data, nil
+}
+
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) getCollection() *mongo.Collection {
+	client, _ := GetMongoClient()
+	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
+}
+
+// convertToSpecialized converte documento BSON in ResourceInstanceSpecialized
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(rawResult bson.M) (*ResourceInstanceSpecialized[T, C], error) {
+	// Estrai base metadata
+	baseMetadata := extractMetadataFromBSON(rawResult, "metadata")
+
+	// Estrai specialization
+	var specialization *ResourceInstanceSpecialization[C]
+	if specData, exists := rawResult["specialization"]; exists {
+		if specMap, ok := specData.(bson.M); ok {
+			// Estrai This (modello statico categoria)
+			var categoryThis C
+			if thisData, exists := specMap["this"]; exists {
+				bsonBytes, _ := bson.Marshal(thisData)
+				bson.Unmarshal(bsonBytes, &categoryThis)
+			}
+
+			// Estrai metadata categoria
+			categoryMetadata := extractMetadataFromBSON(specMap, "metadata")
+
+			specialization = &ResourceInstanceSpecialization[C]{
+				This:     categoryThis,
+				Metadata: categoryMetadata,
+			}
+		}
+	}
+
+	// Estrai base This
+	var baseThis T
+	if thisData, exists := rawResult["this"]; exists {
+		bsonBytes, _ := bson.Marshal(thisData)
+		bson.Unmarshal(bsonBytes, &baseThis)
+	}
+
+	return &ResourceInstanceSpecialized[T, C]{
+		This:           baseThis,
+		Metadata:       baseMetadata,
+		Specialization: specialization,
+	}, nil
+}
+
+// convertFromSpecialized converte ResourceInstanceSpecialized in documento BSON
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertFromSpecialized(data ResourceInstanceSpecialized[T, C]) (bson.M, error) {
+	doc := bson.M{
+		"this":     data.This,
+		"metadata": data.Metadata,
+	}
+
+	// Aggiungi specialization se presente
+	if data.Specialization != nil {
+		doc["specialization"] = bson.M{
+			"this":     data.Specialization.This,
+			"metadata": data.Specialization.Metadata,
+		}
+	}
+
+	return doc, nil
+}
+
+// ==== COMMON UTILITIES ====
+
+// extractMetadataFromBSON estrae metadata da un documento BSON
+func extractMetadataFromBSON(rawResult bson.M, metadataField string) map[string]interface{} {
+	metadata := make(map[string]interface{})
+	if rawMeta, ok := rawResult[metadataField]; ok && rawMeta != nil {
+		if metaBytes, err := bson.Marshal(rawMeta); err == nil {
+			_ = bson.Unmarshal(metaBytes, &metadata)
+		}
+	}
+	return metadata
+}

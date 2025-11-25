@@ -1,10 +1,8 @@
 package sdk
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v3"
 )
 
 type EndorHybridService struct {
@@ -15,13 +13,16 @@ type EndorHybridService struct {
 	methodsFn      func() map[string]EndorServiceAction // Metodi wrapper che gestiscono tutte le categorie
 	baseModel      ResourceInstanceInterface            // Modello base per ResourceInstanceRepository
 	categories     map[string]Category                  // Cache delle categorie disponibili
+	// Nuovi campi per supportare categorie specializzate
+	specializedCategories map[string]interface{} // Cache delle categorie specializzate (tipo-indipendente)
 }
 
 func NewHybridService(resource, description string) EndorHybridService {
 	return EndorHybridService{
-		Resource:    resource,
-		Description: description,
-		baseModel:   &DynamicResource{}, // Default model
+		Resource:              resource,
+		Description:           description,
+		baseModel:             &DynamicResource{}, // Default model
+		specializedCategories: make(map[string]interface{}),
 	}
 }
 
@@ -51,79 +52,44 @@ func (h EndorHybridService) WithCategories(categories []Category) EndorHybridSer
 	return h
 }
 
-// getDefaultActions fornisce le 6 azioni CRUD di default per hybrid services
-func (h EndorHybridService) getDefaultActions(getSchema func() Schema) map[string]EndorServiceAction {
-	// Crea repository usando DynamicResource come default (per ora)
-	autogenerateID := true
-	repository := NewResourceInstanceRepository[*DynamicResource](h.Resource, ResourceInstanceRepositoryOptions{
-		AutoGenerateID: &autogenerateID,
-	})
+// SpecializedCategoryInfo contiene informazioni su una categoria specializzata
+type SpecializedCategoryInfo struct {
+	ID                   string
+	Description          string
+	StaticModelSchema    *RootSchema // Schema del modello statico
+	AdditionalAttributes string      // YAML degli attributi aggiuntivi
+}
 
-	return map[string]EndorServiceAction{
-		"schema": NewAction(
-			func(c *EndorContext[NoPayload]) (*Response[any], error) {
-				return h.defaultSchema(c, getSchema)
-			},
-			fmt.Sprintf("Get the schema of the %s (%s)", h.Resource, h.Description),
-		),
-		"list": NewAction(
-			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[*DynamicResource]], error) {
-				return h.defaultList(c, getSchema, repository)
-			},
-			fmt.Sprintf("Search for available list of %s (%s)", h.Resource, h.Description),
-		),
-		"create": NewConfigurableAction(
-			EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Create the instance of %s (%s)", h.Resource, h.Description),
-				Public:          false,
-				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
-							"data": h.getRootSchema(getSchema).Schema,
-						},
-					},
-				},
-			},
-			func(c *EndorContext[CreateDTO[ResourceInstance[*DynamicResource]]]) (*Response[ResourceInstance[*DynamicResource]], error) {
-				return h.defaultCreate(c, getSchema, repository)
-			},
-		),
-		"instance": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstance[*DynamicResource]], error) {
-				return h.defaultInstance(c, getSchema, repository)
-			},
-			fmt.Sprintf("Get the instance of %s (%s)", h.Resource, h.Description),
-		),
-		"update": NewConfigurableAction(
-			EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Update the existing instance of %s (%s)", h.Resource, h.Description),
-				Public:          false,
-				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
-							"id": {
-								Type: StringType,
-							},
-							"data": h.getRootSchema(getSchema).Schema,
-						},
-					},
-				},
-			},
-			func(c *EndorContext[UpdateByIdDTO[ResourceInstance[*DynamicResource]]]) (*Response[ResourceInstance[*DynamicResource]], error) {
-				return h.defaultUpdate(c, getSchema, repository)
-			},
-		),
-		"delete": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
-				return h.defaultDelete(c, repository)
-			},
-			fmt.Sprintf("Delete the existing instance of %s (%s)", h.Resource, h.Description),
-		),
+// WithSpecializedCategoryInfo aggiunge una categoria specializzata usando type-erased info
+func (h EndorHybridService) WithSpecializedCategoryInfo(info SpecializedCategoryInfo) EndorHybridService {
+	if h.specializedCategories == nil {
+		h.specializedCategories = make(map[string]interface{})
 	}
+
+	// Aggiungi anche alla cache normale per backward compatibility
+	if h.categories == nil {
+		h.categories = make(map[string]Category)
+	}
+	h.categories[info.ID] = Category{
+		ID:                   info.ID,
+		Description:          info.Description,
+		AdditionalAttributes: info.AdditionalAttributes,
+	}
+
+	// Aggiungi alla cache specializzata
+	h.specializedCategories[info.ID] = info
+
+	return h
+}
+
+// GetSpecializedCategoryInfo recupera informazioni su una categoria specializzata
+func (h EndorHybridService) GetSpecializedCategoryInfo(categoryID string) (*SpecializedCategoryInfo, bool) {
+	if category, exists := h.specializedCategories[categoryID]; exists {
+		if typedCategory, ok := category.(SpecializedCategoryInfo); ok {
+			return &typedCategory, true
+		}
+	}
+	return nil, false
 }
 
 // Conversione in EndorService, schema iniettato dal framework
@@ -134,7 +100,8 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 
 	// Se non ci sono categorie, usa i metodi di default normali
 	if len(h.categories) == 0 {
-		methods = h.getDefaultActions(getSchema)
+		rootSchema := h.getRootSchema(getSchema)
+		methods = getDefaultActions(h.Resource, *rootSchema, h.Description)
 
 		// Aggiungi metodi custom se esistono
 		if h.methodsFn != nil {
@@ -147,7 +114,8 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 		// Con categorie: esplodi sia i metodi di default che quelli custom
 
 		// 1. Aggiungi i metodi di default base (senza categoria)
-		defaultMethods := h.getDefaultActions(getSchema)
+		rootSchema := h.getRootSchema(getSchema)
+		defaultMethods := getDefaultActions(h.Resource, *rootSchema, h.Description)
 		for methodName, action := range defaultMethods {
 			methods[methodName] = action
 		}
@@ -164,7 +132,8 @@ func (h EndorHybridService) ToEndorService(attrs Schema) EndorService {
 			}
 
 			// Ottieni le azioni di default con lo schema della categoria
-			categoryDefaultMethods := h.getDefaultActions(combinedSchemaFunc)
+			rootSchema := h.getRootSchema(combinedSchemaFunc)
+			categoryDefaultMethods := getDefaultActionsForCategory(h.Resource, *rootSchema, h.Description, currentCategoryID)
 
 			for methodName, action := range categoryDefaultMethods {
 				// Crea il nome del metodo esploso per default actions
@@ -217,56 +186,6 @@ func (h EndorHybridService) getRootSchema(getSchema func() Schema) *RootSchema {
 	return rootSchema
 }
 
-// Implementazioni dei metodi di default
-func (h EndorHybridService) defaultSchema(_ *EndorContext[NoPayload], getSchema func() Schema) (*Response[any], error) {
-	rootSchema := h.getRootSchema(getSchema)
-	return NewResponseBuilder[any]().AddSchema(rootSchema).Build(), nil
-}
-
-func (h EndorHybridService) defaultInstance(c *EndorContext[ReadInstanceDTO], getSchema func() Schema, repository *ResourceInstanceRepository[*DynamicResource]) (*Response[*ResourceInstance[*DynamicResource]], error) {
-	instance, err := repository.Instance(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	rootSchema := h.getRootSchema(getSchema)
-	return NewResponseBuilder[*ResourceInstance[*DynamicResource]]().AddData(&instance).AddSchema(rootSchema).Build(), nil
-}
-
-func (h EndorHybridService) defaultList(c *EndorContext[ReadDTO], getSchema func() Schema, repository *ResourceInstanceRepository[*DynamicResource]) (*Response[[]ResourceInstance[*DynamicResource]], error) {
-	list, err := repository.List(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	rootSchema := h.getRootSchema(getSchema)
-	return NewResponseBuilder[[]ResourceInstance[*DynamicResource]]().AddData(&list).AddSchema(rootSchema).Build(), nil
-}
-
-func (h EndorHybridService) defaultCreate(c *EndorContext[CreateDTO[ResourceInstance[*DynamicResource]]], getSchema func() Schema, repository *ResourceInstanceRepository[*DynamicResource]) (*Response[ResourceInstance[*DynamicResource]], error) {
-	created, err := repository.Create(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	rootSchema := h.getRootSchema(getSchema)
-	return NewResponseBuilder[ResourceInstance[*DynamicResource]]().AddData(created).AddSchema(rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", h.Resource))).Build(), nil
-}
-
-func (h EndorHybridService) defaultUpdate(c *EndorContext[UpdateByIdDTO[ResourceInstance[*DynamicResource]]], getSchema func() Schema, repository *ResourceInstanceRepository[*DynamicResource]) (*Response[ResourceInstance[*DynamicResource]], error) {
-	updated, err := repository.Update(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	rootSchema := h.getRootSchema(getSchema)
-	return NewResponseBuilder[ResourceInstance[*DynamicResource]]().AddData(updated).AddSchema(rootSchema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", h.Resource))).Build(), nil
-}
-
-func (h EndorHybridService) defaultDelete(c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceRepository[*DynamicResource]) (*Response[any], error) {
-	err := repository.Delete(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", h.Resource))).Build(), nil
-}
-
 // createActionForCategory crea un'azione specifica per una categoria
 func (h EndorHybridService) createActionForCategory(wrapperAction EndorServiceAction, categoryID string, getSchemaForCategory func() Schema) EndorServiceAction {
 	// Ottieni le opzioni dell'action wrapper
@@ -310,13 +229,42 @@ func (h EndorHybridService) createActionForCategory(wrapperAction EndorServiceAc
 func (h EndorHybridService) getCombinedSchemaForCategory(category Category, getBaseSchema func() Schema) Schema {
 	baseSchema := getBaseSchema()
 
-	// Ottieni lo schema della categoria
+	// Prima prova a vedere se è una categoria specializzata
+	if specializedInfo, exists := h.GetSpecializedCategoryInfo(category.ID); exists {
+		return h.getCombinedSchemaForSpecializedCategory(*specializedInfo, getBaseSchema)
+	}
+
+	// Altrimenti usa il metodo tradizionale
 	categorySchema, err := category.UnmarshalAdditionalAttributes()
 	if err != nil {
 		return baseSchema // Ritorna solo lo schema base se c'è un errore
 	}
 
 	return h.combineSchemas(baseSchema, categorySchema.Schema)
+}
+
+// getCombinedSchemaForSpecializedCategory combina schema per categoria specializzata
+func (h EndorHybridService) getCombinedSchemaForSpecializedCategory(info SpecializedCategoryInfo, getBaseSchema func() Schema) Schema {
+	baseSchema := getBaseSchema()
+
+	// Inizia con lo schema base
+	combined := baseSchema
+
+	// Aggiungi le proprietà del modello statico se presente
+	if info.StaticModelSchema != nil && info.StaticModelSchema.Schema.Properties != nil {
+		combined = h.combineSchemas(combined, info.StaticModelSchema.Schema)
+	}
+
+	// Aggiungi gli attributi aggiuntivi se presenti
+	if info.AdditionalAttributes != "" {
+		var additionalSchema RootSchema
+		err := yaml.Unmarshal([]byte(info.AdditionalAttributes), &additionalSchema)
+		if err == nil && additionalSchema.Schema.Properties != nil {
+			combined = h.combineSchemas(combined, additionalSchema.Schema)
+		}
+	}
+
+	return combined
 }
 
 // combineSchemas combina due schemi

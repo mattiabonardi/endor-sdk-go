@@ -15,6 +15,76 @@ type Category struct {
 	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
 }
 
+// CategorySpecialized rappresenta una categoria con supporto per modello statico
+type CategorySpecialized[C any] struct {
+	ID                   string `json:"id" bson:"id" schema:"title=Category ID"`
+	Description          string `json:"description" bson:"description" schema:"title=Category Description"`
+	StaticModel          *C     `json:"-" bson:"-"` // Modello statico (solo per typing, non serializzato)
+	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
+}
+
+// ToCategory converte una CategorySpecialized in una Category per backward compatibility
+func (c *CategorySpecialized[C]) ToCategory() Category {
+	return Category{
+		ID:                   c.ID,
+		Description:          c.Description,
+		AdditionalAttributes: c.AdditionalAttributes,
+	}
+}
+
+// NewCategorySpecialized crea una nuova categoria specializzata con modello statico
+func NewCategorySpecialized[C any](id, description string, staticModel *C, additionalAttributes string) CategorySpecialized[C] {
+	return CategorySpecialized[C]{
+		ID:                   id,
+		Description:          description,
+		StaticModel:          staticModel,
+		AdditionalAttributes: additionalAttributes,
+	}
+}
+
+// GetStaticModelSchema restituisce lo schema del modello statico
+func (c *CategorySpecialized[C]) GetStaticModelSchema() *RootSchema {
+	if c.StaticModel == nil {
+		return nil
+	}
+	return NewSchema(*c.StaticModel)
+}
+
+// GetCombinedSchema combina lo schema del modello statico con gli attributi aggiuntivi
+func (c *CategorySpecialized[C]) GetCombinedSchema() (*RootSchema, error) {
+	var combinedSchema *RootSchema
+
+	// Inizia con lo schema del modello statico se presente
+	if c.StaticModel != nil {
+		combinedSchema = NewSchema(*c.StaticModel)
+	} else {
+		combinedSchema = &RootSchema{
+			Schema: Schema{
+				Type:       ObjectType,
+				Properties: &map[string]Schema{},
+			},
+		}
+	}
+
+	// Aggiungi gli attributi aggiuntivi se presenti
+	if c.AdditionalAttributes != "" {
+		var additionalSchema RootSchema
+		err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &additionalSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
+		}
+
+		// Combina i due schemi
+		if additionalSchema.Schema.Properties != nil {
+			for k, v := range *additionalSchema.Schema.Properties {
+				(*combinedSchema.Schema.Properties)[k] = v
+			}
+		}
+	}
+
+	return combinedSchema, nil
+}
+
 // UnmarshalAdditionalAttributes deserializza gli attributi aggiuntivi della categoria
 func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	var schema RootSchema
@@ -219,4 +289,37 @@ func (h *DynamicResource) GetID() *string {
 
 func (h *DynamicResource) SetID(id string) {
 	h.Id = id
+}
+
+// ResourceInstanceSpecialization rappresenta la specializzazione di una categoria
+type ResourceInstanceSpecialization[C any] struct {
+	This     C                      `json:",inline" bson:"this"`
+	Metadata map[string]interface{} `json:",inline" bson:"metadata,omitempty"`
+}
+
+// ResourceInstanceSpecialized rappresenta un'istanza di risorsa specializzata con categoria
+type ResourceInstanceSpecialized[T ResourceInstanceInterface, C any] struct {
+	This           T                                  `json:",inline" bson:"this"`
+	Metadata       map[string]interface{}             `json:",inline" bson:"metadata,omitempty"`
+	Specialization *ResourceInstanceSpecialization[C] `json:",inline" bson:"specialization,omitempty"`
+}
+
+// GetID implementa ResourceInstanceInterface
+func (r *ResourceInstanceSpecialized[T, C]) GetID() *string {
+	return r.This.GetID()
+}
+
+// SetID implementa ResourceInstanceInterface
+func (r *ResourceInstanceSpecialized[T, C]) SetID(id string) {
+	r.This.SetID(id)
+}
+
+// GetCategoryID restituisce l'ID della categoria se presente nella specializzazione
+func (r *ResourceInstanceSpecialized[T, C]) GetCategoryID() string {
+	if r.Specialization == nil {
+		return ""
+	}
+	// Implementazione specifica dipenderà da come gestiamo l'ID categoria nella specializzazione
+	// Per ora restituiamo una stringa vuota, sarà definita meglio quando estenderemo Category
+	return ""
 }
