@@ -5,7 +5,7 @@ import (
 )
 
 type Service2BaseModel struct {
-	ID        string `json:"id" bson:"_id"`
+	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Attribute string `json:"attribute"`
 }
 
@@ -22,11 +22,24 @@ type Service2Action1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type Category1Schema struct {
+type Category1AdditionalSchema struct {
 	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
 }
 
 type Category2Schema struct {
+	CategoryType  string `json:"categoryType" bson:"categoryType"`
+	AttributeCat2 string `json:"attributeCat2"`
+}
+
+func (c Category2Schema) GetCategoryType() *string {
+	return &c.CategoryType
+}
+
+func (c *Category2Schema) SetCategoryType(categoryType string) {
+	c.CategoryType = categoryType
+}
+
+type Category2AdditionalSchema struct {
 	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
@@ -42,8 +55,8 @@ func (h *Service2) action1(c *sdk.EndorContext[Service2Action1Payload]) (*sdk.Re
 func NewService2() sdk.EndorHybridService {
 	service2 := Service2{}
 
-	category1Schema, _ := sdk.NewSchema(Category1Schema{}).ToYAML()
-	category2Schema, _ := sdk.NewSchema(Category2Schema{}).ToYAML()
+	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
+	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
 
 	return sdk.NewHybridService("resource-2", "Resource 2 (EndorHybridService with static categories)").
 		WithBaseModel(&Service2BaseModel{}).
@@ -51,15 +64,16 @@ func NewService2() sdk.EndorHybridService {
 			{
 				ID:                   "cat-1",
 				Description:          "Category 1",
-				AdditionalAttributes: category1Schema,
+				AdditionalAttributes: category1AdditionalSchema,
 			},
 			{
 				ID:                   "cat-2",
 				Description:          "Category 2",
-				AdditionalAttributes: category2Schema,
+				BaseModel:            &Category2Schema{},
+				AdditionalAttributes: category2AdditionalSchema,
 			},
 		}).
-		WithActions(func() map[string]sdk.EndorServiceAction {
+		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction {
 			return map[string]sdk.EndorServiceAction{
 				"action-1": sdk.NewAction(
 					service2.action1,

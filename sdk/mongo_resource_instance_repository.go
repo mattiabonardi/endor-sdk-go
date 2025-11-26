@@ -342,30 +342,25 @@ func (r *MongoResourceInstanceRepository[T]) getCollection() *mongo.Collection {
 	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
 
-// ==== SPECIALIZED REPOSITORY IMPLEMENTATION ====
-
-type MongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any] struct {
+type MongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] struct {
 	collectionName string
 	options        ResourceInstanceRepositoryOptions
-	categoryInfo   *CategorySpecialized[C]
 }
 
-func NewMongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any](
+func NewMongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](
 	resourceId string,
 	options ResourceInstanceRepositoryOptions,
-	categoryInfo *CategorySpecialized[C],
 ) *MongoResourceInstanceSpecializedRepository[T, C] {
 	return &MongoResourceInstanceSpecializedRepository[T, C]{
 		collectionName: resourceId,
 		options:        options,
-		categoryInfo:   categoryInfo,
 	}
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstanceSpecialized[T, C], error) {
 	var rawResult bson.M
 
-	// Preparazione del filtro
+	// Preparazione filtro
 	var filter bson.M
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
@@ -377,7 +372,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.
 		filter = bson.M{"_id": dto.Id}
 	}
 
-	// Esegui la query
+	// FindOne
 	err := r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -391,7 +386,6 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Context, dto ReadDTO) ([]ResourceInstanceSpecialized[T, C], error) {
-	// Usa la stessa logica del repository base ma converte in specialized
 	cursor, err := r.getCollection().Find(ctx, bson.M{})
 	if err != nil {
 		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instances: %w", err))
@@ -416,13 +410,12 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Cont
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Context, dto CreateDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
-	// Converte ResourceInstanceSpecialized in documento BSON
 	doc, err := r.convertFromSpecialized(dto.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	// Genera ID se necessario
+	// Genera _id se necessario
 	if *r.options.AutoGenerateID {
 		idValue := dto.Data.This.GetID()
 		if idValue == nil || *idValue == "" {
@@ -432,7 +425,6 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Co
 		}
 	}
 
-	// Inserisci in MongoDB
 	_, err = r.getCollection().InsertOne(ctx, doc)
 	if err != nil {
 		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
@@ -442,7 +434,6 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Co
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
-	// Usa la stessa logica del repository base
 	var filter bson.M
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
@@ -467,13 +458,11 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Co
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
-	// Converte in documento BSON
 	doc, err := r.convertFromSpecialized(dto.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	// Preparazione del filtro
 	var filter bson.M
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
@@ -485,7 +474,6 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Co
 		filter = bson.M{"_id": dto.Id}
 	}
 
-	// Update in MongoDB
 	update := bson.M{"$set": doc}
 	_, err = r.getCollection().UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -500,73 +488,124 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) getCollection() *mong
 	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
 
-// convertToSpecialized converte documento BSON in ResourceInstanceSpecialized
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(rawResult bson.M) (*ResourceInstanceSpecialized[T, C], error) {
-	// Estrai base metadata
-	baseMetadata := extractMetadataFromBSON(rawResult, "metadata")
-
-	// Estrai specialization
-	var specialization *ResourceInstanceSpecialization[C]
-	if specData, exists := rawResult["specialization"]; exists {
-		if specMap, ok := specData.(bson.M); ok {
-			// Estrai This (modello statico categoria)
-			var categoryThis C
-			if thisData, exists := specMap["this"]; exists {
-				bsonBytes, _ := bson.Marshal(thisData)
-				bson.Unmarshal(bsonBytes, &categoryThis)
+	metadata := make(map[string]interface{})
+	if rawMeta, ok := rawResult["metadata"]; ok && rawMeta != nil {
+		switch m := rawMeta.(type) {
+		case bson.M:
+			for k, v := range m {
+				metadata[k] = v
 			}
-
-			// Estrai metadata categoria
-			categoryMetadata := extractMetadataFromBSON(specMap, "metadata")
-
-			specialization = &ResourceInstanceSpecialization[C]{
-				This:     categoryThis,
-				Metadata: categoryMetadata,
+		case map[string]interface{}:
+			for k, v := range m {
+				metadata[k] = v
+			}
+		default:
+			if b, err := bson.Marshal(m); err == nil {
+				_ = bson.Unmarshal(b, &metadata)
 			}
 		}
 	}
 
-	// Estrai base This
+	// copia flat senza metadata
+	docNoMeta := cloneBsonM(rawResult)
+	delete(docNoMeta, "metadata")
+
+	// This
 	var baseThis T
-	if thisData, exists := rawResult["this"]; exists {
-		bsonBytes, _ := bson.Marshal(thisData)
-		bson.Unmarshal(bsonBytes, &baseThis)
+	{
+		b, err := bson.Marshal(docNoMeta)
+		if err != nil {
+			return nil, fmt.Errorf("marshal docNoMeta: %w", err)
+		}
+		if err := bson.Unmarshal(b, &baseThis); err != nil {
+			return nil, fmt.Errorf("unmarshal into This: %w", err)
+		}
+
+		// _id -> This.ID se vuoto
+		if rawId, ok := rawResult["_id"]; ok {
+			if ri, ok := any(&baseThis).(interface {
+				GetID() *string
+				SetID(string)
+			}); ok {
+				if idPtr := ri.GetID(); idPtr == nil || *idPtr == "" {
+					switch v := rawId.(type) {
+					case primitive.ObjectID:
+						ri.SetID(v.Hex())
+					case string:
+						ri.SetID(v)
+					}
+				}
+			}
+		}
 	}
 
-	return &ResourceInstanceSpecialized[T, C]{
-		This:           baseThis,
-		Metadata:       baseMetadata,
-		Specialization: specialization,
-	}, nil
+	// CategoryThis
+	var categoryThis C
+	{
+		b, err := bson.Marshal(docNoMeta)
+		if err != nil {
+			return nil, fmt.Errorf("marshal docNoMeta for CategoryThis: %w", err)
+		}
+		if err := bson.Unmarshal(b, &categoryThis); err != nil {
+			return nil, fmt.Errorf("unmarshal into CategoryThis: %w", err)
+		}
+	}
+
+	res := &ResourceInstanceSpecialized[T, C]{
+		This:         baseThis,
+		CategoryThis: categoryThis,
+		Metadata:     metadata,
+	}
+	return res, nil
 }
 
-// convertFromSpecialized converte ResourceInstanceSpecialized in documento BSON
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertFromSpecialized(data ResourceInstanceSpecialized[T, C]) (bson.M, error) {
-	doc := bson.M{
-		"this":     data.This,
-		"metadata": data.Metadata,
+	doc := bson.M{}
+
+	// merge This
+	{
+		bt, err := bson.Marshal(data.This)
+		if err != nil {
+			return nil, fmt.Errorf("marshal This: %w", err)
+		}
+		var tMap bson.M
+		if err := bson.Unmarshal(bt, &tMap); err != nil {
+			return nil, fmt.Errorf("unmarshal This->map: %w", err)
+		}
+		for k, v := range tMap {
+			doc[k] = v
+		}
 	}
 
-	// Aggiungi specialization se presente
-	if data.Specialization != nil {
-		doc["specialization"] = bson.M{
-			"this":     data.Specialization.This,
-			"metadata": data.Specialization.Metadata,
+	// merge CategoryThis
+	{
+		bc, err := bson.Marshal(data.CategoryThis)
+		if err != nil {
+			return nil, fmt.Errorf("marshal CategoryThis: %w", err)
 		}
+		var cMap bson.M
+		if err := bson.Unmarshal(bc, &cMap); err != nil {
+			return nil, fmt.Errorf("unmarshal CategoryThis->map: %w", err)
+		}
+		for k, v := range cMap {
+			doc[k] = v
+		}
+	}
+
+	// metadata come subdocumento
+	if data.Metadata != nil {
+		doc["metadata"] = data.Metadata
 	}
 
 	return doc, nil
 }
 
-// ==== COMMON UTILITIES ====
-
-// extractMetadataFromBSON estrae metadata da un documento BSON
-func extractMetadataFromBSON(rawResult bson.M, metadataField string) map[string]interface{} {
-	metadata := make(map[string]interface{})
-	if rawMeta, ok := rawResult[metadataField]; ok && rawMeta != nil {
-		if metaBytes, err := bson.Marshal(rawMeta); err == nil {
-			_ = bson.Unmarshal(metaBytes, &metadata)
-		}
+// helper shallow copy
+func cloneBsonM(src bson.M) bson.M {
+	dst := make(bson.M, len(src))
+	for k, v := range src {
+		dst[k] = v
 	}
-	return metadata
+	return dst
 }

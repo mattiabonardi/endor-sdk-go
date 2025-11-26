@@ -102,6 +102,9 @@ func TestEndorHybridService(t *testing.T) {
 		if _, ok := (*dataSchema.Properties)["additionalAttribute"]; !ok {
 			t.Errorf("input schema for method 'cat-1/create' wrong")
 		}
+		if _, ok := (*dataSchema.Properties)["categoryType"]; !ok {
+			t.Errorf("input schema for method 'cat-1/create' wrong")
+		}
 		if _, ok := (*dataSchema.Properties)["additionalAttributeCat1"]; !ok {
 			t.Errorf("input schema for method 'cat-1/create' wrong")
 		}
@@ -110,16 +113,19 @@ func TestEndorHybridService(t *testing.T) {
 	}
 	if dataSchema, ok := (*endorService.Methods["cat-1/update"].GetOptions().InputSchema.Properties)["data"]; ok {
 		if _, ok := (*dataSchema.Properties)["id"]; !ok {
-			t.Errorf("input schema for method 'cat-1/' wrong")
+			t.Errorf("input schema for method 'cat-1/update' wrong")
 		}
 		if _, ok := (*dataSchema.Properties)["attribute"]; !ok {
-			t.Errorf("input schema for method 'cat-1/' wrong")
+			t.Errorf("input schema for method 'cat-1/update' wrong")
 		}
 		if _, ok := (*dataSchema.Properties)["additionalAttribute"]; !ok {
-			t.Errorf("input schema for method 'cat-1/' wrong")
+			t.Errorf("input schema for method 'cat-1/update' wrong")
+		}
+		if _, ok := (*dataSchema.Properties)["categoryType"]; !ok {
+			t.Errorf("input schema for method 'cat-1/update' wrong")
 		}
 		if _, ok := (*dataSchema.Properties)["additionalAttributeCat1"]; !ok {
-			t.Errorf("input schema for method 'cat-1/create' wrong")
+			t.Errorf("input schema for method 'cat-1/update' wrong")
 		}
 	} else {
 		t.Errorf("'data' property not found in input schema for method 'cat-1/'")
@@ -148,6 +154,12 @@ func TestEndorHybridService(t *testing.T) {
 			t.Errorf("input schema for method 'cat-2/create' wrong")
 		}
 		if _, ok := (*dataSchema.Properties)["additionalAttribute"]; !ok {
+			t.Errorf("input schema for method 'cat-2/create' wrong")
+		}
+		if _, ok := (*dataSchema.Properties)["categoryType"]; !ok {
+			t.Errorf("input schema for method 'cat-2/create' wrong")
+		}
+		if _, ok := (*dataSchema.Properties)["attributeCat2"]; !ok {
 			t.Errorf("input schema for method 'cat-2/create' wrong")
 		}
 		if _, ok := (*dataSchema.Properties)["additionalAttributeCat2"]; !ok {

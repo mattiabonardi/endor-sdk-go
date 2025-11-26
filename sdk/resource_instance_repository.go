@@ -57,7 +57,7 @@ func (r *ResourceInstanceRepository[T]) Update(ctx context.Context, dto UpdateBy
 }
 
 // ResourceInstanceSpecializedRepositoryInterface defines interface for specialized repositories
-type ResourceInstanceSpecializedRepositoryInterface[T ResourceInstanceInterface, C any] interface {
+type ResourceInstanceSpecializedRepositoryInterface[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] interface {
 	Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstanceSpecialized[T, C], error)
 	List(ctx context.Context, dto ReadDTO) ([]ResourceInstanceSpecialized[T, C], error)
 	Create(ctx context.Context, dto CreateDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error)
@@ -66,22 +66,21 @@ type ResourceInstanceSpecializedRepositoryInterface[T ResourceInstanceInterface,
 }
 
 // ResourceInstanceSpecializedRepository handles specialized resource operations independently
-type ResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any] struct {
+type ResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] struct {
 	repository ResourceInstanceSpecializedRepositoryInterface[T, C]
 }
 
 // NewResourceInstanceSpecializedRepository creates a new specialized repository
-func NewResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C any](
+func NewResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](
 	resourceId string,
 	options ResourceInstanceRepositoryOptions,
-	categoryInfo *CategorySpecialized[C],
 ) *ResourceInstanceSpecializedRepository[T, C] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
 	return &ResourceInstanceSpecializedRepository[T, C]{
-		repository: NewMongoResourceInstanceSpecializedRepository[T, C](resourceId, options, categoryInfo),
+		repository: NewMongoResourceInstanceSpecializedRepository[T, C](resourceId, options),
 	}
 }
 
