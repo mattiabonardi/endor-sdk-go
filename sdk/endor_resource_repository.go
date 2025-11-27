@@ -50,14 +50,14 @@ func (h *EndorServiceRepository) ensureHybridServiceDocument(hybridService Endor
 	if (GetConfig().HybridResourcesEnabled || GetConfig().DynamicResourcesEnabled) && h.collection != nil {
 		// Check if document exists in MongoDB
 		var existingDoc Resource
-		filter := bson.M{"_id": hybridService.Resource}
+		filter := bson.M{"_id": hybridService.GetResource()}
 		err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
 
 		// If document doesn't exist, create it
 		if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
 			newResource := Resource{
-				ID:                   hybridService.Resource,
-				Description:          hybridService.Description,
+				ID:                   hybridService.GetResource(),
+				Description:          hybridService.GetResourceDescription(),
 				Service:              h.microServiceId,
 				AdditionalAttributes: "{}", // Empty JSON for additional attributes
 			}
@@ -93,7 +93,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 	if h.internalHybridServices != nil {
 		for _, hybridService := range *h.internalHybridServices {
 			// Skip if already handled by EndorService
-			if _, exists := resources[hybridService.Resource]; exists {
+			if _, exists := resources[hybridService.GetResource()]; exists {
 				continue
 			}
 
@@ -101,12 +101,12 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			h.ensureHybridServiceDocument(hybridService)
 
 			resource := Resource{
-				ID:          hybridService.Resource,
-				Description: hybridService.Description,
+				ID:          hybridService.GetResource(),
+				Description: hybridService.GetResourceDescription(),
 				Service:     h.microServiceId,
 			}
 			// Convert hybrid service with empty schema (will be updated if MongoDB document exists)
-			resources[hybridService.Resource] = EndorServiceDictionary{
+			resources[hybridService.GetResource()] = EndorServiceDictionary{
 				EndorService: hybridService.ToEndorService(Schema{}),
 				resource:     resource,
 			}
@@ -122,13 +122,21 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 
 		for _, resource := range dynamicResources {
 			defintion, err := resource.UnmarshalAdditionalAttributes()
+
+			categories := []EndorHybridServiceCategory{}
+			for _, c := range resource.Categories {
+				categories = append(categories, &EndorHybridServiceCategoryImpl[*DynamicResource, *DynamicResourceSpecialized]{
+					Category: c,
+				})
+			}
+
 			if err == nil {
 				// Check if there's a corresponding hybrid service for this resource
-				var foundHybridService *EndorHybridService
+				var foundHybridService EndorHybridService
 				if h.internalHybridServices != nil {
 					for i, hybridService := range *h.internalHybridServices {
-						if hybridService.Resource == resource.ID {
-							foundHybridService = &(*h.internalHybridServices)[i]
+						if hybridService.GetResource() == resource.ID {
+							foundHybridService = (*h.internalHybridServices)[i]
 							break
 						}
 					}
@@ -139,7 +147,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					// Update ONLY hybrid services with MongoDB schema
 					if foundHybridService != nil {
 						resources[resource.ID] = EndorServiceDictionary{
-							EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
+							EndorService: foundHybridService.WithCategories(categories).ToEndorService(defintion.Schema),
 							resource:     resource,
 						}
 					}
@@ -151,14 +159,15 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				if foundHybridService != nil {
 					// Use the existing hybrid service with the dynamic schema
 					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
+						EndorService: foundHybridService.WithCategories(categories).ToEndorService(defintion.Schema),
 						resource:     resource,
 					}
 				} else {
+
 					// Create default hybrid service with all 6 actions
-					hybridService := NewHybridService(resource.ID, resource.Description)
+					hybridService := NewHybridService[*DynamicResource](resource.ID, resource.Description)
 					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: hybridService.WithCategories(resource.Categories).ToEndorService(defintion.Schema),
+						EndorService: hybridService.WithCategories(categories).ToEndorService(defintion.Schema),
 						resource:     resource,
 					}
 				}
@@ -272,28 +281,35 @@ func (h *EndorServiceRepository) Instance(dto ReadInstanceDTO) (*EndorServiceDic
 		}
 
 		// Check if there's a corresponding hybrid service for this resource
-		var foundHybridService *EndorHybridService
+		var foundHybridService EndorHybridService
 		if h.internalHybridServices != nil {
 			for i, hybridService := range *h.internalHybridServices {
-				if hybridService.Resource == resource.ID {
-					foundHybridService = &(*h.internalHybridServices)[i]
+				if hybridService.GetResource() == resource.ID {
+					foundHybridService = (*h.internalHybridServices)[i]
 					break
 				}
 			}
+		}
+
+		categories := []EndorHybridServiceCategory{}
+		for _, c := range resource.Categories {
+			categories = append(categories, &EndorHybridServiceCategoryImpl[*DynamicResource, *DynamicResourceSpecialized]{
+				Category: c,
+			})
 		}
 
 		// Use existing hybrid service or create abstract one
 		if foundHybridService != nil {
 			// Use the existing hybrid service with the dynamic schema
 			return &EndorServiceDictionary{
-				EndorService: foundHybridService.WithCategories(resource.Categories).ToEndorService(additionalAttributesDefinition.Schema),
+				EndorService: foundHybridService.WithCategories(categories).ToEndorService(additionalAttributesDefinition.Schema),
 				resource:     resource,
 			}, nil
 		} else {
 			// Create default hybrid service with all 6 actions
-			hybridService := NewHybridService(resource.ID, resource.Description)
+			hybridService := NewHybridService[*DynamicResource](resource.ID, resource.Description)
 			return &EndorServiceDictionary{
-				EndorService: hybridService.WithCategories(resource.Categories).ToEndorService(additionalAttributesDefinition.Schema),
+				EndorService: hybridService.WithCategories(categories).ToEndorService(additionalAttributesDefinition.Schema),
 				resource:     resource,
 			}, nil
 		}

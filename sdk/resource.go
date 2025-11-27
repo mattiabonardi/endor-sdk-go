@@ -10,10 +10,9 @@ import (
 
 // Category rappresenta una categoria con attributi dinamici specifici
 type Category struct {
-	ID                   string                               `json:"id" bson:"id" schema:"title=Category ID"`
-	Description          string                               `json:"description" bson:"description" schema:"title=Category Description"`
-	BaseModel            ResourceInstanceSpecializedInterface `json:"-" bson:"-"` // Modello base per questa categoria
-	AdditionalAttributes string                               `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
+	ID                   string `json:"id" bson:"id" schema:"title=Category ID"`
+	Description          string `json:"description" bson:"description" schema:"title=Category Description"`
+	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
 }
 
 // UnmarshalAdditionalAttributes deserializza gli attributi aggiuntivi della categoria

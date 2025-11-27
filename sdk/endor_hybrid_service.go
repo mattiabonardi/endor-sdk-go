@@ -5,61 +5,94 @@ import (
 	"fmt"
 )
 
-type EndorHybridService struct {
-	Resource    string
-	Description string
-	Priority    *int
-	methodsFn   func(getSchema func() RootSchema) map[string]EndorServiceAction
-	baseModel   ResourceInstanceInterface // Modello base per ResourceInstanceRepository
-	categories  map[string]Category       // Cache delle categorie disponibili
+type EndorHybridServiceCategory interface {
+	GetID() string
+	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction
 }
 
-func NewHybridService(resource, description string) EndorHybridService {
-	return EndorHybridService{
-		Resource:    resource,
-		Description: description,
-		baseModel:   &DynamicResource{},
+type EndorHybridServiceCategoryImpl[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] struct {
+	Category Category
+}
+
+func (h *EndorHybridServiceCategoryImpl[T, C]) GetID() string {
+	return h.Category.ID
+}
+
+func (h *EndorHybridServiceCategoryImpl[T, C]) CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction {
+	rootSchemWithCategory := getCategorySchemaWithMetadata[T, C](metadataSchema, h.Category)
+	return getDefaultActionsForCategory[T, C](resource, *rootSchemWithCategory, resourceDescription, h.Category.ID)
+}
+
+func NewEndorHybridServiceCategory[T ResourceInstanceInterface, R ResourceInstanceSpecializedInterface](category Category) EndorHybridServiceCategory {
+	return &EndorHybridServiceCategoryImpl[T, R]{
+		Category: category,
 	}
 }
 
-// WithBaseModel permette di specificare un modello base personalizzato
-func (h EndorHybridService) WithBaseModel(model ResourceInstanceInterface) EndorHybridService {
-	h.baseModel = model
-	return h
+type EndorHybridService interface {
+	GetResource() string
+	GetResourceDescription() string
+	GetPriority() *int
+	WithCategories(categories []EndorHybridServiceCategory) EndorHybridService
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridService
+	ToEndorService(metadataSchema Schema) EndorService
+}
+
+type EndorHybridServiceImpl[T ResourceInstanceInterface] struct {
+	Resource            string
+	ResourceDescription string
+	Priority            *int
+	methodsFn           func(getSchema func() RootSchema) map[string]EndorServiceAction
+	categories          map[string]EndorHybridServiceCategory
+}
+
+func (h EndorHybridServiceImpl[T]) GetResource() string {
+	return h.Resource
+}
+
+func (h EndorHybridServiceImpl[T]) GetResourceDescription() string {
+	return h.ResourceDescription
+}
+
+func (h EndorHybridServiceImpl[T]) GetPriority() *int {
+	return h.Priority
+}
+
+func NewHybridService[T ResourceInstanceInterface](resource, resourceDescription string) EndorHybridService {
+	return EndorHybridServiceImpl[T]{
+		Resource:            resource,
+		ResourceDescription: resourceDescription,
+	}
 }
 
 // define methods. The params getSchema allow to inject the dynamic schema
-func (h EndorHybridService) WithActions(
+func (h EndorHybridServiceImpl[T]) WithActions(
 	fn func(getSchema func() RootSchema) map[string]EndorServiceAction,
 ) EndorHybridService {
 	h.methodsFn = fn
 	return h
 }
 
-// WithCategories permette di configurare le categorie disponibili
-func (h EndorHybridService) WithCategories(categories []Category) EndorHybridService {
+func (h EndorHybridServiceImpl[T]) WithCategories(categories []EndorHybridServiceCategory) EndorHybridService {
 	if h.categories == nil {
-		h.categories = make(map[string]Category)
+		h.categories = make(map[string]EndorHybridServiceCategory)
 	}
 	for _, category := range categories {
-		if category.BaseModel == nil {
-			category.BaseModel = &DynamicResourceSpecialized{}
-		}
-		h.categories[category.ID] = category
+		h.categories[category.GetID()] = category
 	}
 	return h
 }
 
 // create endor service instance
-func (h EndorHybridService) ToEndorService(metadataSchema Schema) EndorService {
+func (h EndorHybridServiceImpl[T]) ToEndorService(metadataSchema Schema) EndorService {
 	var methods = make(map[string]EndorServiceAction)
 
 	// schema
-	rootSchemWithMetadata := h.getRootSchemaWithMetadata(metadataSchema)
+	rootSchemWithMetadata := getRootSchemaWithMetadata[T](metadataSchema)
 	getSchemaCallback := func() RootSchema { return *rootSchemWithMetadata }
 
 	// add default CRUD methods
-	methods = getDefaultActions(h.Resource, *rootSchemWithMetadata, h.Description)
+	methods = getDefaultActions[T](h.Resource, *rootSchemWithMetadata, h.ResourceDescription)
 	// add custom methods
 	if h.methodsFn != nil {
 		for methodName, method := range h.methodsFn(getSchemaCallback) {
@@ -70,42 +103,26 @@ func (h EndorHybridService) ToEndorService(metadataSchema Schema) EndorService {
 	// check if categories are defined
 	if len(h.categories) > 0 {
 		// iterate over categories
-		for categoryID, category := range h.categories {
-			// copy values for closure issues
-			currentCategory := category
-			currentCategoryID := categoryID
-
-			// schema
-			rootSchemWithCategory := h.getCategorySchemaWithMetadata(metadataSchema, currentCategory)
-			getSchemaWithCategoryCallback := func() RootSchema { return *rootSchemWithCategory }
-
+		for _, category := range h.categories {
 			// add default CRUD methods specified for category
-			categoryMethods := getDefaultActionsForCategory(h.Resource, *rootSchemWithCategory, h.Description, currentCategoryID)
+			categoryMethods := category.CreateDefaultActions(h.Resource, h.ResourceDescription, metadataSchema)
 			for methodName, method := range categoryMethods {
-				// add category prefix <category>/<action>
-				categoryMethodName := currentCategoryID + "/" + methodName
-				methods[categoryMethodName] = method
-			}
-
-			for methodName, method := range h.methodsFn(getSchemaWithCategoryCallback) {
-				// add category prefix <category>/<action>
-				categoryMethodName := currentCategoryID + "/" + methodName
-				methods[categoryMethodName] = method
+				methods[methodName] = method
 			}
 		}
 	}
 
 	return EndorService{
 		Resource:    h.Resource,
-		Description: h.Description,
+		Description: h.ResourceDescription,
 		Priority:    h.Priority,
 		Methods:     methods,
 	}
 }
 
-// combine baseModel schema with metadata schema
-func (h EndorHybridService) getRootSchemaWithMetadata(metadataSchema Schema) *RootSchema {
-	rootSchema := NewSchema(h.baseModel)
+func getRootSchemaWithMetadata[T ResourceInstanceInterface](metadataSchema Schema) *RootSchema {
+	var baseModel T
+	rootSchema := NewSchema(baseModel)
 	if metadataSchema.Properties != nil {
 		for k, v := range *metadataSchema.Properties {
 			(*rootSchema.Properties)[k] = v
@@ -114,13 +131,13 @@ func (h EndorHybridService) getRootSchemaWithMetadata(metadataSchema Schema) *Ro
 	return rootSchema
 }
 
-// combine root schema with category schema
-func (h EndorHybridService) getCategorySchemaWithMetadata(metadataSchema Schema, category Category) *RootSchema {
+func getCategorySchemaWithMetadata[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](metadataSchema Schema, category Category) *RootSchema {
 	// create root schema
-	rootSchema := h.getRootSchemaWithMetadata(metadataSchema)
+	rootSchema := getRootSchemaWithMetadata[T](metadataSchema)
 
 	// add category base schema (hardcoded)
-	categoryBaseSchema := NewSchema(category.BaseModel)
+	var categoryBaseModel C
+	categoryBaseSchema := NewSchema(categoryBaseModel)
 	if categoryBaseSchema.Properties != nil {
 		for k, v := range *categoryBaseSchema.Properties {
 			(*rootSchema.Properties)[k] = v
@@ -138,28 +155,28 @@ func (h EndorHybridService) getCategorySchemaWithMetadata(metadataSchema Schema,
 	return rootSchema
 }
 
-func getDefaultActions(resource string, schema RootSchema, resourceDescription string) map[string]EndorServiceAction {
+func getDefaultActions[T ResourceInstanceInterface](resource string, schema RootSchema, resourceDescription string) map[string]EndorServiceAction {
 	// Crea repository usando DynamicResource come default (per ora)
 	autogenerateID := true
-	repository := NewResourceInstanceRepository[ResourceInstanceInterface](resource, ResourceInstanceRepositoryOptions{
+	repository := NewResourceInstanceRepository[T](resource, ResourceInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
 
 	return map[string]EndorServiceAction{
 		"schema": NewAction(
 			func(c *EndorContext[NoPayload]) (*Response[any], error) {
-				return defaultSchema(c, schema)
+				return defaultSchema[T](c, schema)
 			},
 			fmt.Sprintf("Get the schema of the %s (%s)", resource, resourceDescription),
 		),
 		"instance": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstance[ResourceInstanceInterface]], error) {
+			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstance[T]], error) {
 				return defaultInstance(c, schema, repository)
 			},
 			fmt.Sprintf("Get the instance of %s (%s)", resource, resourceDescription),
 		),
 		"list": NewAction(
-			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[ResourceInstanceInterface]], error) {
+			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[T]], error) {
 				return defaultList(c, schema, repository)
 			},
 			fmt.Sprintf("Search for available list of %s (%s)", resource, resourceDescription),
@@ -178,7 +195,7 @@ func getDefaultActions(resource string, schema RootSchema, resourceDescription s
 					},
 				},
 			},
-			func(c *EndorContext[CreateDTO[ResourceInstance[ResourceInstanceInterface]]]) (*Response[ResourceInstance[ResourceInstanceInterface]], error) {
+			func(c *EndorContext[CreateDTO[ResourceInstance[T]]]) (*Response[ResourceInstance[T]], error) {
 				return defaultCreate(c, schema, repository, resource)
 			},
 		),
@@ -199,7 +216,7 @@ func getDefaultActions(resource string, schema RootSchema, resourceDescription s
 					},
 				},
 			},
-			func(c *EndorContext[UpdateByIdDTO[ResourceInstance[ResourceInstanceInterface]]]) (*Response[ResourceInstance[ResourceInstanceInterface]], error) {
+			func(c *EndorContext[UpdateByIdDTO[ResourceInstance[T]]]) (*Response[ResourceInstance[T]], error) {
 				return defaultUpdate(c, schema, repository, resource)
 			},
 		),
@@ -212,43 +229,43 @@ func getDefaultActions(resource string, schema RootSchema, resourceDescription s
 	}
 }
 
-func defaultSchema(_ *EndorContext[NoPayload], schema RootSchema) (*Response[any], error) {
+func defaultSchema[T ResourceInstanceInterface](_ *EndorContext[NoPayload], schema RootSchema) (*Response[any], error) {
 	return NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
 }
 
-func defaultInstance(c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceRepository[ResourceInstanceInterface]) (*Response[*ResourceInstance[ResourceInstanceInterface]], error) {
+func defaultInstance[T ResourceInstanceInterface](c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceRepository[T]) (*Response[*ResourceInstance[T]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[*ResourceInstance[ResourceInstanceInterface]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return NewResponseBuilder[*ResourceInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultList(c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceRepository[ResourceInstanceInterface]) (*Response[[]ResourceInstance[ResourceInstanceInterface]], error) {
+func defaultList[T ResourceInstanceInterface](c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceRepository[T]) (*Response[[]ResourceInstance[T]], error) {
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceInstance[ResourceInstanceInterface]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return NewResponseBuilder[[]ResourceInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreate(c *EndorContext[CreateDTO[ResourceInstance[ResourceInstanceInterface]]], schema RootSchema, repository *ResourceInstanceRepository[ResourceInstanceInterface], resource string) (*Response[ResourceInstance[ResourceInstanceInterface]], error) {
+func defaultCreate[T ResourceInstanceInterface](c *EndorContext[CreateDTO[ResourceInstance[T]]], schema RootSchema, repository *ResourceInstanceRepository[T], resource string) (*Response[ResourceInstance[T]], error) {
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[ResourceInstanceInterface]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", resource))).Build(), nil
 }
 
-func defaultUpdate(c *EndorContext[UpdateByIdDTO[ResourceInstance[ResourceInstanceInterface]]], schema RootSchema, repository *ResourceInstanceRepository[ResourceInstanceInterface], resource string) (*Response[ResourceInstance[ResourceInstanceInterface]], error) {
+func defaultUpdate[T ResourceInstanceInterface](c *EndorContext[UpdateByIdDTO[ResourceInstance[T]]], schema RootSchema, repository *ResourceInstanceRepository[T], resource string) (*Response[ResourceInstance[T]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[ResourceInstanceInterface]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", resource))).Build(), nil
 }
 
-func defaultDelete(c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceRepository[ResourceInstanceInterface], resource string) (*Response[any], error) {
+func defaultDelete[T ResourceInstanceInterface](c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceRepository[T], resource string) (*Response[any], error) {
 	err := repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -256,30 +273,28 @@ func defaultDelete(c *EndorContext[ReadInstanceDTO], repository *ResourceInstanc
 	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", resource))).Build(), nil
 }
 
-func getDefaultActionsForCategory(resource string, schema RootSchema, resourceDescription string, categoryID string) map[string]EndorServiceAction {
-	// Per ora usa DynamicResource come base model e struct vuota come category model
-	// TODO: Implementare logica per detectare il modello corretto della categoria
+func getDefaultActionsForCategory[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](resource string, schema RootSchema, resourceDescription string, categoryID string) map[string]EndorServiceAction {
 	autogenerateID := true
 
-	repository := NewResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface](
+	repository := NewResourceInstanceSpecializedRepository[T, C](
 		resource,
 		ResourceInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
 	)
 
 	return map[string]EndorServiceAction{
-		"schema": NewAction(
+		categoryID + "/schema": NewAction(
 			func(c *EndorContext[NoPayload]) (*Response[any], error) {
-				return defaultSchema(c, schema)
+				return defaultSchema[T](c, schema)
 			},
 			fmt.Sprintf("Get the schema of the %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		"list": NewAction(
-			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+		categoryID + "/list": NewAction(
+			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstanceSpecialized[T, C]], error) {
 				return defaultListSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Search for available list of %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		"create": NewConfigurableAction(
+		categoryID + "/create": NewConfigurableAction(
 			EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Create the instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 				Public:          false,
@@ -293,17 +308,17 @@ func getDefaultActionsForCategory(resource string, schema RootSchema, resourceDe
 					},
 				},
 			},
-			func(c *EndorContext[CreateDTO[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]]) (*Response[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+			func(c *EndorContext[CreateDTO[ResourceInstanceSpecialized[T, C]]]) (*Response[ResourceInstanceSpecialized[T, C]], error) {
 				return defaultCreateSpecialized(c, schema, repository, resource)
 			},
 		),
-		"instance": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+		categoryID + "/instance": NewAction(
+			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstanceSpecialized[T, C]], error) {
 				return defaultInstanceSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		"update": NewConfigurableAction(
+		categoryID + "/update": NewConfigurableAction(
 			EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Update the existing instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 				Public:          false,
@@ -320,11 +335,11 @@ func getDefaultActionsForCategory(resource string, schema RootSchema, resourceDe
 					},
 				},
 			},
-			func(c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]]) (*Response[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+			func(c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]]) (*Response[ResourceInstanceSpecialized[T, C]], error) {
 				return defaultUpdateSpecialized(c, schema, repository, resource)
 			},
 		),
-		"delete": NewAction(
+		categoryID + "/delete": NewAction(
 			func(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
 				return defaultDeleteSpecialized(c, repository, resource)
 			},
@@ -333,40 +348,39 @@ func getDefaultActionsForCategory(resource string, schema RootSchema, resourceDe
 	}
 }
 
-// Metodi specializzati per repository specializzati (analoghe ai metodi base)
-func defaultListSpecialized(c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]) (*Response[[]ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+func defaultListSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C]) (*Response[[]ResourceInstanceSpecialized[T, C]], error) {
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return NewResponseBuilder[[]ResourceInstanceSpecialized[T, C]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreateSpecialized(c *EndorContext[CreateDTO[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface], resource string) (*Response[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+func defaultCreateSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[CreateDTO[ResourceInstanceSpecialized[T, C]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[ResourceInstanceSpecialized[T, C]], error) {
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created (category)", resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created (category)", resource))).Build(), nil
 }
 
-func defaultInstanceSpecialized(c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]) (*Response[*ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+func defaultInstanceSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C]) (*Response[*ResourceInstanceSpecialized[T, C]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[*ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return NewResponseBuilder[*ResourceInstanceSpecialized[T, C]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized(c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface], resource string) (*Response[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]], error) {
+func defaultUpdateSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[ResourceInstanceSpecialized[T, C]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstanceSpecialized[ResourceInstanceInterface, ResourceInstanceSpecializedInterface]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
+	return NewResponseBuilder[ResourceInstanceSpecialized[T, C]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
 }
 
-func defaultDeleteSpecialized(c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceSpecializedRepository[ResourceInstanceInterface, ResourceInstanceSpecializedInterface], resource string) (*Response[any], error) {
+func defaultDeleteSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[any], error) {
 	err := repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err

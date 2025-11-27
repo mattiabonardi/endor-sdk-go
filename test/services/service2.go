@@ -27,7 +27,7 @@ type Category1AdditionalSchema struct {
 }
 
 type Category2Schema struct {
-	CategoryType  string `json:"categoryType" bson:"categoryType"`
+	CategoryType  string `json:"categoryType" bson:"categoryType" schema:"readOnly=true"`
 	AttributeCat2 string `json:"attributeCat2"`
 }
 
@@ -58,21 +58,21 @@ func NewService2() sdk.EndorHybridService {
 	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
 	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
 
-	return sdk.NewHybridService("resource-2", "Resource 2 (EndorHybridService with static categories)").
-		WithBaseModel(&Service2BaseModel{}).
-		WithCategories([]sdk.Category{
-			{
-				ID:                   "cat-1",
-				Description:          "Category 1",
-				AdditionalAttributes: category1AdditionalSchema,
+	return sdk.NewHybridService[*Service2BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
+		WithCategories(
+			[]sdk.EndorHybridServiceCategory{
+				sdk.NewEndorHybridServiceCategory[*Service2BaseModel, *sdk.DynamicResourceSpecialized](sdk.Category{
+					ID:                   "cat-1",
+					Description:          "Category 1",
+					AdditionalAttributes: category1AdditionalSchema,
+				}),
+				sdk.NewEndorHybridServiceCategory[*Service2BaseModel, *Category2Schema](sdk.Category{
+					ID:                   "cat-2",
+					Description:          "Category 2",
+					AdditionalAttributes: category2AdditionalSchema,
+				}),
 			},
-			{
-				ID:                   "cat-2",
-				Description:          "Category 2",
-				BaseModel:            &Category2Schema{},
-				AdditionalAttributes: category2AdditionalSchema,
-			},
-		}).
+		).
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction {
 			return map[string]sdk.EndorServiceAction{
 				"action-1": sdk.NewAction(
