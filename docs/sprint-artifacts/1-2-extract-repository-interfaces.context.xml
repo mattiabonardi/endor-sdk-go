@@ -1,0 +1,316 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>extract-repository-interfaces</title>
+    <status>drafted</status>
+    <generatedAt>November 27, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/1-2-extract-repository-interfaces.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer using the framework</asA>
+    <iWant>repository operations to be interface-based</iWant>
+    <soThat>I can mock database interactions in my unit tests</soThat>
+    <tasks>
+      <task id="1" status="pending">
+        <title>Analyze existing repository implementations and extract interface contracts</title>
+        <acs>1, 2</acs>
+        <subtasks>
+          <subtask>Review sdk/endor_resource_repository.go and related repository files</subtask>
+          <subtask>Identify all public methods used by EndorService and EndorHybridService</subtask>
+          <subtask>Extract common CRUD patterns: Create, Read, Update, Delete, List, Query operations</subtask>
+          <subtask>Design generic-friendly interfaces with type parameters for resource types</subtask>
+        </subtasks>
+      </task>
+      <task id="2" status="pending">
+        <title>Create repository interface definitions</title>
+        <acs>1, 4, 5</acs>
+        <subtasks>
+          <subtask>Create sdk/interfaces/repository.go file</subtask>
+          <subtask>Define RepositoryInterface with core CRUD operations</subtask>
+          <subtask>Define ResourceRepositoryInterface with endor-specific resource operations</subtask>
+          <subtask>Define MongoRepositoryInterface with MongoDB-specific optimizations</subtask>
+          <subtask>Add comprehensive GoDoc documentation with usage examples</subtask>
+        </subtasks>
+      </task>
+      <task id="3" status="pending">
+        <title>Implement interface compliance and testing</title>
+        <acs>3</acs>
+        <subtasks>
+          <subtask>Add interface compliance tests to sdk/interfaces_test.go</subtask>
+          <subtask>Create unit tests demonstrating repository interface usage patterns</subtask>
+          <subtask>Verify existing repository implementations satisfy new interfaces</subtask>
+          <subtask>Test generic type safety with concrete resource types</subtask>
+        </subtasks>
+      </task>
+      <task id="4" status="pending">
+        <title>Domain error abstraction</title>
+        <acs>5</acs>
+        <subtasks>
+          <subtask>Review current error handling in repository implementations</subtask>
+          <subtask>Define domain error types that abstract away MongoDB specifics</subtask>
+          <subtask>Update interface signatures to use domain errors</subtask>
+          <subtask>Ensure error semantics remain clear for framework users</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Interface Definition</title>
+      <description>RepositoryInterface, ResourceRepositoryInterface, and MongoRepositoryInterface are defined in sdk/interfaces/repository.go</description>
+      <priority>high</priority>
+    </criterion>
+    <criterion id="2">
+      <title>Method Abstraction</title>
+      <description>All current repository methods are abstracted into interfaces with domain-focused signatures</description>
+      <priority>high</priority>
+    </criterion>
+    <criterion id="3">
+      <title>Implementation Compliance</title>
+      <description>MongoDB repository implementations satisfy their respective interfaces</description>
+      <priority>high</priority>
+    </criterion>
+    <criterion id="4">
+      <title>Generic Type Safety</title>
+      <description>Repository interfaces support generic types for compile-time type safety</description>
+      <priority>medium</priority>
+    </criterion>
+    <criterion id="5">
+      <title>Domain Error Handling</title>
+      <description>Interface methods return domain errors rather than database-specific errors</description>
+      <priority>medium</priority>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Enhanced Testability (FR5, FR26, FR28)</section>
+        <snippet>Developers can unit test services without MongoDB dependencies through interface mocking. Database access occurs through repository interfaces that can be mocked. Developers can provide custom repository implementations for testing.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 2: Interface Granularity</section>
+        <snippet>Interface Segregation with Smart Composition. Following Go's interface philosophy of "accept interfaces, return structs" with RepositoryInterface for data access and composed larger interfaces when needed.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 1: Interface Foundation & Testability</section>
+        <snippet>Framework components become mockable and testable. FR4: All framework components implement well-defined interfaces for easy mocking. FR5: Unit testing without MongoDB dependencies.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Interface Foundation & Testability</title>
+        <section>Repository Interface Design</section>
+        <snippet>Create RepositoryInterface[T] and ResourceRepositoryInterface[T] for all data access patterns. Generic data access abstraction with entity types and specialized repository for Endor resources with categories.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/1-1-extract-core-service-interfaces.md</path>
+        <title>Story 1.1: Extract Core Service Interfaces</title>
+        <section>Completion Notes List</section>
+        <snippet>Interface Package Created: sdk/interfaces/service.go established - extend with repository.go. Testing Patterns: Interface compliance tests using var _ Interface = (*Implementation)(nil) pattern. No Breaking Changes: All existing APIs preserved.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/resource_instance_repository.go</path>
+        <kind>repository</kind>
+        <symbol>ResourceInstanceRepositoryInterface</symbol>
+        <lines>15-21</lines>
+        <reason>Existing generic repository interface with CRUD operations for ResourceInstance[T] that needs to be moved to interfaces package</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/resource_instance_repository.go</path>
+        <kind>repository</kind>
+        <symbol>ResourceInstanceSpecializedRepositoryInterface</symbol>
+        <lines>60-66</lines>
+        <reason>Specialized repository interface for category-based resources that needs interface abstraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/static_resource_instance_repository.go</path>
+        <kind>repository</kind>
+        <symbol>StaticResourceInstanceRepositoryInterface</symbol>
+        <lines>18-25</lines>
+        <reason>Static repository interface for direct model type access that requires interface extraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_resource_repository.go</path>
+        <kind>repository</kind>
+        <symbol>EndorServiceRepository</symbol>
+        <lines>339-350</lines>
+        <reason>Core service repository with Create, UpdateOne, DeleteOne methods that need interface abstraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/mongo_resource_instance_repository.go</path>
+        <kind>repository implementation</kind>
+        <symbol>MongoResourceInstanceRepository</symbol>
+        <lines>15-30</lines>
+        <reason>MongoDB implementation that will need to satisfy extracted repository interfaces</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/mongo_static_resource_instance_repository.go</path>
+        <kind>repository implementation</kind>
+        <symbol>MongoStaticResourceInstanceRepository</symbol>
+        <lines>64-80</lines>
+        <reason>MongoDB static repository implementation requiring interface compliance</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/crud.go</path>
+        <kind>dto</kind>
+        <symbol>ReadInstanceDTO, CreateDTO, UpdateByIdDTO, ReadDTO</symbol>
+        <lines>3-19</lines>
+        <reason>Data transfer objects used in repository method signatures</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interface package</kind>
+        <symbol>Package interfaces</symbol>
+        <lines>1-10</lines>
+        <reason>Existing interface package where repository interfaces will be added following established patterns</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces_test.go</path>
+        <kind>test</kind>
+        <symbol>Interface compliance tests</symbol>
+        <lines>10-25</lines>
+        <reason>Existing testing patterns for interface compliance using var _ Interface = (*Implementation)(nil)</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <runtime_version>1.21.4</runtime_version>
+        <packages>
+          <package>
+            <name>context</name>
+            <version>standard_library</version>
+            <usage>Context propagation for repository operations</usage>
+          </package>
+          <package>
+            <name>go.mongodb.org/mongo-driver</name>
+            <version>1.17.1</version>
+            <usage>MongoDB driver for database operations in repository implementations</usage>
+          </package>
+          <package>
+            <name>github.com/stretchr/testify</name>
+            <version>1.11.1</version>
+            <usage>Testing framework for interface compliance tests and mocking</usage>
+          </package>
+          <package>
+            <name>github.com/gin-gonic/gin</name>
+            <version>1.10.0</version>
+            <usage>HTTP framework for context handling in EndorContext</usage>
+          </package>
+        </packages>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint>Follow Interface Segregation Principle with Smart Composition as defined in architecture document</constraint>
+      <constraint>Implement "accept interfaces, return structs" Go philosophy for repository layer</constraint>
+      <constraint>Maintain generic type safety using Go 1.21+ generics for compile-time validation</constraint>
+      <constraint>Preserve all existing EndorService and EndorHybridService public API contracts</constraint>
+    </architectural>
+    <development>
+      <constraint>Interface extraction must not break existing repository implementations</constraint>
+      <constraint>All new interfaces must be placed in sdk/interfaces/repository.go following established package structure</constraint>
+      <constraint>Interface compliance tests must use var _ Interface = (*Implementation)(nil) pattern</constraint>
+      <constraint>Domain error types must abstract away MongoDB-specific error details</constraint>
+    </development>
+    <testing>
+      <constraint>Interface compliance tests required for all MongoDB repository implementations</constraint>
+      <constraint>Generic type safety must be validated with concrete resource types</constraint>
+      <constraint>Error handling tests must verify domain error abstraction works correctly</constraint>
+    </testing>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>RepositoryInterface[T]</name>
+      <kind>generic repository</kind>
+      <signature>
+        Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstance[T], error)
+        List(ctx context.Context, dto ReadDTO) ([]ResourceInstance[T], error) 
+        Create(ctx context.Context, dto CreateDTO[ResourceInstance[T]]) (*ResourceInstance[T], error)
+        Delete(ctx context.Context, dto ReadInstanceDTO) error
+        Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstance[T]]) (*ResourceInstance[T], error)
+      </signature>
+      <path>sdk/interfaces/repository.go</path>
+    </interface>
+    <interface>
+      <name>ResourceRepositoryInterface[T, C]</name>
+      <kind>specialized repository</kind>
+      <signature>
+        Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstanceSpecialized[T, C], error)
+        List(ctx context.Context, dto ReadDTO) ([]ResourceInstanceSpecialized[T, C], error)
+        Create(ctx context.Context, dto CreateDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error)
+        Delete(ctx context.Context, dto ReadInstanceDTO) error
+        Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error)
+      </signature>
+      <path>sdk/interfaces/repository.go</path>
+    </interface>
+    <interface>
+      <name>StaticRepositoryInterface[T]</name>
+      <kind>static repository</kind>
+      <signature>
+        Instance(ctx context.Context, dto ReadInstanceDTO) (T, error)
+        List(ctx context.Context, dto ReadDTO) ([]T, error)
+        Create(ctx context.Context, dto CreateDTO[T]) (T, error)
+        Delete(ctx context.Context, dto ReadInstanceDTO) error
+        Update(ctx context.Context, dto UpdateByIdDTO[T]) (T, error)
+      </signature>
+      <path>sdk/interfaces/repository.go</path>
+    </interface>
+    <interface>
+      <name>ServiceRepositoryInterface</name>
+      <kind>service repository</kind>
+      <signature>
+        Create(dto CreateDTO[Resource]) error
+        UpdateOne(dto UpdateByIdDTO[Resource]) (*Resource, error)
+        DeleteOne(dto ReadInstanceDTO) error
+      </signature>
+      <path>sdk/interfaces/repository.go</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      <paragraph>Testing follows layered strategy with build tags separating unit tests (//go:build unit) from integration tests (//go:build integration). Unit tests use interface mocks without external dependencies while integration tests validate real database interactions. Interface compliance tests use var _ Interface = (*Implementation)(nil) pattern established in sdk/interfaces_test.go. All tests leverage testify framework for assertions and behavior verification. Repository interfaces enable comprehensive error scenario testing through mock implementations.</paragraph>
+    </standards>
+    <locations>
+      <location>sdk/interfaces_test.go - Interface compliance tests for repository interfaces</location>
+      <location>test/ - Unit and integration tests using new interface-based patterns</location>
+      <location>sdk/testutils/ - Mock implementations and test utilities (from Story 1.4)</location>
+    </locations>
+    <ideas>
+      <idea ac="1">
+        <title>Repository Interface Compliance Tests</title>
+        <description>Verify all MongoDB repository implementations satisfy their respective interfaces using var _ RepositoryInterface[TestEntity] = (*MongoResourceInstanceRepository[TestEntity])(nil) pattern</description>
+      </idea>
+      <idea ac="2,4">
+        <title>Generic Type Safety Validation</title>
+        <description>Test repository interfaces with concrete resource types to ensure generic type constraints work correctly and compile-time type safety is preserved</description>
+      </idea>
+      <idea ac="3">
+        <title>Implementation Compliance Integration Tests</title>
+        <description>Integration tests that verify MongoDB implementations handle all CRUD operations correctly through the interface contracts</description>
+      </idea>
+      <idea ac="5">
+        <title>Domain Error Abstraction Tests</title>
+        <description>Unit tests verifying interface methods return domain errors (NotFoundError, ValidationError) instead of MongoDB-specific errors (mongo.ErrNoDocuments)</description>
+      </idea>
+      <idea ac="1,2,3">
+        <title>Repository Interface Usage Pattern Tests</title>
+        <description>Tests demonstrating how EndorService and EndorHybridService interact with repository interfaces, validating the extracted method signatures match current usage patterns</description>
+      </idea>
+    </ideas>
+  </tests>
+</story-context>

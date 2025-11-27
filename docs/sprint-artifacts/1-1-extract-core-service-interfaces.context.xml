@@ -1,0 +1,168 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>extract-core-service-interfaces</title>
+    <status>drafted</status>
+    <generatedAt>November 27, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/1-1-extract-core-service-interfaces.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>framework developer</asA>
+    <iWant>to extract interfaces for EndorService and EndorHybridService</iWant>
+    <soThat>developers can mock these components in their tests</soThat>
+    <tasks>- [ ] Task 1: Create interfaces package and extract EndorServiceInterface (AC: 1, 2, 4)
+  - [ ] Create `sdk/interfaces/` package directory
+  - [ ] Create `sdk/interfaces/service.go` file
+  - [ ] Analyze current EndorService methods and extract interface
+  - [ ] Add comprehensive GoDoc documentation with usage examples
+  - [ ] Include methods: GetResource(), GetDescription(), GetMethods(), and other public methods
+- [ ] Task 2: Extract EndorHybridServiceInterface (AC: 1, 2, 4)
+  - [ ] Analyze current EndorHybridService methods and extract interface
+  - [ ] Include hybrid-specific methods: WithCategories(), WithActions(), ToEndorService()
+  - [ ] Add GoDoc documentation explaining hybrid service patterns
+  - [ ] Ensure interface supports generic type parameters for type safety
+- [ ] Task 3: Implement interface compliance testing (AC: 3, 5)
+  - [ ] Add compliance tests: `var _ EndorServiceInterface = (*EndorService)(nil)`
+  - [ ] Add compliance tests: `var _ EndorHybridServiceInterface = (*EndorHybridService)(nil)`
+  - [ ] Create unit tests demonstrating interface usage patterns
+  - [ ] Verify all existing functionality works through interface contracts
+- [ ] Task 4: Update existing implementations (AC: 3)
+  - [ ] Ensure EndorService concrete type satisfies EndorServiceInterface
+  - [ ] Ensure EndorHybridService concrete type satisfies EndorHybridServiceInterface
+  - [ ] Add any missing method implementations if interface extraction reveals gaps
+  - [ ] Verify no breaking changes to existing public APIs</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **Interface Definition** - EndorServiceInterface and EndorHybridServiceInterface are defined in `sdk/interfaces/service.go`
+2. **Method Preservation** - All current method signatures are preserved in the interfaces  
+3. **Implementation Compliance** - Concrete implementations satisfy their respective interfaces
+4. **Documentation** - Interfaces include comprehensive GoDoc documentation with examples
+5. **Compliance Testing** - Interface compliance tests verify implementations satisfy interfaces</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements Synthesis</section>
+        <snippet>FR4: All framework components implement well-defined interfaces for easy mocking. Framework provides interface-based EndorService and EndorHybridService creation patterns.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 2: Interface Granularity</section>
+        <snippet>Interface Segregation with Smart Composition. Following Go's interface philosophy of "accept interfaces, return structs": EndorServiceInterface and EndorHybridServiceInterface for services, compose larger interfaces from smaller ones when needed.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 1: Interface Foundation & Testability</section>
+        <snippet>Goal: Framework components become mockable and testable. User Value: Developers can write unit tests without external dependencies.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Interface Foundation & Testability</title>
+        <section>APIs and Interfaces</section>
+        <snippet>EndorServiceInterface contract includes GetResource(), GetDescription(), GetMethods(), HandleRequest() methods. EndorHybridServiceInterface includes WithCategories(), WithActions(), ToEndorService(), GetSchema() methods.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/endor_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorService</symbol>
+        <lines>1-50</lines>
+        <reason>Current EndorService struct implementation that needs interface extraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_hybrid_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorHybridService</symbol>
+        <lines>37-120</lines>
+        <reason>Current EndorHybridService interface and implementation for extraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_hybrid_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorHybridServiceImpl</symbol>
+        <lines>41-120</lines>
+        <reason>Implementation struct showing methods that need interface extraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/resource_service.go</path>
+        <kind>service</kind>
+        <symbol>NewResourceService</symbol>
+        <lines>8-30</lines>
+        <reason>Example service creation pattern showing current EndorService usage</reason>
+      </artifact>
+      <artifact>
+        <path>test/endor_hybrid_service_test.go</path>
+        <kind>test</kind>
+        <symbol>TestEndorHybridService</symbol>
+        <lines>16-150</lines>
+        <reason>Existing test patterns showing current usage that will guide interface design</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <module>go.mongodb.org/mongo-driver v1.17.3</module>
+        <module>github.com/gin-gonic/gin v1.10.0</module>
+        <module>github.com/prometheus/client_golang v1.21.0</module>
+        <module>github.com/joho/godotenv v1.5.1</module>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Follows Interface Segregation with Smart Composition pattern from architecture document</constraint>
+    <constraint>Implements "accept interfaces, return structs" Go philosophy</constraint>
+    <constraint>Uses Go 1.21+ generics for compile-time type safety where applicable</constraint>
+    <constraint>Maintains zero overhead abstractions with interface-based design</constraint>
+    <constraint>Must preserve all existing EndorService and EndorHybridService public API contracts</constraint>
+    <constraint>New interfaces enable mocking without changing concrete implementation behavior</constraint>
+    <constraint>Interface extraction is foundation for Epic 1's testability goals</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>EndorServiceInterface</name>
+      <kind>service interface</kind>
+      <signature>type EndorServiceInterface interface {
+    GetResource() string
+    GetDescription() string
+    GetMethods() map[string]EndorServiceAction
+    GetPriority() *int
+    HandleRequest(ctx context.Context, req RequestInterface) (ResponseInterface, error)
+    Validate() error
+}</signature>
+      <path>sdk/interfaces/service.go</path>
+    </interface>
+    <interface>
+      <name>EndorHybridServiceInterface</name>
+      <kind>hybrid service interface</kind>
+      <signature>type EndorHybridServiceInterface interface {
+    GetResource() string
+    GetResourceDescription() string
+    GetPriority() *int
+    WithCategories(categories []EndorHybridServiceCategory) EndorHybridService
+    WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridService
+    ToEndorService(metadataSchema Schema) EndorService
+}</signature>
+      <path>sdk/interfaces/service.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Go testing with testify framework. Interface compliance testing using var _ Interface = (*Implementation)(nil) pattern. Unit tests should use mocked dependencies through interfaces. Build tags separate unit tests from integration tests.</standards>
+    <locations>test/ directory for existing tests, sdk/interfaces/ for interface compliance tests</locations>
+    <ideas>
+      <test ac="1,2">Test interface method signature extraction completeness</test>
+      <test ac="3">Interface compliance tests for EndorService and EndorHybridService implementations</test>
+      <test ac="4">Test GoDoc documentation examples are runnable</test>
+      <test ac="5">Unit tests demonstrating interface mocking patterns for both service types</test>
+    </ideas>
+  </tests>
+</story-context>

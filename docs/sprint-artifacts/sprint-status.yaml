@@ -1,0 +1,73 @@
+# generated: November 27, 2025
+# project: endor-sdk-go
+# project_key: endor-sdk-go
+# tracking_system: file-system
+# story_location: {project-root}/docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted: Epic tech context created (required before drafting stories)
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Under SM review (via code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be 'contexted' before stories can be 'drafted'
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
+
+generated: November 27, 2025
+project: endor-sdk-go
+project_key: endor-sdk-go
+tracking_system: file-system
+story_location: {project-root}/docs/sprint-artifacts
+
+development_status:
+  # Epic 1: Interface Foundation & Testability
+  epic-1: contexted
+  1-1-extract-core-service-interfaces: done
+  1-2-extract-repository-interfaces: done
+  1-3-extract-configuration-and-context-interfaces: backlog
+  1-4-create-test-utility-package-with-mocks: backlog
+  1-5-refactor-existing-tests-to-use-interface-mocks: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Dependency Injection Architecture
+  epic-2: backlog
+  2-1-implement-dependency-injection-container: backlog
+  2-2-refactor-endorservice-for-constructor-injection: backlog
+  2-3-refactor-endorhybridservice-for-constructor-injection: backlog
+  2-4-refactor-repository-layer-for-dependency-injection: backlog
+  2-5-update-framework-initializer-for-dependency-injection: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Service Composition Framework
+  epic-3: backlog
+  3-1-implement-service-middleware-pipeline: backlog
+  3-2-enable-endorservice-embedding-in-endorhybridservice: backlog
+  3-3-implement-shared-dependency-management: backlog
+  3-4-create-service-composition-utilities: backlog
+  3-5-implement-service-lifecycle-management: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Developer Experience & Tooling
+  epic-4: backlog
+  4-1-create-comprehensive-developer-documentation: backlog
+  4-2-implement-enhanced-error-messages-and-debugging: backlog
+  4-3-create-testing-framework-and-utilities: backlog
+  4-4-implement-development-tools-and-cli: backlog
+  4-5-validate-performance-and-create-benchmarks: backlog
+  epic-4-retrospective: optional
