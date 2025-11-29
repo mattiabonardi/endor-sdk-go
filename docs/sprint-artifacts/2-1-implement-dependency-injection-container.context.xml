@@ -1,0 +1,96 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>1</storyId>
+    <title>implement-dependency-injection-container</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-29</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/2-1-implement-dependency-injection-container.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>framework developer</asA>
+    <iWant>a lightweight dependency injection container</iWant>
+    <soThat>services can declare and receive their dependencies automatically</soThat>
+    <tasks>
+      <task id="1" acs="1,5">Design DI container interface and core architecture</task>
+      <task id="2" acs="2,4">Implement dependency registration and resolution</task>
+      <task id="3" acs="3">Add lifecycle management and dependency scopes</task>
+      <task id="4" acs="6">Factory pattern and advanced registration</task>
+      <task id="5" acs="4,5">Container validation and debugging utilities</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criteria id="1">Container Interface and Implementation - sdk/di package provides Container interface and implementation with registration and resolution capabilities</criteria>
+    <criteria id="2">Interface-based Registration - Container supports registering implementations against interface types with type safety</criteria>
+    <criteria id="3">Lifecycle Management - Container resolves dependencies with proper lifecycle management (singleton, transient) and supports dependency scopes</criteria>
+    <criteria id="4">Circular Dependency Detection - Container prevents infinite loops by detecting and reporting circular dependencies during registration or resolution</criteria>
+    <criteria id="5">Error Handling - Container provides clear error messages for missing or misconfigured dependencies with actionable guidance</criteria>
+    <criteria id="6">Factory Pattern Support - Container supports both constructor injection and factory patterns for flexible dependency creation</criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="Dependency Management" snippet="All service constructors accept dependencies as interface parameters. Framework eliminates hard-coded singleton dependencies. Framework supports both constructor injection and factory patterns."/>
+      <artifact path="docs/architecture.md" title="Architecture Document" section="Decision 1: Dependency Injection Pattern" snippet="Lightweight Custom DI Container with interface-based registration, type-safe resolution using Go generics, lifecycle management (Singleton, Transient, Scoped), zero runtime reflection overhead."/>
+      <artifact path="docs/sprint-artifacts/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="DI Container Implementation" snippet="Type-safe dependency injection container with interface registration and resolution, supporting Register[T](), Resolve[T](), Validate() methods and Singleton/Transient scopes."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Epic 2: Dependency Injection Architecture" snippet="All services use constructor injection for dependencies. Goal: Developers can compose services cleanly and customize implementations."/>
+    </docs>
+    <code>
+      <artifact path="sdk/interfaces/repository.go" kind="interface" symbol="RepositoryPattern" reason="Base interface pattern for repository dependency injection"/>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorServiceInterface" reason="Existing service interface for dependency injection"/>
+      <artifact path="sdk/interfaces/config.go" kind="interface" symbol="ConfigProviderInterface" reason="Configuration interface for dependency injection"/>
+      <artifact path="sdk/server.go" kind="service" symbol="EndorInitializer" lines="18-45" reason="Framework initializer that needs DI container integration"/>
+      <artifact path="sdk/endor_resource_repository.go" kind="repository" symbol="NewEndorServiceRepository" lines="14-27" reason="Repository with hard-coded MongoDB client (GetMongoClient) that needs injection"/>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="EndorService" reason="Core service struct that needs constructor injection"/>
+      <artifact path="sdk/endor_hybrid_service.go" kind="service" symbol="EndorHybridService" reason="Hybrid service struct that needs constructor injection"/>
+      <artifact path="main.go" kind="example" symbol="main" lines="11-16" reason="Shows current service instantiation pattern that will use DI"/>
+    </code>
+    <dependencies>
+      <go_dependencies>
+        <core>
+          <package name="github.com/gin-gonic/gin" version="v1.10.0" purpose="HTTP router and middleware framework"/>
+          <package name="go.mongodb.org/mongo-driver" version="v1.17.3" purpose="MongoDB database driver for repository implementations"/>
+          <package name="github.com/stretchr/testify" version="v1.11.1" purpose="Testing framework with mocking and assertions"/>
+          <package name="github.com/prometheus/client_golang" version="v1.21.0" purpose="Prometheus metrics collection"/>
+          <package name="gopkg.in/yaml.v3" version="v3.0.1" purpose="YAML parsing for configuration"/>
+        </core>
+        <environment>
+          <package name="github.com/joho/godotenv" version="v1.5.1" purpose="Environment variable loading"/>
+        </environment>
+      </go_dependencies>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architectural">Implements Decision 1: Lightweight Custom DI Container from architecture document</constraint>
+    <constraint type="performance">Zero runtime reflection overhead, interface references are pointer-sized</constraint>
+    <constraint type="type_safety">Use Go generics for compile-time type checking of registrations</constraint>
+    <constraint type="design">Explicit registration and resolution, no automatic dependency discovery</constraint>
+    <constraint type="testing">Support easy mocking through interface-based registration</constraint>
+    <constraint type="integration">Foundation for Epic 2's dependency injection patterns in EndorService and EndorHybridService</constraint>
+    <constraint type="pattern">Follow Go philosophy - no magic reflection, keep DI simple and explicit</constraint>
+    <constraint type="error_handling">Structured errors with dependency context and resolution path</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="Container" kind="dependency_injection" signature="Register[T any](impl T, scope Scope) error; RegisterFactory[T any](factory func() (T, error), scope Scope) error; Resolve[T any]() (T, error); Validate() error" path="sdk/di/container.go"/>
+    <interface name="RepositoryPattern" kind="repository" signature="Base contract for CRUD repository operations with domain error handling" path="sdk/interfaces/repository.go"/>
+    <interface name="EndorServiceInterface" kind="service" signature="GetResource() string; GetDescription() string; GetMethods() map[string]EndorServiceAction" path="sdk/interfaces/service.go"/>
+    <interface name="ConfigProviderInterface" kind="configuration" signature="Configuration provider for dependency injection" path="sdk/interfaces/config.go"/>
+  </interfaces>
+  <tests>
+    <standards>Framework uses testify/mock for behavior verification, interface compliance tests using var _ Interface = (*Implementation)(nil) pattern, integration tests with testutils.NewInMemoryRepository pattern, and build tags for unit vs integration test separation.</standards>
+    <locations>test/ (integration tests), sdk/*_test.go (unit tests), sdk/testutils/ (testing utilities and mocks)</locations>
+    <ideas>
+      <test id="AC1" criteria="Container Interface and Implementation">Unit test container registration and resolution with mock implementations</test>
+      <test id="AC2" criteria="Interface-based Registration">Test type-safe registration of interfaces with concrete implementations</test>
+      <test id="AC3" criteria="Lifecycle Management">Test singleton vs transient scopes, verify dependency instance management</test>
+      <test id="AC4" criteria="Circular Dependency Detection">Test container rejects circular dependencies with clear error messages</test>
+      <test id="AC5" criteria="Error Handling">Test missing dependency resolution returns structured errors with context</test>
+      <test id="AC6" criteria="Factory Pattern Support">Test factory function registration and resolution with dependency context</test>
+      <test id="integration" criteria="Framework Integration">Test container integration with EndorInitializer and service construction</test>
+    </ideas>
+  </tests>
+</story-context>

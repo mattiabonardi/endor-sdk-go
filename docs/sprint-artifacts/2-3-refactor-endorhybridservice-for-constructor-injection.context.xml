@@ -1,0 +1,129 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>3</storyId>
+    <title>refactor-endorhybridservice-for-constructor-injection</title>
+    <status>drafted</status>
+    <generatedAt>November 29, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/2-3-refactor-endorhybridservice-for-constructor-injection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer using the framework</asA>
+    <iWant>EndorHybridService creation to support dependency injection</iWant>
+    <soThat>I can provide custom repositories and configurations for different environments</soThat>
+    <tasks>- [ ] Task 1: Design EndorHybridService dependency injection architecture (AC: 1, 7)
+  - [ ] Define NewEndorHybridServiceWithDeps() signature with all required interface parameters
+  - [ ] Create EndorHybridServiceDependencies struct following Story 2.2 patterns
+  - [ ] Add comprehensive dependency validation with structured error messages
+  - [ ] Update EndorHybridService struct to hold interface fields instead of concrete types
+- [ ] Task 2: Refactor ToEndorService method for dependency propagation (AC: 3)
+  - [ ] Update ToEndorService() to pass injected dependencies to created EndorService instances
+  - [ ] Ensure EndorService instances inherit repository, config, and context from hybrid service
+  - [ ] Validate dependency chain integrity from hybrid service through to generated EndorService
+  - [ ] Maintain existing ToEndorService() method signature and behavior
+- [ ] Task 3: Update category and action operations for injected dependencies (AC: 4, 5)
+  - [ ] Refactor WithCategories() to use injected repository interfaces instead of hard-coded access
+  - [ ] Update WithActions() method to work with injected repository and config interfaces
+  - [ ] Ensure automatic CRUD operations use injected repository for all database interactions
+  - [ ] Validate that all category-based operations maintain existing functionality
+- [ ] Task 4: Integrate schema generation with injected configuration (AC: 6)
+  - [ ] Update schema generation to use injected ConfigInterface instead of global configuration
+  - [ ] Ensure automatic schema validation continues working with injected config
+  - [ ] Maintain backward compatibility for existing schema generation patterns
+  - [ ] Add configuration validation for schema-related dependencies
+- [ ] Task 5: Implement backward compatibility and container integration (AC: 7, 8)
+  - [ ] Maintain NewEndorHybridService() as convenience function with default dependencies
+  - [ ] Create NewEndorHybridServiceFromContainer() for automatic dependency resolution
+  - [ ] Add factory functions for common hybrid service dependency configurations
+  - [ ] Ensure existing test suite continues passing without modification
+- [ ] Task 6: Comprehensive testing and validation (AC: 1-8)
+  - [ ] Unit tests for hybrid service constructor dependency injection patterns
+  - [ ] Integration tests validating ToEndorService() dependency propagation
+  - [ ] Mock-based testing for category/action operations with injected dependencies
+  - [ ] Container integration tests with automatic dependency resolution
+  - [ ] Performance validation ensuring no regression from interface indirection</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **Constructor Dependency Injection** - NewEndorHybridServiceWithDeps() accepts all required dependencies as interface parameters with type safety
+2. **Interface-based Internal Dependencies** - EndorHybridService struct holds interface references instead of concrete types for all dependencies
+3. **ToEndorService Method Dependency Propagation** - ToEndorService() method uses injected dependencies instead of globals when creating EndorService instances
+4. **Category and Action Operations** - WithCategories() and WithActions() work seamlessly with injected repository interfaces
+5. **Automatic CRUD Integration** - Automatic CRUD operations use injected repository interfaces while maintaining current functionality
+6. **Schema Generation Compatibility** - Schema generation continues working with injected configuration and maintains automatic behavior
+7. **Backward Compatibility** - NewEndorHybridService() convenience function maintains existing creation patterns with default implementations
+8. **Container Integration** - Service constructors work seamlessly with DI container for automatic dependency resolution</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="Functional Requirements" snippet="FR2: Interface-based EndorHybridService creation with automatic CRUD capabilities - EndorHybridService supports constructor injection with Repository, Config, SchemaManager, and Logger interfaces while maintaining backward compatibility and automatic CRUD generation."/>
+      <artifact path="docs/architecture.md" title="System Architecture" section="Decision 1: Dependency Injection Pattern" snippet="Lightweight custom DI container with interface-based constructor injection enabling testability and service composition while maintaining performance under 1μs resolution times."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Epic 2: Dependency Injection Architecture" snippet="All services use constructor injection for dependencies, eliminating hard-coded singletons and enabling clean service composition. EndorHybridService supports dependency injection for custom repositories and configurations."/>
+      <artifact path="docs/sprint-artifacts/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="EndorHybridService Constructor Injection" snippet="NewEndorHybridServiceWithDeps() accepts Repository, Config, SchemaManager, and Logger interfaces with ToEndorService() method passing injected dependencies to generated EndorService instances."/>
+      <artifact path="docs/sprint-artifacts/2-2-refactor-endorservice-for-constructor-injection.md" title="Story 2.2 Implementation" section="Dev Agent Record" snippet="Successfully implemented EndorService dependency injection with EndorServiceDependencies struct, NewEndorServiceWithDeps() constructor, and comprehensive testing patterns to follow for EndorHybridService."/>
+    </docs>
+    <code>
+      <artifact path="sdk/endor_hybrid_service.go" kind="service" symbol="EndorHybridService,EndorHybridServiceImpl" lines="37-120" reason="Core hybrid service interface and implementation that needs dependency injection fields and constructors added"/>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="EndorServiceDependencies,NewEndorServiceWithDeps" lines="136-225" reason="Successfully implemented dependency injection pattern from Story 2.2 to replicate for hybrid service"/>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorHybridServiceInterface" lines="85-120" reason="Interface contract that EndorHybridService implements, includes ToEndorService method signature"/>
+      <artifact path="sdk/interfaces/repository.go" kind="interface" symbol="RepositoryPattern" lines="95-115" reason="Repository interface that will be injected into hybrid service for data access operations"/>
+      <artifact path="sdk/interfaces/config.go" kind="interface" symbol="ConfigProviderInterface" lines="25-60" reason="Configuration interface that will be injected for schema generation and service configuration"/>
+      <artifact path="sdk/interfaces/logger.go" kind="interface" symbol="LoggerInterface" lines="25-85" reason="Logger interface for structured logging in hybrid service operations"/>
+      <artifact path="sdk/default_dependencies.go" kind="implementation" symbol="DefaultConfigProvider,DefaultLogger" lines="18-100" reason="Default implementations for backward compatibility that hybrid service will use"/>
+      <artifact path="sdk/di/container.go" kind="container" symbol="Container,Register,Resolve" lines="1-50" reason="DI container interface and methods for NewEndorHybridServiceFromContainer implementation"/>
+      <artifact path="test/endor_hybrid_service_test.go" kind="test" symbol="TestEndorHybridService" lines="16-70" reason="Existing hybrid service test that demonstrates ToEndorService usage and schema validation patterns to maintain"/>
+    </code>
+    <dependencies>
+      <go>
+        <package name="github.com/gin-gonic/gin" version="latest" reason="HTTP framework used in service actions"/>
+        <package name="github.com/stretchr/testify" version="latest" reason="Testing framework for mock implementations and assertions"/>
+        <package name="go.mongodb.org/mongo-driver" version="latest" reason="MongoDB driver used in repository operations"/>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <dependency_propagation>ToEndorService() method MUST use injected dependencies when creating EndorService instances via NewEndorServiceWithDeps()</dependency_propagation>
+    <interface_replacement>All concrete type dependencies must be replaced with interface references (RepositoryInterface, ConfigInterface, LoggerInterface)</interface_replacement>
+    <backward_compatibility>NewEndorHybridService() convenience constructor must maintain existing creation patterns with default implementations</backward_compatibility>
+    <category_operations>WithCategories() and WithActions() must use injected repository interfaces instead of hard-coded GetMongoClient() calls</category_operations>
+    <schema_integration>Schema generation must use injected ConfigInterface instead of global GetConfig() access</schema_integration>
+    <performance>No regression in service creation or ToEndorService conversion performance from interface indirection</performance>
+    <testing>All dependencies must be mockable through interfaces for comprehensive unit testing</testing>
+    <container_integration>NewEndorHybridServiceFromContainer() must enable seamless DI container dependency resolution</container_integration>
+  </constraints>
+  
+  <interfaces>
+    <interface name="RepositoryPattern" kind="data access interface" 
+      signature="Create(ctx, resource) error; Read(ctx, id, result) error; Update(ctx, resource) error; Delete(ctx, id) error; List(ctx, filter, results) error" 
+      path="sdk/interfaces/repository.go"/>
+    <interface name="ConfigProviderInterface" kind="configuration interface" 
+      signature="GetServerPort() string; GetDocumentDBUri() string; IsHybridResourcesEnabled() bool; GetDynamicResourceDocumentDBName() string" 
+      path="sdk/interfaces/config.go"/>
+    <interface name="LoggerInterface" kind="logging interface" 
+      signature="Debug(msg, ...interface{}); Info(msg, ...interface{}); Warn(msg, ...interface{}); Error(msg, ...interface{}); With(...interface{}) LoggerInterface" 
+      path="sdk/interfaces/logger.go"/>
+    <interface name="EndorHybridServiceInterface" kind="service interface" 
+      signature="GetResource() string; WithCategories([]EndorHybridServiceCategory) EndorHybridService; ToEndorService(Schema) EndorService; Validate() error" 
+      path="sdk/interfaces/service.go"/>
+    <interface name="Container" kind="dependency injection" 
+      signature="Register[T any](impl T, scope Scope) error; Resolve[T any]() (T, error); Validate() error" 
+      path="sdk/di/container.go"/>
+  </interfaces>
+  
+  <tests>
+    <standards>Follow Story 2.2 dependency injection testing patterns with comprehensive unit tests using mock implementations. Include constructor dependency injection tests, container integration tests, dependency propagation validation from hybrid service to EndorService via ToEndorService(), and performance regression validation. Use testify/mock framework for behavior-configurable mocks and structured test organization with descriptive test names and clear assertions.</standards>
+    <locations>sdk/endor_hybrid_service_di_test.go, sdk/endor_hybrid_service_container_test.go, test/</locations>
+    <ideas>
+      <test id="AC1" desc="Unit tests for NewEndorHybridServiceWithDeps() constructor with interface parameters and dependency validation">Constructor accepts all required dependencies (Repository, Config, Logger) as interface parameters with type safety validation and structured error messages for missing dependencies</test>
+      <test id="AC2" desc="Tests for EndorHybridService struct holding interface references instead of concrete types">Verify hybrid service struct fields are interface types and can be accessed through getter methods without exposing concrete implementations</test>
+      <test id="AC3" desc="Integration tests for ToEndorService() dependency propagation">Validate that ToEndorService() passes injected dependencies to created EndorService instances using NewEndorServiceWithDeps() and maintains dependency chain integrity</test>
+      <test id="AC4" desc="Mock-based tests for WithCategories() using injected repository interfaces">Ensure category operations use injected repository instead of hard-coded database access and maintain existing functionality</test>
+      <test id="AC5" desc="Tests for automatic CRUD operations with injected repository interfaces">Validate that CRUD methods use injected repository for all database interactions while preserving current behavior</test>
+      <test id="AC6" desc="Schema generation tests with injected configuration">Verify schema generation uses injected ConfigInterface instead of global configuration access and maintains automatic validation behavior</test>
+      <test id="AC7" desc="Backward compatibility tests for NewEndorHybridService() convenience constructor">Ensure existing creation patterns work unchanged with default dependency implementations and no breaking changes</test>
+      <test id="AC8" desc="Container integration tests for NewEndorHybridServiceFromContainer()">Validate automatic dependency resolution from DI container and proper error handling for missing container dependencies</test>
+    </ideas>
+  </tests>
+</story-context>

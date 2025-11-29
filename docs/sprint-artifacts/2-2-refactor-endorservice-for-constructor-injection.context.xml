@@ -1,0 +1,122 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2</storyId>
+    <title>refactor-endorservice-for-constructor-injection</title>
+    <status>drafted</status>
+    <generatedAt>November 29, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/2-2-refactor-endorservice-for-constructor-injection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>framework developer</asA>
+    <iWant>EndorService to accept dependencies via constructor injection</iWant>
+    <soThat>I can customize implementations and enable comprehensive testing</soThat>
+    <tasks>
+- Task 1: Design dependency injection constructor interface (AC: 1, 4)
+  - Define NewEndorServiceWithDeps() signature with interface parameters
+  - Add dependency validation with structured error messages
+  - Update EndorService struct to hold interface fields instead of concrete types
+  - Create dependency requirement documentation
+- Task 2: Refactor EndorService internal implementation (AC: 2, 6)  
+  - Update all internal methods to use injected interface dependencies
+  - Replace hard-coded repository access with injected RepositoryInterface
+  - Replace direct configuration access with injected ConfigInterface
+  - Maintain all existing method signatures and behaviors
+- Task 3: Implement backward compatibility layer (AC: 3)
+  - Maintain NewEndorService() as convenience function with default dependencies
+  - Create factory functions for common dependency configurations
+  - Add migration guide documentation for existing users
+  - Ensure existing test suite continues passing
+- Task 4: Integration with DI container (AC: 5)
+  - Add container-based factory: NewEndorServiceFromContainer(container)
+  - Register default EndorService factory in container configuration
+  - Support dependency override patterns for testing
+  - Add container validation for EndorService dependency requirements
+- Task 5: Comprehensive testing and validation (AC: 1-6)
+  - Unit tests for constructor dependency injection patterns
+  - Integration tests with DI container resolution
+  - Mock-based testing demonstrating testability improvements
+  - Performance validation ensuring no regression from interface indirection
+</tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Constructor Dependency Injection - NewEndorServiceWithDeps() accepts all required dependencies as interface parameters with type safety
+2. Interface-based Internal Dependencies - EndorService struct holds interface references (RepositoryInterface, ConfigInterface) instead of concrete types
+3. Backward Compatibility - NewEndorService() convenience function maintains existing creation patterns with default implementations
+4. Dependency Validation - Constructor validates required dependencies and provides clear error messages for missing dependencies
+5. Container Integration - Service constructors work seamlessly with DI container for automatic dependency resolution
+6. Method Compatibility - All existing EndorService methods work unchanged using injected interface dependencies
+</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="FR1: Interface-based EndorService creation with dependency injection support" snippet="Framework must support constructor injection for EndorService with interface parameters, enabling custom implementations and comprehensive testing."/>
+      <artifact path="docs/architecture.md" title="Architecture Document" section="Decision 1: Dependency Injection Pattern" snippet="Lightweight Custom DI Container with type-safe interface registration and resolution, supporting Singleton, Transient, and Scoped lifecycles."/>
+      <artifact path="docs/sprint-artifacts/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="EndorService Constructor Injection" snippet="NewEndorServiceWithDeps() accepts Repository, Config, Logger, and Context interfaces as parameters with backward compatibility via convenience constructors."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Story 2.2: Refactor EndorService for Constructor Injection" snippet="Enable constructor dependency injection for EndorService to support customization and testing while maintaining backward compatibility."/>
+    </docs>
+    <code>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="EndorService" lines="22-34" reason="Core service struct that needs dependency injection fields added"/>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorServiceInterface" lines="31-57" reason="Interface contract that EndorService implements"/>
+      <artifact path="sdk/interfaces/repository.go" kind="interface" symbol="RepositoryInterface" lines="1-50" reason="Repository interface for dependency injection"/>
+      <artifact path="sdk/interfaces/config.go" kind="interface" symbol="ConfigProviderInterface" lines="29-50" reason="Configuration interface for dependency injection"/>
+      <artifact path="sdk/di/container.go" kind="container" symbol="Container" lines="1-50" reason="DI container interface for service resolution"/>
+      <artifact path="sdk/endor_resource_repository.go" kind="repository" symbol="NewEndorServiceRepository" lines="14-27" reason="Example of hard-coded GetMongoClient usage that needs injection"/>
+      <artifact path="sdk/server.go" kind="framework" symbol="EndorInitializer" lines="18-45" reason="Framework initializer that will need DI container integration"/>
+      <artifact path="sdk/configuration.go" kind="config" symbol="GetConfig" lines="26-47" reason="Current singleton configuration pattern that needs interface abstraction"/>
+      <artifact path="sdk/mongo.go" kind="database" symbol="GetMongoClient" lines="20-42" reason="Current singleton MongoDB client that needs injection"/>
+    </code>
+    <dependencies>
+      <go_dependencies>
+        <core>go 1.21.4+</core>
+        <gin>github.com/gin-gonic/gin v1.10.0</gin>
+        <mongo>go.mongodb.org/mongo-driver v1.17.3</mongo>
+        <testify>github.com/stretchr/testify v1.8.4</testify>
+      </go_dependencies>
+      <framework_dependencies>
+        <di_container>sdk/di package with Container interface</di_container>
+        <interfaces>sdk/interfaces with extracted interfaces from Epic 1</interfaces>
+        <testutils>sdk/testutils with mock implementations</testutils>
+      </framework_dependencies>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architecture>Must follow lightweight dependency injection pattern without reflection overhead</architecture>
+    <compatibility>NewEndorService() convenience constructor must maintain existing creation patterns</compatibility>
+    <performance>No regression in service creation or operation latency from interface indirection</performance>
+    <validation>All required dependencies validated at construction time with clear error messages</validation>
+    <testing>All dependencies must be mockable through interfaces for comprehensive unit testing</testing>
+  </constraints>
+  
+  <interfaces>
+    <interface name="ConfigProviderInterface" kind="configuration interface" 
+      signature="GetServerPort() string; GetDocumentDBUri() string; IsHybridResourcesEnabled() bool" 
+      path="sdk/interfaces/config.go"/>
+    <interface name="RepositoryInterface" kind="data access interface" 
+      signature="Create(ctx, resource) error; Read(ctx, id, result) error; Update(ctx, resource) error; Delete(ctx, id) error" 
+      path="sdk/interfaces/repository.go"/>
+    <interface name="EndorServiceInterface" kind="service interface" 
+      signature="GetResource() string; GetDescription() string; GetMethods() map[string]EndorServiceAction; Validate() error" 
+      path="sdk/interfaces/service.go"/>
+    <interface name="Container" kind="dependency injection interface" 
+      signature="Register[T](impl T, scope) error; Resolve[T]() (T, error); Validate() []error" 
+      path="sdk/di/container.go"/>
+  </interfaces>
+  
+  <tests>
+    <standards>All constructor injection functions require unit tests with mock dependencies; Interface compliance testing with compile-time checks; Integration tests with DI container resolution</standards>
+    <locations>sdk/interfaces_test.go for interface compliance; sdk/endor_service_test.go for constructor injection; sdk/testutils/ for mock implementations</locations>
+    <ideas>
+      - AC1: Test NewEndorServiceWithDeps() with valid interfaces verifies type safety
+      - AC2: Test EndorService internal methods use injected dependencies instead of globals  
+      - AC3: Test NewEndorService() convenience constructor provides working default dependencies
+      - AC4: Test constructor validation with nil dependencies provides clear error messages
+      - AC5: Test DI container can resolve EndorService with all dependencies automatically
+      - AC6: Test existing EndorService method signatures and behaviors unchanged after refactoring
+    </ideas>
+  </tests>
+</story-context>

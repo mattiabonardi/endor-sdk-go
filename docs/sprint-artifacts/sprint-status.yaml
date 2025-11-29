@@ -40,16 +40,16 @@ development_status:
   epic-1: contexted
   1-1-extract-core-service-interfaces: done
   1-2-extract-repository-interfaces: done
-  1-3-extract-configuration-and-context-interfaces: backlog
-  1-4-create-test-utility-package-with-mocks: backlog
-  1-5-refactor-existing-tests-to-use-interface-mocks: backlog
+  1-3-extract-configuration-and-context-interfaces: review
+  1-4-create-test-utility-package-with-mocks: in-progress
+  1-5-refactor-existing-tests-to-use-interface-mocks: in-progress
   epic-1-retrospective: optional
 
   # Epic 2: Dependency Injection Architecture
-  epic-2: backlog
-  2-1-implement-dependency-injection-container: backlog
-  2-2-refactor-endorservice-for-constructor-injection: backlog
-  2-3-refactor-endorhybridservice-for-constructor-injection: backlog
+  epic-2: contexted
+  2-1-implement-dependency-injection-container: review
+  2-2-refactor-endorservice-for-constructor-injection: review
+  2-3-refactor-endorhybridservice-for-constructor-injection: review
   2-4-refactor-repository-layer-for-dependency-injection: backlog
   2-5-update-framework-initializer-for-dependency-injection: backlog
   epic-2-retrospective: optional

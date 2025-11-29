@@ -1,0 +1,181 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>3</storyId>
+    <title>extract-configuration-and-context-interfaces</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-27</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/1-3-extract-configuration-and-context-interfaces.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer building services with the framework</asA>
+    <iWant>configuration and context management to be interface-based</iWant>
+    <soThat>I can provide custom configurations and mock contexts in tests</soThat>
+    <tasks>
+      - Task 1: Analyze current configuration and context implementations (AC: 1, 2)
+      - Task 2: Create configuration and context interface definitions (AC: 1, 2, 3)  
+      - Task 3: Implement interface compliance and testing (AC: 4, 5)
+      - Task 4: Preserve existing API contracts (AC: 4)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Interface Definition - ConfigProviderInterface and EndorContextInterface are defined in sdk/interfaces/config.go
+    2. Configuration Abstraction - Current configuration loading logic is abstracted behind interfaces with environment and custom source support
+    3. Context Operations - EndorContext operations become mockable for testing with interface-based access patterns
+    4. Implementation Compliance - Current configuration and context implementations satisfy their respective interfaces  
+    5. Testing Infrastructure - Interface compliance tests verify implementations and demonstrate mocking patterns
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Enhanced Testability</section>
+        <snippet>FR5: Developers can unit test services without MongoDB dependencies through interface mocking. FR10: Framework eliminates hard-coded singleton dependencies (like MongoDB client). FR11: Developers can inject custom implementations for any framework dependency.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 2: Interface Granularity</section>
+        <snippet>Interface Segregation with Smart Composition - Following Go's interface philosophy of "accept interfaces, return structs". ConfigProviderInterface for configuration, granular interfaces that are easy to mock and compose as needed.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 1: Interface Foundation & Testability</section>
+        <snippet>Story 1.3: Extract Configuration and Context Interfaces - Developer wants configuration and context management to be interface-based for mocking contexts in tests. ConfigProviderInterface and EndorContextInterface defined with environment-based and custom configuration sources.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Interface Foundation & Testability</title>
+        <section>Detailed Design - Configuration Interface</section>
+        <snippet>ConfigProviderInterface for configuration access abstraction. EndorContextInterface for request context management. Component package sdk/interfaces/config.go - Configuration and context management interfaces.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/configuration.go</path>
+        <kind>configuration</kind>
+        <symbol>ServerConfig</symbol>
+        <lines>12-18</lines>
+        <reason>Core configuration struct that needs to be abstracted behind interface</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/configuration.go</path>
+        <kind>configuration</kind>
+        <symbol>GetConfig</symbol>
+        <lines>25-30</lines>
+        <reason>Singleton configuration access pattern that needs interface abstraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/context.go</path>
+        <kind>context</kind>
+        <symbol>EndorContext</symbol>
+        <lines>13-22</lines>
+        <reason>Generic context struct with session and payload that needs interface abstraction</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/context.go</path>
+        <kind>context</kind>
+        <symbol>Session</symbol>
+        <lines>7-11</lines>
+        <reason>Session context struct that provides authentication context</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/server.go</path>
+        <kind>service</kind>
+        <symbol>Init</symbol>
+        <lines>50</lines>
+        <reason>Server initialization uses GetConfig() singleton - needs interface injection</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interface</kind>
+        <symbol>EndorServiceInterface</symbol>
+        <lines>1-50</lines>
+        <reason>Existing service interface pattern to follow for configuration interfaces</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/repository.go</path>
+        <kind>interface</kind>
+        <symbol>RepositoryPattern</symbol>
+        <lines>1-50</lines>
+        <reason>Existing repository interface pattern to follow for configuration interfaces</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces_test.go</path>
+        <kind>test</kind>
+        <symbol>TestServiceInterfaceDefinition</symbol>
+        <lines>15-24</lines>
+        <reason>Interface compliance test pattern to follow for configuration interface testing</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <gin-gonic-gin>v1.10.0</gin-gonic-gin>
+        <joho-godotenv>latest</joho-godotenv>
+        <stretchr-testify>v1.11.1</stretchr-testify>
+        <mongodb-mongo-driver>latest</mongodb-mongo-driver>
+        <prometheus-client-golang>latest</prometheus-client-golang>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Follow Interface Segregation with Smart Composition pattern from architecture document
+    - Implement "accept interfaces, return structs" Go philosophy for configuration layer
+    - Configuration interfaces must support both environment-based and custom configuration sources
+    - Context propagation patterns used throughout framework must remain intact
+    - Interface design should enable testing with different configuration values
+    - Must preserve current initialization and startup patterns for backward compatibility
+    - Follow established interface patterns from sdk/interfaces/service.go and repository.go
+    - Add interface compliance tests to existing sdk/interfaces_test.go
+    - Zero breaking changes to current configuration access patterns
+    - Framework Requirements: Configuration layer enables Epic 1 testability goals
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>ConfigProviderInterface</name>
+      <kind>configuration interface</kind>
+      <signature>type ConfigProviderInterface interface {
+    GetServerPort() string
+    GetDocumentDBUri() string
+    IsHybridResourcesEnabled() bool
+    IsDynamicResourcesEnabled() bool
+    GetDynamicResourceDocumentDBName() string
+    Reload() error
+}</signature>
+      <path>sdk/interfaces/config.go</path>
+    </interface>
+    <interface>
+      <name>EndorContextInterface</name>
+      <kind>context interface</kind>
+      <signature>type EndorContextInterface[T any] interface {
+    GetMicroServiceId() string
+    GetSession() Session
+    GetPayload() T
+    SetPayload(payload T)
+    GetResourceMetadataSchema() RootSchema
+    GetCategoryID() *string
+    SetCategoryID(categoryID *string)
+    GetGinContext() *gin.Context
+}</signature>
+      <path>sdk/interfaces/config.go</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Interface compliance tests ensure configuration implementations satisfy contracts using var _ Interface = (*Implementation)(nil) pattern. Unit tests demonstrate mocking patterns for configuration-dependent business logic. Context propagation tests verify interface abstractions work correctly. Configuration source tests validate environment and file-based loading. Follow testify/mock framework for mock implementations with behavior configuration capabilities.</standards>
+    <locations>sdk/interfaces_test.go, test/</locations>
+    <ideas>
+      <test id="AC1" desc="Interface compliance tests for ConfigProviderInterface and EndorContextInterface definitions"></test>
+      <test id="AC2" desc="Unit tests demonstrating configuration interface mocking with custom test configurations"></test>
+      <test id="AC3" desc="Context propagation tests verifying EndorContext operations work through interface abstractions"></test>
+      <test id="AC4" desc="Integration tests validating existing configuration and context implementations satisfy interfaces"></test>
+      <test id="AC5" desc="Mock implementation tests showing how to provide test configurations for different environments"></test>
+    </ideas>
+  </tests>
+</story-context>

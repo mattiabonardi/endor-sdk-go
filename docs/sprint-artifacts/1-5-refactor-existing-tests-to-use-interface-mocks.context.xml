@@ -1,0 +1,261 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>5</storyId>
+    <title>refactor-existing-tests-to-use-interface-mocks</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/1-5-refactor-existing-tests-to-use-interface-mocks.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>framework developer</asA>
+    <iWant>existing tests refactored to use the new interface mocks from testutils</iWant>
+    <soThat>all framework tests follow consistent patterns and demonstrate proper usage of the interface-driven architecture</soThat>
+    <tasks>
+      <task id="1" name="Analyze existing test patterns and create migration plan">
+        <subtasks>
+          <subtask>Audit all tests in test/ directory to identify dependencies and mocking needs</subtask>
+          <subtask>Create mapping from existing tests to interface mock requirements</subtask>
+          <subtask>Design test structure supporting both unit and integration patterns</subtask>
+          <subtask>Plan migration sequence to minimize disruption</subtask>
+        </subtasks>
+      </task>
+      <task id="2" name="Refactor service tests to use interface mocks">
+        <subtasks>
+          <subtask>Migrate test/endor_hybrid_service_test.go to use MockEndorHybridService and MockEndorService</subtask>
+          <subtask>Update tests to demonstrate interface usage patterns for service instantiation</subtask>
+          <subtask>Add unit test variants using mocked dependencies with fast execution</subtask>
+          <subtask>Preserve integration test coverage using testutils infrastructure</subtask>
+        </subtasks>
+      </task>
+      <task id="3" name="Refactor resource and schema tests with interface patterns">
+        <subtasks>
+          <subtask>Migrate test/resource_test.go to use MockRepository and MockConfigProvider</subtask>
+          <subtask>Update test/schema_test.go to demonstrate interface-driven schema validation</subtask>
+          <subtask>Apply build tags for unit vs integration test separation</subtask>
+          <subtask>Ensure test performance improvement through interface mocking</subtask>
+        </subtasks>
+      </task>
+      <task id="4" name="Update swagger and API tests with mock implementations">
+        <subtasks>
+          <subtask>Refactor test/swagger_test.go to use interface mocks for API documentation testing</subtask>
+          <subtask>Update tests to support dependency injection patterns for Epic 2 preparation</subtask>
+          <subtask>Create examples showing how to test API generation with different service configurations</subtask>
+          <subtask>Validate that mocked services generate correct swagger documentation</subtask>
+        </subtasks>
+      </task>
+      <task id="5" name="Establish testing best practices and documentation">
+        <subtasks>
+          <subtask>Create comprehensive testing examples in sdk/ showing refactored patterns</subtask>
+          <subtask>Document testing strategies for interface-driven framework development</subtask>
+          <subtask>Add testing guidelines for Epic 2 (dependency injection) and Epic 3 (service composition)</subtask>
+          <subtask>Create migration guide for developers updating existing framework-based projects</subtask>
+        </subtasks>
+      </task>
+      <task id="6" name="Validate test performance and coverage">
+        <subtasks>
+          <subtask>Benchmark test execution time improvements from interface mocking</subtask>
+          <subtask>Verify test coverage maintained or improved across all test suites</subtask>
+          <subtask>Validate build tag separation enables fast unit test execution</subtask>
+          <subtask>Create performance comparison report showing benefits of interface-driven testing</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criteria id="1" name="Test Migration">All existing tests in test/ directory refactored to use interface mocks from sdk/testutils package</criteria>
+    <criteria id="2" name="Interface Usage Validation">Tests demonstrate proper usage of EndorServiceInterface, EndorHybridServiceInterface, RepositoryInterface, and configuration interfaces</criteria>
+    <criteria id="3" name="Performance Preservation">Refactored tests maintain current test coverage while improving execution speed through mocking</criteria>
+    <criteria id="4" name="Build Tag Organization">Tests organized with //go:build unit and //go:build integration tags following layered testing strategy</criteria>
+    <criteria id="5" name="Testing Pattern Documentation">Refactored tests serve as examples for developers using the framework's interface-driven architecture</criteria>
+    <criteria id="6" name="Dependency Injection Preparation">Tests structured to support Epic 2's dependency injection patterns with clear separation of concerns</criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/prd.md</path>
+        <title>endor-sdk-go Product Requirements Document</title>
+        <section>Enhanced Testability (FR5-FR8)</section>
+        <snippet>Framework must support unit testing without MongoDB dependencies through interface mocking, provide test utility package with pre-built mocks, enable testing service composition patterns in isolation</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Interface Foundation & Testability</title>
+        <section>Testing Pattern Migration</section>
+        <snippet>Refactor existing test files to demonstrate interface-based testing approach. Separate unit tests (mocked dependencies) from integration tests (real dependencies). Create examples of testing service composition patterns in isolation</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>endor-sdk-go Refactored Architecture Document</title>
+        <section>Interface Segregation with Smart Composition</section>
+        <snippet>Following Go's interface philosophy of "accept interfaces, return structs". Interface strategy with RepositoryInterface for data access, ConfigProviderInterface for configuration, EndorServiceInterface and EndorHybridServiceInterface for services</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>endor-sdk-go Epic Breakdown</title>
+        <section>Epic 1: Interface Foundation & Testability</section>
+        <snippet>Framework components become mockable and testable. FR5: Unit testing without MongoDB dependencies, FR6: Test utility package with pre-built mocks, FR7: Test service composition patterns in isolation</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>test/endor_hybrid_service_test.go</path>
+        <kind>test</kind>
+        <symbol>TestEndorHybridService</symbol>
+        <lines>16-150</lines>
+        <reason>Primary test file requiring refactoring to use interface mocks instead of concrete implementations</reason>
+      </artifact>
+      <artifact>
+        <path>test/resource_test.go</path>
+        <kind>test</kind>
+        <symbol>existing resource tests</symbol>
+        <lines>1-100</lines>
+        <reason>Resource testing patterns that need repository interface mocks</reason>
+      </artifact>
+      <artifact>
+        <path>test/schema_test.go</path>
+        <kind>test</kind>
+        <symbol>schema validation tests</symbol>
+        <lines>1-100</lines>
+        <reason>Schema tests that should demonstrate interface-driven validation patterns</reason>
+      </artifact>
+      <artifact>
+        <path>test/swagger_test.go</path>
+        <kind>test</kind>
+        <symbol>swagger generation tests</symbol>
+        <lines>1-100</lines>
+        <reason>API documentation tests that need service interface mocking</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/testutils/mocks.go</path>
+        <kind>mock</kind>
+        <symbol>MockEndorService,MockEndorHybridService,MockRepository</symbol>
+        <lines>1-300</lines>
+        <reason>Available mock implementations for test refactoring</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/testutils/builders.go</path>
+        <kind>builder</kind>
+        <symbol>TestEndorServiceBuilder,TestEndorHybridServiceBuilder</symbol>
+        <lines>1-200</lines>
+        <reason>Test builders for creating configured mock services</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/testutils/helpers.go</path>
+        <kind>helper</kind>
+        <symbol>SetupTestHybridService,AssertServiceInterface</symbol>
+        <lines>100-150</lines>
+        <reason>Helper functions for test setup and interface validation</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interface</kind>
+        <symbol>EndorServiceInterface,EndorHybridServiceInterface</symbol>
+        <lines>1-120</lines>
+        <reason>Core service interfaces that tests must demonstrate usage of</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/repository.go</path>
+        <kind>interface</kind>
+        <symbol>RepositoryInterface</symbol>
+        <lines>1-80</lines>
+        <reason>Repository interface for data access mocking in tests</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/config.go</path>
+        <kind>interface</kind>
+        <symbol>ConfigProviderInterface,EndorContextInterface</symbol>
+        <lines>1-100</lines>
+        <reason>Configuration interfaces for environment-independent testing</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <module>github.com/gin-gonic/gin v1.10.0</module>
+        <module>github.com/stretchr/testify v1.11.1</module>
+        <module>github.com/joho/godotenv v1.5.1</module>
+        <module>github.com/prometheus/client_golang v1.21.0</module>
+        <module>go.mongodb.org/mongo-driver v1.17.3</module>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Tests must maintain current coverage while improving execution speed through interface mocking</constraint>
+    <constraint>Build tag organization with //go:build unit for mocked tests and //go:build integration for database tests</constraint>
+    <constraint>All interface usage patterns must demonstrate proper dependency injection preparation for Epic 2</constraint>
+    <constraint>Test migration must preserve existing test logic while updating instantiation patterns</constraint>
+    <constraint>Fast unit test execution targeting under 100ms total runtime using interface mocks</constraint>
+    <constraint>Interface compliance validation using var _ Interface = (*Implementation)(nil) pattern</constraint>
+    <constraint>Integration tests continue using real implementations with testutils infrastructure</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>EndorServiceInterface</name>
+      <kind>service interface</kind>
+      <signature>type EndorServiceInterface interface {
+    GetResource() string
+    GetDescription() string
+    GetMethods() map[string]EndorServiceAction
+    GetPriority() *int
+    GetVersion() string
+    Validate() error
+}</signature>
+      <path>sdk/interfaces/service.go</path>
+    </interface>
+    <interface>
+      <name>EndorHybridServiceInterface</name>
+      <kind>hybrid service interface</kind>
+      <signature>type EndorHybridServiceInterface interface {
+    GetResource() string
+    GetResourceDescription() string
+    GetPriority() *int
+    WithCategories(categories []EndorHybridServiceCategory) EndorHybridServiceInterface
+    WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridServiceInterface
+    ToEndorService(metadataSchema Schema) EndorServiceInterface
+    Validate() error
+}</signature>
+      <path>sdk/interfaces/service.go</path>
+    </interface>
+    <interface>
+      <name>RepositoryInterface</name>
+      <kind>repository interface</kind>
+      <signature>type RepositoryInterface[T any] interface {
+    Create(ctx context.Context, entity T) (T, error)
+    Read(ctx context.Context, id string) (T, error)
+    Update(ctx context.Context, entity T) error
+    Delete(ctx context.Context, id string) error
+    List(ctx context.Context, filter interface{}) ([]T, error)
+}</signature>
+      <path>sdk/interfaces/repository.go</path>
+    </interface>
+    <interface>
+      <name>ConfigProviderInterface</name>
+      <kind>configuration interface</kind>
+      <signature>type ConfigProviderInterface interface {
+    GetServerPort() string
+    GetDocumentDBUri() string
+    IsHybridResourcesEnabled() bool
+    IsDynamicResourcesEnabled() bool
+    Validate() error
+}</signature>
+      <path>sdk/interfaces/config.go</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Framework uses Go testing with testify/mock for behavior verification and testify/assert for assertions. Interface compliance testing follows var _ Interface = (*Implementation)(nil) pattern. Build tags separate //go:build unit tests (mocked dependencies, fast execution) from //go:build integration tests (real dependencies, database setup). Mock implementations use testify/mock with configurable behavior and expectation validation.</standards>
+    <locations>test/ directory for legacy tests requiring refactoring, sdk/ package structure for new interface-based tests, sdk/testutils/ for mock implementations and test builders</locations>
+    <ideas>
+      <idea criteria="1,2">Migrate test/endor_hybrid_service_test.go to use MockEndorHybridService demonstrating interface usage patterns</idea>
+      <idea criteria="1,3">Convert test/resource_test.go to use MockRepository for fast data access testing without MongoDB</idea>
+      <idea criteria="2,4">Update test/schema_test.go with build tags showing unit vs integration test separation</idea>
+      <idea criteria="4,6">Refactor test/swagger_test.go to demonstrate service interface mocking for API generation testing</idea>
+      <idea criteria="5,6">Create comprehensive testing examples showing dependency injection patterns for Epic 2 preparation</idea>
+      <idea criteria="3,6">Benchmark test execution time improvements to validate under 100ms target for unit tests</idea>
+    </ideas>
+  </tests>
+</story-context>
