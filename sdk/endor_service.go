@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mattiabonardi/endor-sdk-go/sdk/di"
 	"github.com/mattiabonardi/endor-sdk-go/sdk/interfaces"
+	"github.com/mattiabonardi/endor-sdk-go/sdk/middleware"
 )
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
@@ -360,3 +361,103 @@ func (s *EndorService) GetLogger() interfaces.LoggerInterface {
 // Note: Interface compliance deferred until type alignment between sdk and interfaces packages
 // TODO: Resolve RootSchema and EndorServiceAction type differences between sdk and interfaces packages
 // var _ interfaces.EndorServiceInterface = (*EndorService)(nil)
+
+// DecoratedService wraps an EndorService with middleware pipeline support.
+// This type implements the decorator pattern to add cross-cutting concerns
+// without modifying the original service implementation.
+type DecoratedService struct {
+	*EndorService                                // Embedded service for method delegation
+	pipeline      *middleware.MiddlewarePipeline // Middleware execution pipeline
+}
+
+// WithMiddleware decorates the EndorService with a middleware pipeline.
+// Middleware will be executed in the order provided, with Before() hooks
+// running before the service handler and After() hooks running after.
+//
+// Example usage:
+//
+//	decoratedService := service.WithMiddleware(
+//	    authMiddleware,
+//	    loggingMiddleware,
+//	    metricsMiddleware,
+//	)
+//
+// The decorated service preserves the original EndorService interface
+// and can be used anywhere an EndorService is expected.
+func (s *EndorService) WithMiddleware(middlewares ...middleware.MiddlewareInterface) *DecoratedService {
+	return &DecoratedService{
+		EndorService: s,
+		pipeline:     middleware.NewMiddlewarePipeline(middlewares...),
+	}
+}
+
+// GetMethods returns the decorated methods that include middleware execution.
+// The returned actions execute middleware Before/After hooks around the original handlers.
+func (d *DecoratedService) GetMethods() map[string]EndorServiceAction {
+	originalMethods := d.EndorService.GetMethods()
+	decoratedMethods := make(map[string]EndorServiceAction, len(originalMethods))
+
+	for name, action := range originalMethods {
+		decoratedMethods[name] = &decoratedServiceAction{
+			original: action,
+			pipeline: d.pipeline,
+		}
+	}
+
+	return decoratedMethods
+}
+
+// decoratedServiceAction wraps an EndorServiceAction with middleware execution.
+type decoratedServiceAction struct {
+	original EndorServiceAction
+	pipeline *middleware.MiddlewarePipeline
+}
+
+func (d *decoratedServiceAction) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+	originalCallback := d.original.CreateHTTPCallback(microserviceId)
+
+	return func(c *gin.Context) {
+		// Create middleware-aware context wrapper
+		middlewareCtx := &middlewareContext{ginContext: c}
+
+		// Execute middleware Before() hooks
+		if err := d.pipeline.ExecuteBefore(middlewareCtx); err != nil {
+			// Middleware error - short-circuit execution
+			c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().
+				AddMessage(NewMessage(Error, fmt.Sprintf("Middleware execution failed: %v", err))).
+				Build())
+			return
+		}
+
+		// Execute original service handler
+		originalCallback(c)
+
+		// Create a response wrapper with available data from context
+		middlewareResponse := &middlewareResponse{
+			statusCode: http.StatusOK, // Default, actual code may vary
+			headers:    c.Writer.Header(),
+		}
+
+		// Execute middleware After() hooks
+		if err := d.pipeline.ExecuteAfter(middlewareCtx, middlewareResponse); err != nil {
+			// Log middleware error but don't modify response
+			// The original response has already been sent
+			fmt.Printf("Middleware After() error: %v\n", err)
+		}
+	}
+}
+
+func (d *decoratedServiceAction) GetOptions() EndorServiceActionOptions {
+	return d.original.GetOptions()
+}
+
+// middlewareContext adapts Gin context for middleware interface compatibility.
+type middlewareContext struct {
+	ginContext *gin.Context
+}
+
+// middlewareResponse wraps response data for middleware interface compatibility.
+type middlewareResponse struct {
+	statusCode int
+	headers    http.Header
+}

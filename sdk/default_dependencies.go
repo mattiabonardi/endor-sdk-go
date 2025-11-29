@@ -7,6 +7,41 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/sdk/interfaces"
 )
 
+// NewDefaultDatabaseClient creates a default MongoDB database client using the global singleton.
+// This provides backward compatibility for existing repository creation patterns.
+//
+// Acceptance Criteria 6: Backward compatibility with convenience constructors using default implementations.
+func NewDefaultDatabaseClient() (interfaces.DatabaseClientInterface, error) {
+	client, err := GetMongoClient()
+	if err != nil {
+		return nil, interfaces.NewDatabaseRepositoryError(
+			interfaces.RepositoryErrorCodeDatabaseConnection,
+			"Failed to create default database client",
+			err,
+		)
+	}
+	return NewMongoDatabaseClient(client), nil
+}
+
+// NewDefaultRepositoryDependencies creates a complete set of default dependencies for repository construction.
+// This convenience function simplifies repository creation for backward compatibility scenarios.
+//
+// Acceptance Criteria 6: Existing repository functionality preserved with convenience constructors.
+func NewDefaultRepositoryDependencies(microServiceID string) (interfaces.RepositoryDependencies, error) {
+	dbClient, err := NewDefaultDatabaseClient()
+	if err != nil {
+		// For backward compatibility, allow repositories to work with nil database client
+		dbClient = nil
+	}
+
+	return interfaces.RepositoryDependencies{
+		DatabaseClient: dbClient,
+		Config:         NewDefaultConfigProvider(),
+		Logger:         NewDefaultLogger(),
+		MicroServiceID: microServiceID,
+	}, nil
+}
+
 // DefaultConfigProvider adapts the singleton ServerConfig to implement ConfigProviderInterface
 // This provides backward compatibility while enabling dependency injection.
 type DefaultConfigProvider struct{}

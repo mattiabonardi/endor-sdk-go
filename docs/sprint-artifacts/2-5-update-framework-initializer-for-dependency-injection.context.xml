@@ -1,0 +1,106 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>5</storyId>
+    <title>update-framework-initializer-for-dependency-injection</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-29</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/2-5-update-framework-initializer-for-dependency-injection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer using the framework</asA>
+    <iWant>the EndorInitializer to wire dependencies automatically</iWant>
+    <soThat>I can configure the entire service graph in one place</soThat>
+    <tasks>
+      - [ ] Task 1: Design EndorInitializer dependency injection architecture (AC: 1)
+      - [ ] Task 2: Implement custom dependency registration methods (AC: 2, 5)
+      - [ ] Task 3: Add comprehensive dependency graph validation (AC: 3)
+      - [ ] Task 4: Ensure backward compatibility with default implementations (AC: 4)
+      - [ ] Task 5: Implement resource management and lifecycle handling (AC: 6)
+      - [ ] Task 6: Comprehensive testing and integration validation (AC: 1-6)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. **Dependency Graph Configuration**: EndorInitializer.Build() creates properly wired service instances using the dependency injection container established in Story 2.1
+    2. **Custom Dependency Registration**: Initializer provides hooks for custom dependency registration through WithCustomRepository(), WithCustomConfig(), and WithContainer() methods
+    3. **Complete Dependency Validation**: Initializer validates the complete dependency graph before starting and provides clear error messages for dependency configuration problems
+    4. **Backward Compatibility**: Simple use cases continue to work without modification, using default dependency implementations from previous stories
+    5. **Advanced Customization**: Advanced users can override any dependency with custom implementations through explicit configuration methods
+    6. **Proper Resource Management**: Framework ensures proper dependency cleanup during shutdown following dependency order (dependents before dependencies)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/prd.md" title="Product Requirements Document" section="Functional Requirements" snippet="FR12: Framework supports both constructor injection and factory patterns. FR21: Framework provides clear error messages for dependency injection failures"/>
+      <doc path="docs/architecture.md" title="Architecture Document" section="Decision 1: Dependency Injection Pattern" snippet="Lightweight Custom DI Container with type-safe registration, lifecycle management, and validation"/>
+      <doc path="docs/epics.md" title="Epic 2: Dependency Injection Architecture" section="Story 2.5" snippet="EndorInitializer.Build() creates properly wired service instances with dependency graph validation"/>
+      <doc path="docs/sprint-artifacts/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="AC-2.5: Framework Initializer Dependency Wiring" snippet="Enhanced EndorInitializer to handle automatic dependency wiring with container integration"/>
+    </docs>
+    <code>
+      <artifact path="sdk/server.go" kind="framework-initializer" symbol="EndorInitializer" lines="19-45" reason="Current EndorInitializer that needs enhancement with DI container integration"/>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="NewEndorServiceFromContainer" lines="243-270" reason="Container-based service creation pattern to integrate with EndorInitializer"/>
+      <artifact path="sdk/endor_hybrid_service.go" kind="service" symbol="NewEndorHybridServiceFromContainer" lines="254" reason="Hybrid service container integration for EndorInitializer.Build()"/>
+      <artifact path="sdk/endor_resource_repository.go" kind="repository" symbol="NewEndorServiceRepositoryFromContainer" lines="93-120" reason="Repository factory patterns established in Story 2.4 for automatic dependency injection"/>
+      <artifact path="sdk/di/container_impl.go" kind="di-container" symbol="Container" reason="DI container implementation from Story 2.1 for dependency resolution"/>
+      <artifact path="sdk/default_dependencies.go" kind="defaults" symbol="DefaultDatabaseClient" reason="Default dependency providers for backward compatibility"/>
+      <artifact path="main.go" kind="example" symbol="main" lines="15-18" reason="Current initialization pattern showing EndorInitializer usage"/>
+    </code>
+    <dependencies>
+      <go>
+        <core>
+          <package>context</package>
+          <package>fmt</package>
+          <package>errors</package>
+        </core>
+        <framework>
+          <package>github.com/gin-gonic/gin@v1.10.0</package>
+          <package>github.com/prometheus/client_golang</package>
+        </framework>
+        <database>
+          <package>go.mongodb.org/mongo-driver</package>
+        </database>
+        <testing>
+          <package>github.com/stretchr/testify@v1.11.1</package>
+        </testing>
+        <internal>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/di</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/interfaces</package>
+        </internal>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - EndorInitializer.Build() MUST validate complete dependency graph before service creation
+    - All dependency resolution MUST occur through DI container established in Story 2.1
+    - Custom dependency registration MUST override defaults while maintaining interface compliance
+    - Error messages MUST provide clear guidance for fixing dependency configuration issues
+    - Backward compatibility MUST be preserved for existing EndorInitializer usage patterns
+    - Dependency cleanup MUST follow proper order (dependents before dependencies)
+    - Integration with repository factory patterns from Story 2.4 is mandatory
+    - Service creation must use NewEndorServiceFromContainer() and NewEndorHybridServiceFromContainer()
+  </constraints>
+
+  <interfaces>
+    <interface name="di.Container" kind="dependency-injection" signature="Register[T any](impl T, scope Scope), Resolve[T any]() (T, error)" path="sdk/di/container.go"/>
+    <interface name="interfaces.RepositoryPattern" kind="repository" signature="CRUD operations with dependency injection" path="sdk/interfaces/repository.go"/>
+    <interface name="interfaces.ConfigProviderInterface" kind="configuration" signature="Configuration access abstraction" path="sdk/interfaces/config.go"/>
+    <interface name="interfaces.LoggerInterface" kind="logging" signature="Structured logging interface" path="sdk/interfaces/logger.go"/>
+    <interface name="EndorInitializer" kind="framework-initializer" signature="WithContainer(), WithCustomRepository(), Build()" path="sdk/server.go"/>
+  </interfaces>
+  <tests>
+    <standards>Framework uses testify/mock for behavior verification, separates unit tests (//go:build unit) from integration tests (//go:build integration), and follows repository pattern testing established in Stories 2.1-2.4</standards>
+    <locations>test/, sdk/*_test.go, sdk/di/*_test.go</locations>
+    <ideas>
+      <test id="AC1" criteria="Dependency Graph Configuration">Test EndorInitializer.Build() creates properly wired service instances using DI container</test>
+      <test id="AC2" criteria="Custom Dependency Registration">Test WithContainer(), WithCustomRepository(), WithCustomConfig() methods provide dependency override</test>
+      <test id="AC3" criteria="Complete Dependency Validation">Test dependency graph validation with clear error messages for missing dependencies</test>
+      <test id="AC4" criteria="Backward Compatibility">Test simple use cases work without modification using default implementations</test>
+      <test id="AC5" criteria="Advanced Customization">Test custom implementations can override any dependency through configuration methods</test>
+      <test id="AC6" criteria="Proper Resource Management">Test proper dependency cleanup during shutdown in dependency order</test>
+    </ideas>
+  </tests>
+</story-context>

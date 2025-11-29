@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/mattiabonardi/endor-sdk-go/sdk"
 	services_test "github.com/mattiabonardi/endor-sdk-go/test/services"
 )
@@ -12,9 +14,15 @@ type Payload struct {
 }
 
 func main() {
-	sdk.NewEndorInitializer().WithEndorServices(&[]sdk.EndorService{
+	endor, err := sdk.NewEndorInitializer().WithEndorServices(&[]sdk.EndorService{
 		services_test.NewService1(),
 	}).WithHybridServices(&[]sdk.EndorHybridService{
 		services_test.NewService2(),
-	}).Build().Init("endor-sdk-service")
+	}).Build()
+
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize Endor: %v", err))
+	}
+
+	endor.Init("endor-sdk-service")
 }

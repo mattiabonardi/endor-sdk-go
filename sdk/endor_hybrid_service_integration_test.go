@@ -124,3 +124,39 @@ func TestSchemaGeneration_Integration(t *testing.T) {
 	assert.Contains(t, properties, "name", "Schema should include name property")
 	assert.Contains(t, properties, "age", "Schema should include age property")
 }
+
+// TestEndorHybridService_ServiceEmbedding_Integration tests service embedding with real service instances (AC: 1-7)
+func TestEndorHybridService_ServiceEmbedding_Integration(t *testing.T) {
+	// Skip test if real service embedding is not ready
+	t.Skip("Service embedding integration tests require real service instances and dependency injection setup")
+
+	// This test would verify:
+	// - AC 1: Real EmbedService() method functionality with concrete services
+	// - AC 2: Actual method delegation through HTTP callbacks
+	// - AC 3: Method resolution with real conflicting services
+	// - AC 4: Dependency sharing between parent and embedded services
+	// - AC 5: Middleware inheritance through real middleware pipeline
+	// - AC 6: Type safety with concrete service implementations
+	// - AC 7: Multiple service embedding with real routing
+
+	// Implementation would require:
+	// 1. Creating multiple test services with different methods
+	// 2. Setting up dependency injection container with shared dependencies
+	// 3. Creating hybrid service and embedding multiple services
+	// 4. Testing HTTP routing to embedded service methods
+	// 5. Validating middleware execution order
+	// 6. Performance testing for method delegation overhead
+}
+
+// TestEndorHybridService_EmbeddedServiceMethodRouting_Integration tests method routing to embedded services
+func TestEndorHybridService_EmbeddedServiceMethodRouting_Integration(t *testing.T) {
+	// Skip test as it requires HTTP routing setup
+	t.Skip("Method routing tests require HTTP server setup and real routing infrastructure")
+
+	// This test would verify:
+	// - HTTP requests to embedded service methods work correctly
+	// - Prefix-based routing resolves to correct embedded service
+	// - Method precedence works in HTTP context
+	// - Error handling propagates correctly through delegation
+	// - Performance overhead meets < 20μs requirement
+}

@@ -1,0 +1,111 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>4</storyId>
+    <title>refactor-repository-layer-for-dependency-injection</title>
+    <status>drafted</status>
+    <generatedAt>November 29, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/2-4-refactor-repository-layer-for-dependency-injection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer using the framework</asA>
+    <iWant>repository creation to use dependency injection</iWant>
+    <soThat>I can provide custom database connections and configurations</soThat>
+    <tasks>- Task 1: Design repository dependency injection architecture (AC: 1, 5)
+  - Define DatabaseClientInterface abstraction for MongoDB operations
+  - Create repository constructor signatures accepting client and config interfaces
+  - Design factory patterns for both direct construction and container resolution
+  - Add repository dependency validation with structured error handling
+- Task 2: Refactor existing repository implementations for interface injection (AC: 2, 3)
+  - Update EndorResourceRepository to use injected DatabaseClientInterface
+  - Replace GetMongoClient() calls with injected client interface operations
+  - Ensure all CRUD operations use injected dependencies consistently
+  - Maintain existing method signatures for backward compatibility
+- Task 3: Implement database client interface and MongoDB adapter (AC: 3, 7)
+  - Create MongoDatabaseClient implementing DatabaseClientInterface
+  - Abstract MongoDB collection operations behind CollectionInterface
+  - Ensure transaction support works with injected client interfaces
+  - Add connection health monitoring through interface methods
+- Task 4: Create repository factory and container integration (AC: 5, 8)
+  - Implement NewRepositoryWithClient() for direct dependency injection
+  - Create NewRepositoryFromContainer() for automatic container resolution
+  - Add repository interface registration patterns for DI container
+  - Enable shared repository instances across multiple services
+- Task 5: Implement backward compatibility and convenience constructors (AC: 6)
+  - Maintain existing repository creation patterns with default implementations
+  - Create DefaultDatabaseClient for backward compatibility scenarios
+  - Add convenience constructors that use default MongoDB client configuration
+  - Ensure existing repository usage patterns continue working without changes
+- Task 6: Comprehensive testing and validation (AC: 1-8)
+  - Unit tests for repository dependency injection with mock database clients
+  - Integration tests validating repository operations with real MongoDB connections
+  - Container integration tests for automatic repository dependency resolution
+  - Performance validation ensuring no regression from interface indirection</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **Constructor Dependency Injection**: Repository constructors accept DatabaseClientInterface and ConfigInterface instead of using global singletons like GetMongoClient()
+2. **Interface Implementation**: Repository implementations satisfy RepositoryInterface from interfaces package and can be mocked in tests  
+3. **MongoDB Client Abstraction**: All MongoDB operations use injected DatabaseClientInterface, eliminating hard-coded GetMongoClient() calls
+4. **Connection Lifecycle Management**: Database connection lifecycle is managed by injected dependencies rather than global singleton
+5. **Repository Factory Patterns**: Support both NewRepositoryWithClient() direct construction and NewRepositoryFromContainer() for DI container resolution
+6. **Backward Compatibility**: Existing repository functionality preserved with convenience constructors using default implementations
+7. **Transaction Support**: Transaction handling works with injected database client interfaces  
+8. **Container Integration**: Repository implementations register with DI container and can be resolved by interface type</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="MongoDB Integration" snippet="FR26: Database access occurs through repository interfaces that can be mocked, FR28: Developers can provide custom repository implementations for testing, FR29: Connection management becomes dependency-injectable"/>
+      <artifact path="docs/architecture.md" title="Architecture Document" section="Decision 1: Dependency Injection Pattern" snippet="Custom lightweight DI container with interface-based registration: container.Register[RepositoryInterface](mongoRepo), type-safe resolution, zero runtime reflection overhead"/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Story 2.4: Refactor Repository Layer for Dependency Injection" snippet="Abstract database client access: NewRepositoryWithClient(client DatabaseClientInterface), remove direct calls to GetMongoClient() from repository implementations"/>
+      <artifact path="docs/sprint-artifacts/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="Repository Layer Abstraction" snippet="DatabaseClientInterface abstracts MongoDB operations to enable alternative implementations and mocking, DI container registration patterns enable automatic repository resolution"/>
+      <artifact path="docs/sprint-artifacts/2-3-refactor-endorhybridservice-for-constructor-injection.md" title="Story 2.3 Learnings" section="Repository Interface Integration" snippet="Repository interface injection in EndorHybridService requires this story to provide concrete implementations that satisfy the interface"/>
+    </docs>
+    <code>
+      <artifact path="sdk/endor_resource_repository.go" kind="repository" symbol="EndorServiceRepository" lines="14-30" reason="Main repository implementation that needs DatabaseClientInterface injection and GetMongoClient() replacement"/>
+      <artifact path="sdk/mongo_resource_instance_repository.go" kind="repository" symbol="MongoResourceInstanceRepository" lines="1-25" reason="MongoDB repository implementations requiring client interface abstraction"/>
+      <artifact path="sdk/mongo_static_resource_instance_repository.go" kind="repository" symbol="MongoStaticResourceInstanceRepository" lines="22-30" reason="Static repository using GetMongoClient() that needs injection pattern"/>
+      <artifact path="sdk/mongo.go" kind="database_client" symbol="GetMongoClient" lines="1-45" reason="Current singleton MongoDB client that needs to be abstracted behind DatabaseClientInterface"/>
+      <artifact path="sdk/interfaces/repository.go" kind="interface" symbol="ResourceInstanceRepositoryInterface" reason="Existing repository interfaces that need to be extended for dependency injection"/>
+      <artifact path="sdk/di/container.go" kind="dependency_injection" symbol="Container" reason="DI container for repository registration and resolution"/>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="EndorService" lines="213-230" reason="Service using default dependencies that will need repository injection"/>
+      <artifact path="sdk/default_dependencies.go" kind="dependencies" symbol="DefaultConfigProvider" reason="Default implementation pattern for backward compatibility"/>
+    </code>
+    <dependencies>
+      <go version="1.21+">
+        <package name="go.mongodb.org/mongo-driver/mongo" version="^1.11.0" description="MongoDB driver for Go - core client functionality"/>
+        <package name="go.mongodb.org/mongo-driver/bson" version="^1.11.0" description="BSON encoding/decoding for MongoDB operations"/>
+        <package name="github.com/stretchr/testify" version="^1.8.0" description="Testing framework with mock support for dependency injection testing"/>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>- All existing `GetMongoClient()` calls MUST be replaced with injected client interface usage
+- Repository constructors MUST accept dependencies as interface parameters only
+- Transaction support MUST work through injected client interfaces 
+- Category-based specialization MUST continue working with injected repository instances
+- Performance characteristics MUST remain unchanged from interface indirection
+- Repository implementations MUST satisfy RepositoryInterface for EndorService/EndorHybridService dependency injection
+- DatabaseClientInterface MUST abstract MongoDB operations to enable alternative implementations and mocking
+- DI container registration patterns MUST enable automatic repository resolution in service constructors
+- Connection lifecycle management MUST support shared instances across multiple service dependencies</constraints>
+
+  <interfaces>
+    <interface name="DatabaseClientInterface" kind="database_abstraction" signature="Collection(name string) CollectionInterface; Database(name string) DatabaseInterface; StartTransaction(ctx context.Context) (TransactionInterface, error); Close(ctx context.Context) error" path="sdk/interfaces/database.go"/>
+    <interface name="CollectionInterface" kind="collection_abstraction" signature="FindOne(ctx context.Context, filter interface{}) SingleResult; Find(ctx context.Context, filter interface{}) (CursorInterface, error); InsertOne(ctx context.Context, document interface{}) (*InsertOneResult, error)" path="sdk/interfaces/database.go"/>
+    <interface name="RepositoryInterface" kind="repository_contract" signature="Create(ctx context.Context, resource any) error; Read(ctx context.Context, id string, result any) error; Update(ctx context.Context, resource any) error; Delete(ctx context.Context, id string) error" path="sdk/interfaces/repository.go"/>
+    <interface name="TransactionInterface" kind="transaction_abstraction" signature="Commit(ctx context.Context) error; Abort(ctx context.Context) error" path="sdk/interfaces/database.go"/>
+  </interfaces>
+
+  <tests>
+    <standards>Repository implementations must have comprehensive unit tests with mock DatabaseClientInterface dependencies, integration tests with real MongoDB connections, and container integration tests for automatic dependency resolution. All tests must validate dependency injection patterns and ensure zero performance regression.</standards>
+    <locations>sdk/*_test.go, test/*_test.go, sdk/testutils/</locations>
+    <ideas>
+      <idea ac="1,2">Test repository constructors with mock DatabaseClientInterface and validate all MongoDB operations use injected dependencies</idea>
+      <idea ac="3,4">Test connection lifecycle management through injected dependencies and validate transaction support with interface abstraction</idea>
+      <idea ac="5,8">Test both NewRepositoryWithClient() direct construction and NewRepositoryFromContainer() container resolution patterns</idea>
+      <idea ac="6,7">Test backward compatibility with existing repository patterns and transaction handling through injected interfaces</idea>
+    </ideas>
+  </tests>
+</story-context>

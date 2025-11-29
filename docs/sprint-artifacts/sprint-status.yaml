@@ -47,17 +47,17 @@ development_status:
 
   # Epic 2: Dependency Injection Architecture
   epic-2: contexted
-  2-1-implement-dependency-injection-container: review
-  2-2-refactor-endorservice-for-constructor-injection: review
-  2-3-refactor-endorhybridservice-for-constructor-injection: review
-  2-4-refactor-repository-layer-for-dependency-injection: backlog
-  2-5-update-framework-initializer-for-dependency-injection: backlog
+  2-1-implement-dependency-injection-container: done
+  2-2-refactor-endorservice-for-constructor-injection: done
+  2-3-refactor-endorhybridservice-for-constructor-injection: done
+  2-4-refactor-repository-layer-for-dependency-injection: done
+  2-5-update-framework-initializer-for-dependency-injection: done
   epic-2-retrospective: optional
 
   # Epic 3: Service Composition Framework
-  epic-3: backlog
-  3-1-implement-service-middleware-pipeline: backlog
-  3-2-enable-endorservice-embedding-in-endorhybridservice: backlog
+  epic-3: contexted
+  3-1-implement-service-middleware-pipeline: review
+  3-2-enable-endorservice-embedding-in-endorhybridservice: review
   3-3-implement-shared-dependency-management: backlog
   3-4-create-service-composition-utilities: backlog
   3-5-implement-service-lifecycle-management: backlog

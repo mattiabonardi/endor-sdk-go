@@ -10,6 +10,8 @@
 // to enable testing patterns while avoiding import cycles with existing implementations.
 package interfaces
 
+import "context"
+
 // Base interface contracts that define repository behavior patterns
 
 // ResourceInstanceInterface defines the contract that all resource instances must implement.
@@ -179,3 +181,46 @@ type MockableRepository interface {
 //   3. Domain-appropriate error handling
 //   4. Consistent patterns across repository implementations
 //   5. Testing without external database dependencies
+
+// Core repository interface for dependency injection and testing
+
+// RepositoryInterface defines the core contract for all repository implementations.
+// This interface enables dependency injection, testing with mocks, and service composition
+// while maintaining the framework's automatic CRUD capabilities.
+//
+// Acceptance Criteria 2: Repository implementations satisfy RepositoryInterface from
+// interfaces package and can be mocked in tests.
+type RepositoryInterface interface {
+	// Create inserts a new resource into the repository
+	Create(ctx context.Context, resource any) error
+	// Read retrieves a resource by ID and populates the result
+	Read(ctx context.Context, id string, result any) error
+	// Update modifies an existing resource in the repository
+	Update(ctx context.Context, resource any) error
+	// Delete removes a resource from the repository by ID
+	Delete(ctx context.Context, id string) error
+	// List retrieves multiple resources matching the filter criteria
+	List(ctx context.Context, filter map[string]any, results any) error
+}
+
+// Repository factory function types for dependency injection patterns
+
+// RepositoryFactoryFunc defines the signature for repository factory functions.
+// This enables both direct construction and container-based resolution patterns.
+//
+// Acceptance Criteria 5: Repository Factory Patterns support both NewRepositoryWithClient()
+// direct construction and NewRepositoryFromContainer() for DI container resolution.
+type RepositoryFactoryFunc func(deps RepositoryDependencies) (RepositoryInterface, error)
+
+// RepositoryContainerFactoryFunc defines the signature for container-based repository factories.
+// This enables automatic dependency resolution from DI containers.
+//
+// Acceptance Criteria 8: Container integration enables repository resolution by interface type.
+type RepositoryContainerFactoryFunc func(container DIContainerInterface) (RepositoryInterface, error)
+
+// DIContainerInterface defines the minimum interface required for dependency resolution.
+// This is a subset of the full DI container interface to avoid import cycles.
+type DIContainerInterface interface {
+	// ResolveType resolves a dependency by interface type
+	ResolveType(interfaceType interface{}) (interface{}, error)
+}

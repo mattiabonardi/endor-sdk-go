@@ -1,0 +1,179 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>2</storyId>
+    <title>enable-endorservice-embedding-in-endorhybridservice</title>
+    <status>drafted</status>
+    <generatedAt>November 29, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/3-2-enable-endorservice-embedding-in-endorhybridservice.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer building complex services</asA>
+    <iWant>to embed existing EndorServices within my EndorHybridService</iWant>
+    <soThat>I can reuse business logic without code duplication</soThat>
+    <tasks>
+      - Task 1: Design service embedding interface and delegation patterns (AC: 1, 2, 3)
+      - Task 2: Implement dependency sharing and lifecycle management (AC: 4)
+      - Task 3: Enable middleware inheritance and composition (AC: 5)
+      - Task 4: Maintain type safety and interface contracts (AC: 6)
+      - Task 5: Support multiple embedded services (AC: 7)
+      - Task 6: Integration testing and performance validation (AC: 1-7)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Service Embedding Interface: EndorHybridService provides EmbedService(prefix string, service EndorServiceInterface) method
+    2. Method Delegation: Embedded service methods accessible through hybrid service interface with configurable prefix namespacing
+    3. Method Resolution: Method name conflicts resolved with clear precedence rules (hybrid service methods take priority)
+    4. Dependency Management: Embedded service dependencies properly managed by parent service's DI container without duplication
+    5. Middleware Inheritance: Embedded services maintain their own middleware stack while inheriting parent service middleware
+    6. Type Safety Preservation: Service composition preserves compile-time type safety and method signatures
+    7. Multiple Service Support: Multiple services can be embedded with clear method resolution and namespace isolation
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Service Composition Requirements</section>
+        <snippet>FR17: EndorHybridService can embed other EndorServices through dependency injection. FR3: Developers can compose services within services using dependency injection patterns. FR18: Services can share common dependencies without coupling to implementations.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 3: Service Composition Pattern</section>
+        <snippet>Decorator pattern with middleware pipeline enables clean service composition. EndorHybridService can wrap EndorService instances through method delegation with clear precedence rules and type-safe composition.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 3: Service Composition Framework</section>
+        <snippet>Story 3.2: Enable EndorService Embedding in EndorHybridService. Prerequisites: Story 3.1 (middleware pipeline). Supports dependency sharing between parent and embedded services with multiple embedded services support.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/3-1-implement-service-middleware-pipeline.md</path>
+        <title>Middleware Pipeline Implementation</title>
+        <section>Dev Agent Record - Learnings</section>
+        <snippet>Successful service decoration pattern with WithMiddleware() provides template for embedded service enhancement. DecoratedService wrapper demonstrates effective approach for service composition through method delegation.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/endor_hybrid_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorHybridServiceImpl</symbol>
+        <lines>1-350</lines>
+        <reason>Primary implementation requiring EmbedService() method and method delegation functionality</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorService, DecoratedService</symbol>
+        <lines>1-450</lines>
+        <reason>Target service type for embedding and source of decoration pattern via DecoratedService</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interface</kind>
+        <symbol>EndorServiceInterface, EndorHybridServiceInterface</symbol>
+        <lines>1-221</lines>
+        <reason>Interface contracts that must be preserved during service embedding implementation</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/middleware/middleware.go</path>
+        <kind>middleware</kind>
+        <symbol>MiddlewareInterface, MiddlewarePipeline</symbol>
+        <lines>1-100</lines>
+        <reason>Middleware infrastructure that embedded services must inherit and maintain</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di/container.go</path>
+        <kind>dependency injection</kind>
+        <symbol>Container</symbol>
+        <lines>1-96</lines>
+        <reason>DI container patterns needed for embedded service dependency sharing and lifecycle management</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <core>
+          <package>reflect</package>
+          <package>fmt</package>
+          <package>context</package>
+          <package>sync</package>
+        </core>
+        <external>
+          <package>github.com/gin-gonic/gin</package>
+          <package>github.com/stretchr/testify</package>
+        </external>
+        <internal>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/interfaces</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/middleware</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/di</package>
+        </internal>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Service embedding MUST NOT break existing EndorService or EndorHybridService interface contracts
+    - Method resolution MUST provide clear, predictable precedence rules to prevent ambiguity (hybrid > embedded > inherited)
+    - Dependency sharing MUST optimize memory usage while ensuring service isolation
+    - Middleware inheritance MUST preserve both parent and embedded service middleware behavior
+    - Performance overhead MUST remain minimal (target: &lt; 20μs for method delegation)
+    - EmbedService() should follow WithMiddleware() fluent API design patterns from Story 3.1
+    - Service decoration patterns from DecoratedService must extend to support embedded service hierarchies
+    - Integration with DI container from Epic 2 for dependency resolution and sharing
+    - Build foundation for Story 3.3 (shared dependency management) and Story 3.4 (composition utilities)
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>EmbedService</name>
+      <kind>Service embedding method</kind>
+      <signature>func (h *EndorHybridService) EmbedService(prefix string, service EndorServiceInterface) error</signature>
+      <path>sdk/endor_hybrid_service.go</path>
+    </interface>
+    <interface>
+      <name>GetEmbeddedServices</name>
+      <kind>Service discovery method</kind>
+      <signature>func (h *EndorHybridService) GetEmbeddedServices() map[string]EndorServiceInterface</signature>
+      <path>sdk/endor_hybrid_service.go</path>
+    </interface>
+    <interface>
+      <name>EndorServiceInterface</name>
+      <kind>Service contract for embedding</kind>
+      <signature>interface with GetResource(), GetMethods(), GetDescription(), etc.</signature>
+      <path>sdk/interfaces/service.go</path>
+    </interface>
+    <interface>
+      <name>MiddlewareInterface</name>
+      <kind>Cross-cutting concern execution</kind>
+      <signature>interface with Before(ctx interface{}) error, After(ctx interface{}, response interface{}) error</signature>
+      <path>sdk/middleware/middleware.go</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Unit tests use testify/mock for behavior verification with interface mocks. Integration tests use in-memory repositories. Test structure follows Given-When-Then pattern. Build tags separate unit tests (//go:build unit) from integration tests (//go:build integration). All tests include interface compliance validation and performance benchmarks where applicable.</standards>
+    <locations>
+      <location>test/</location>
+      <location>sdk/*_test.go</location>
+      <location>sdk/testutils/</location>
+      <location>test/services/</location>
+    </locations>
+    <ideas>
+      <test id="AC1">Unit test EmbedService() method with mock EndorService instances, verify prefix handling and method delegation</test>
+      <test id="AC2">Unit test method name resolution with conflicting method names across multiple embedded services</test>
+      <test id="AC3">Unit test precedence rules ensuring hybrid service methods take priority over embedded service methods</test>
+      <test id="AC4">Integration test dependency sharing between parent and embedded services using real DI container</test>
+      <test id="AC5">Unit test middleware inheritance with embedded services maintaining their own middleware stack while inheriting parent middleware</test>
+      <test id="AC6">Unit test type safety preservation through service composition using interface compliance tests</test>
+      <test id="AC7">Integration test multiple embedded services with namespace isolation and method routing</test>
+      <test id="Performance">Benchmark test method delegation overhead ensuring &lt; 20μs target is met</test>
+      <test id="ErrorHandling">Unit test circular embedding detection and prevention with structured error types</test>
+    </ideas>
+  </tests>
+</story-context>

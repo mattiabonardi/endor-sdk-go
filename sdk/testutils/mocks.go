@@ -126,6 +126,21 @@ func (m *MockEndorHybridService) Validate() error {
 	return args.Error(0)
 }
 
+// EmbedService mocks embedding an EndorService within this hybrid service
+func (m *MockEndorHybridService) EmbedService(prefix string, service interfaces.EndorServiceInterface) error {
+	args := m.Called(prefix, service)
+	return args.Error(0)
+}
+
+// GetEmbeddedServices mocks retrieving all embedded services
+func (m *MockEndorHybridService) GetEmbeddedServices() map[string]interfaces.EndorServiceInterface {
+	args := m.Called()
+	if services := args.Get(0); services != nil {
+		return services.(map[string]interfaces.EndorServiceInterface)
+	}
+	return map[string]interfaces.EndorServiceInterface{}
+}
+
 // MockConfigProvider provides a mock implementation of ConfigProviderInterface
 // for testing configuration-dependent functionality.
 //

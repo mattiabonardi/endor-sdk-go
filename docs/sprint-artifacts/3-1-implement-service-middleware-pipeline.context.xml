@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>1</storyId>
+    <title>implement-service-middleware-pipeline</title>
+    <status>drafted</status>
+    <generatedAt>November 29, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/3-1-implement-service-middleware-pipeline.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer using the framework</asA>
+    <iWant>to add cross-cutting concerns (logging, metrics, auth) to services declaratively</iWant>
+    <soThat>I can enhance services without modifying their core logic</soThat>
+    <tasks>
+      <task id="1">Design core middleware interfaces and pipeline architecture</task>
+      <task id="2">Implement middleware chaining and service wrapping</task>
+      <task id="3">Create built-in middleware implementations</task>
+      <task id="4">Enable custom middleware development patterns</task>
+      <task id="5">Implement performance monitoring and optimization</task>
+      <task id="6">Integration testing and validation</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Middleware Interface Design: Framework provides MiddlewareInterface with Before/After hooks that allow inspection and modification of request/response context</criterion>
+    <criterion id="2">Middleware Chaining: Services can be wrapped with configurable middleware chains using WithMiddleware(auth, logging, metrics) pattern</criterion>
+    <criterion id="3">Built-in Middleware Library: Framework provides AuthMiddleware, LoggingMiddleware, and MetricsMiddleware implementations out-of-the-box</criterion>
+    <criterion id="4">Custom Middleware Support: Developers can implement custom middleware easily by satisfying MiddlewareInterface contract</criterion>
+    <criterion id="5">Interface Contract Preservation: Middleware execution preserves original service interface contracts and method signatures</criterion>
+    <criterion id="6">Short-Circuit Support: Middleware can terminate request processing early (auth failures, rate limiting) with proper error propagation</criterion>
+    <criterion id="7">Performance Monitoring: Middleware pipeline includes execution time tracking per middleware component with &lt; 10μs overhead target</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR19: Middleware pattern enables cross-cutting concerns</section>
+        <snippet>Middleware pattern enables cross-cutting concerns (logging, metrics, auth) and service composition with shared dependencies without implementation coupling</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 3: Service Composition Pattern</section>
+        <snippet>Decorator Pattern with Middleware Pipeline: EndorHybridService can wrap EndorService instances with middleware pipeline for cross-cutting concerns</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 3.1: Implement Service Middleware Pipeline</section>
+        <snippet>Create MiddlewareInterface with Before/After hooks, implement middleware chaining with WithMiddleware(auth, logging, metrics) pattern</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: Service Composition Framework</title>
+        <section>Middleware Pipeline System</section>
+        <snippet>MiddlewareInterface with Before/After hooks, built-in AuthMiddleware, LoggingMiddleware, and MetricsMiddleware with dependency injection support</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interfaces</kind>
+        <symbol>EndorServiceInterface, EndorHybridServiceInterface</symbol>
+        <lines>10-100</lines>
+        <reason>Core service interfaces that middleware will wrap and enhance</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/context.go</path>
+        <kind>service</kind>
+        <symbol>EndorContext</symbol>
+        <lines>1-60</lines>
+        <reason>Context structure that middleware will modify and propagate through pipeline</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di/container_impl.go</path>
+        <kind>service</kind>
+        <symbol>containerImpl</symbol>
+        <lines>1-100</lines>
+        <reason>DI container for registering and resolving middleware dependencies</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorService</symbol>
+        <lines>1-50</lines>
+        <reason>Core service implementation that needs WithMiddleware() decoration method</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_hybrid_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorHybridService</symbol>
+        <lines>1-50</lines>
+        <reason>Hybrid service implementation that needs WithMiddleware() decoration method</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/testutils/</path>
+        <kind>testing</kind>
+        <symbol>MockGeneration, TestBuilders</symbol>
+        <lines>all</lines>
+        <reason>Testing utilities that provide patterns for middleware mock implementations</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <core>
+          <package>context</package>
+          <package>reflect</package>
+          <package>sync</package>
+          <package>time</package>
+        </core>
+        <external>
+          <package name="github.com/gin-gonic/gin" version="v1.10.0">HTTP framework for middleware integration</package>
+          <package name="github.com/prometheus/client_golang" version="v1.21.0">Metrics collection for MetricsMiddleware</package>
+          <package name="github.com/stretchr/testify" version="v1.11.1">Testing framework for middleware unit tests</package>
+          <package name="github.com/joho/godotenv" version="v1.5.1">Configuration loading for middleware setup</package>
+        </external>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <performance>
+      <target>Middleware execution overhead must remain under 10μs per middleware component</target>
+      <target>Memory allocation must be minimal - prefer object pooling for high-frequency operations</target>
+      <target>Zero performance regression from baseline EndorService and EndorHybridService operations</target>
+    </performance>
+    <architecture>
+      <rule>Middleware must preserve original service interface contracts and method signatures</rule>
+      <rule>Service decoration pattern must work seamlessly with dependency-injected services from Epic 2</rule>
+      <rule>Middleware dependencies must resolve through DI container established in previous stories</rule>
+      <rule>Built-in middleware must use repository and configuration interfaces from Epic 1</rule>
+    </architecture>
+    <integration>
+      <requirement>Integration with EndorInitializer for automatic middleware configuration and registration</requirement>
+      <requirement>Compatibility with existing Gin middleware chain and HTTP context propagation</requirement>
+      <requirement>Error handling must maintain structured error types established in Epic 2</requirement>
+    </integration>
+  </constraints>
+  <interfaces>
+    <middleware>
+      <name>MiddlewareInterface</name>
+      <kind>Core middleware contract</kind>
+      <signature>type MiddlewareInterface interface {
+  Before(ctx *EndorContext) error
+  After(ctx *EndorContext, response *Response) error
+}</signature>
+      <path>sdk/middleware/middleware.go</path>
+    </middleware>
+    <serviceDecorator>
+      <name>WithMiddleware</name>
+      <kind>Service decoration method</kind>
+      <signature>func (s *EndorService) WithMiddleware(middleware ...MiddlewareInterface) *DecoratedService
+func (h *EndorHybridService) WithMiddleware(middleware ...MiddlewareInterface) *DecoratedHybridService</signature>
+      <path>sdk/endor_service.go, sdk/endor_hybrid_service.go</path>
+    </serviceDecorator>
+    <builtinMiddleware>
+      <name>AuthMiddleware, LoggingMiddleware, MetricsMiddleware</name>
+      <kind>Built-in middleware implementations</kind>
+      <signature>Standard middleware for authentication, logging, and metrics collection with DI support</signature>
+      <path>sdk/middleware/auth.go, sdk/middleware/logging.go, sdk/middleware/metrics.go</path>
+    </builtinMiddleware>
+  </interfaces>
+  <tests>
+    <standards>The framework follows a layered testing approach with unit tests using mocks from testutils package, integration tests with real dependencies using build tags, and performance benchmarks targeting sub-10μs middleware overhead. All middleware implementations must include behavior verification tests and state-based testing patterns established in Epic 1.</standards>
+    <locations>
+      <pattern>sdk/middleware/*_test.go</pattern>
+      <pattern>sdk/*middleware*_test.go</pattern>
+      <pattern>test/middleware_integration_test.go</pattern>
+    </locations>
+    <ideas>
+      <test criteriaId="1">Unit test MiddlewareInterface contract with mock Before/After implementations</test>
+      <test criteriaId="2">Integration test WithMiddleware() chaining with auth, logging, metrics sequence</test>
+      <test criteriaId="3">Unit tests for AuthMiddleware, LoggingMiddleware, MetricsMiddleware with mocked dependencies</test>
+      <test criteriaId="4">Example custom middleware implementation with comprehensive test coverage</test>
+      <test criteriaId="5">Interface contract preservation tests ensuring service method signatures remain unchanged</test>
+      <test criteriaId="6">Short-circuit testing for early middleware termination with proper error propagation</test>
+      <test criteriaId="7">Performance benchmarks measuring execution time per middleware component with &lt; 10μs target validation</test>
+    </ideas>
+  </tests>
+</story-context>

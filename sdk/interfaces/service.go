@@ -107,6 +107,16 @@ type EndorHybridServiceInterface interface {
 	// into a complete service ready for registration and routing.
 	ToEndorService(metadataSchema Schema) EndorServiceInterface
 
+	// EmbedService embeds an existing EndorService within this hybrid service with prefix-based namespacing.
+	// AC 1: Service Embedding Interface - provides method for embedding existing services
+	// AC 2: Method Delegation - embedded service methods accessible with configurable prefix namespacing
+	// AC 7: Multiple Service Support - multiple services can be embedded with namespace isolation
+	EmbedService(prefix string, service EndorServiceInterface) error
+
+	// GetEmbeddedServices returns all embedded services for service discovery and introspection.
+	// AC 1, 7: Service discovery method enabling multiple embedded services with clear method resolution
+	GetEmbeddedServices() map[string]EndorServiceInterface
+
 	// Validate performs hybrid service configuration validation.
 	// Should verify that categories and actions are properly configured.
 	Validate() error
