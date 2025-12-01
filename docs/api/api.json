@@ -1,0 +1,17 @@
+{
+  "title": "Endor SDK Go API Documentation",
+  "version": "v1.0.0",
+  "generated": "2025-12-01 10:07:55 UTC",
+  "packages": [
+    {"name": "sdk", "path": "sdk/sdk", "docs": "sdk.md"},
+    {"name": "interfaces", "path": "sdk/interfaces", "docs": "interfaces.md"},
+    {"name": "di", "path": "sdk/di", "docs": "di.md"},
+    {"name": "composition", "path": "sdk/composition", "docs": "composition.md"},
+    {"name": "testutils", "path": "sdk/testutils", "docs": "testutils.md"},
+    {"name": "middleware", "path": "sdk/middleware", "docs": "middleware.md"},
+    {"name": "health", "path": "sdk/health", "docs": "health.md"},
+    {"name": "lifecycle", "path": "sdk/lifecycle", "docs": "lifecycle.md"},
+    {"name": "utils", "path": "sdk/utils", "docs": "utils.md"},
+    {"name": "swagger", "path": "sdk/swagger", "docs": "swagger.md"}
+  ]
+}

@@ -292,9 +292,9 @@ func TestIntegration_ErrorPropagation(t *testing.T) {
 	_, err = Resolve[MockService](container)
 	assert.Error(t, err)
 
-	var depErr *DependencyError
-	assert.True(t, errors.As(err, &depErr))
-	assert.Contains(t, depErr.Error(), "factory function returned error")
+	var diErr *DIError
+	assert.True(t, errors.As(err, &diErr))
+	assert.Contains(t, diErr.Error(), "factory function returned error")
 }
 
 func TestIntegration_ScopeInteraction(t *testing.T) {

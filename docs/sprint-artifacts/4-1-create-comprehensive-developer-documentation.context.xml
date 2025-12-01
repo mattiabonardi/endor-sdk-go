@@ -1,0 +1,116 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>1</storyId>
+    <title>create-comprehensive-developer-documentation</title>
+    <status>drafted</status>
+    <generatedAt>December 1, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/4-1-create-comprehensive-developer-documentation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer learning the new architecture</asA>
+    <iWant>detailed documentation and examples for all framework patterns</iWant>
+    <soThat>I can understand and implement dependency injection and service composition effectively</soThat>
+    <tasks>
+      - [ ] Task 1: Create comprehensive developer guide foundation (AC: #1)
+        - [ ] Create `/docs/developer-guide.md` with overview and architecture introduction
+        - [ ] Document core concepts: EndorService vs EndorHybridService patterns
+        - [ ] Explain dependency injection benefits and implementation approach
+        - [ ] Add navigation structure and table of contents for easy reference
+      - [ ] Task 2: Create before/after migration examples (AC: #2)
+        - [ ] Document old tightly-coupled patterns vs new DI patterns
+        - [ ] Show concrete service creation examples: before and after refactor
+        - [ ] Demonstrate service composition: embedding services with DI
+        - [ ] Include performance impact comparisons and benchmarks
+      - [ ] Task 3: Document comprehensive testing strategies (AC: #3)  
+        - [ ] Cover unit testing with mock dependencies from `sdk/testutils/`
+        - [ ] Document integration testing patterns with test databases
+        - [ ] Explain service composition testing with hierarchical mocks
+        - [ ] Reference lifecycle testing patterns from Epic 3 completion
+      - [ ] Task 4: Create step-by-step tutorial series (AC: #4)
+        - [ ] "Building Your First Service": Basic EndorService with DI
+        - [ ] "Advanced Composition": Multi-service hierarchies and patterns
+        - [ ] "Testing Strategies": Unit, integration, and composition testing
+        - [ ] "Performance Optimization": Best practices and common pitfalls
+      - [ ] Task 5: Implement automatic API documentation generation (AC: #5)
+        - [ ] Set up documentation generation from Go source code comments
+        - [ ] Generate interface documentation: EndorServiceInterface, etc.
+        - [ ] Create automated doc building in CI/CD pipeline
+        - [ ] Ensure documentation stays current with code changes
+      - [ ] Task 6: Validate and test all code examples (AC: #6)
+        - [ ] Create test suite for all documentation code examples
+        - [ ] Integrate example testing into CI/CD pipeline
+        - [ ] Ensure examples compile and execute successfully
+        - [ ] Add automated validation preventing outdated examples
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. **Complete Developer Guide Coverage**: Complete developer guide covers all framework capabilities with clear explanations and working examples
+    2. **Before/After DI Examples**: Before/after code examples show dependency injection patterns clearly demonstrating migration benefits  
+    3. **Testing Strategy Documentation**: Documentation covers testing strategies with mocked dependencies, including patterns from Epic 1-3
+    4. **Step-by-Step Tutorials**: Step-by-step tutorials guide developers through common scenarios like service creation and composition
+    5. **Auto-Generated API Documentation**: API documentation is automatically generated and always up-to-date with source code
+    6. **Runnable Code Examples**: Code examples are runnable and tested as part of CI/CD pipeline
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="Functional Requirements" snippet="FR21-25 cover developer experience requirements including documentation patterns, error messages, and API documentation generation."/>
+      <artifact path="docs/architecture.md" title="Refactored Architecture Document" section="Dependency Injection Pattern" snippet="Custom lightweight DI container with interface-based registration and type-safe resolution patterns."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Epic 4: Developer Experience & Tooling" snippet="Complete story breakdown for documentation, error handling, testing framework, and development tools."/>
+    </docs>
+    <code>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorServiceInterface" lines="1-50" reason="Core service interface that needs comprehensive documentation with examples"/>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorHybridServiceInterface" lines="70-120" reason="Hybrid service interface for automatic CRUD with dependency injection patterns"/>
+      <artifact path="sdk/testutils/mocks.go" kind="mock" symbol="MockEndorService" lines="1-50" reason="Pre-built mock implementations that should be documented as testing examples"/>
+      <artifact path="sdk/testutils/mocks.go" kind="mock" symbol="MockEndorHybridService" lines="85-130" reason="Mock hybrid service for testing patterns documentation"/>
+      <artifact path="sdk/testutils/builders.go" kind="utility" symbol="TestEndorServiceBuilder" lines="1-80" reason="Test builder patterns that simplify creating test services"/>
+      <artifact path="sdk/testutils/helpers.go" kind="utility" symbol="AssertHybridServiceInterface" lines="177-190" reason="Testing helper functions that should be documented"/>
+      <artifact path="sdk/endor_hybrid_service_unit_test.go" kind="test" symbol="TestEndorHybridServiceInterface_Unit" lines="17-40" reason="Example unit test patterns using interface mocks"/>
+      <artifact path="sdk/endor_hybrid_service_integration_test.go" kind="test" symbol="TestEndorHybridServiceIntegration" lines="16-50" reason="Integration testing patterns with real implementations"/>
+      <artifact path="sdk/endor_hybrid_service_di_test.go" kind="test" symbol="TestEndorHybridServiceImpl_HoldsInterfaceReferences_Success" lines="267-290" reason="Dependency injection testing patterns"/>
+      <artifact path="sdk/endor_resource_repository.go" kind="service" symbol="NewEndorServiceRepositoryWithDependencies" lines="42-60" reason="Example of constructor injection pattern that should be documented"/>
+      <artifact path="sdk/endor_hybrid_service.go" kind="service" symbol="ToEndorService" lines="513-540" reason="Service composition method showing DI usage in practice"/>
+    </code>
+    <dependencies>
+      <go>
+        <package name="github.com/gin-gonic/gin" version="latest" usage="Web framework for HTTP handlers"/>
+        <package name="github.com/stretchr/testify" version="v1.8+" usage="Testing assertions and mocks"/>
+        <package name="go.mongodb.org/mongo-driver" version="latest" usage="MongoDB integration"/>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Documentation must demonstrate all framework capabilities implemented in Epics 1-3: interface extraction, dependency injection, service composition, and lifecycle management
+    - Examples must use established testing patterns from sdk/testutils/ package with MockEndorService and MockEndorHybridService
+    - All code examples must compile and pass tests as part of CI/CD validation
+    - Documentation must follow Go documentation conventions and include comprehensive GoDoc comments
+    - Migration examples should show transition from tightly-coupled to interface-driven dependency injection architecture
+    - Performance characteristics and optimization guidance must be based on established benchmarks from previous epic implementations
+  </constraints>
+
+  <interfaces>
+    <interface name="EndorServiceInterface" kind="service interface" signature="type EndorServiceInterface interface { GetResource() string; GetDescription() string; GetMethods() map[string]EndorServiceAction; GetPriority() *int; GetVersion() string; Validate() error }" path="sdk/interfaces/service.go"/>
+    <interface name="EndorHybridServiceInterface" kind="hybrid service interface" signature="type EndorHybridServiceInterface interface { GetResource() string; GetResourceDescription() string; WithCategories([]EndorHybridServiceCategory) EndorHybridServiceInterface; ToEndorService(Schema) EndorServiceInterface; EmbedService(string, EndorServiceInterface) error; Validate() error }" path="sdk/interfaces/service.go"/>
+    <interface name="RepositoryInterface" kind="data access interface" signature="type RepositoryPattern interface { GetID() *string; SetID(string); GetCategoryType() *string; SetCategoryType(string) }" path="sdk/interfaces/repository.go"/>
+    <interface name="ConfigProviderInterface" kind="configuration interface" signature="type ConfigProviderInterface interface { GetServerPort() string; GetDocumentDBUri() string; IsHybridResourcesEnabled() bool; IsDynamicResourcesEnabled() bool; Reload() error; Validate() error }" path="sdk/interfaces/config.go"/>
+    <interface name="LoggerInterface" kind="logging interface" signature="type LoggerInterface interface { Debug(string, ...interface{}); Info(string, ...interface{}); Error(string, error, ...interface{}) }" path="sdk/interfaces/logger.go"/>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests use interface mocks from sdk/testutils/ with testify/mock for behavior verification. Integration tests use real implementations with build tags. Service composition tests validate hierarchical service embedding patterns. All tests follow Go testing conventions with table-driven patterns where appropriate.</standards>
+    <locations>sdk/*_unit_test.go for unit tests with build tag 'unit', sdk/*_integration_test.go for integration tests with build tag 'integration', test/ directory for end-to-end testing scenarios</locations>
+    <ideas>
+      <idea ac="1">Test that developer guide examples compile and execute successfully</idea>
+      <idea ac="2">Validate before/after code examples show measurable improvement in testability</idea>
+      <idea ac="3">Test documentation covers all testing patterns from sdk/testutils/</idea>
+      <idea ac="4">Verify tutorial code examples can be copy-pasted and run successfully</idea>
+      <idea ac="5">Test that API documentation generation pipeline works correctly</idea>
+      <idea ac="6">Validate all documentation code examples pass CI/CD testing</idea>
+    </ideas>
+  </tests>
+</story-context>

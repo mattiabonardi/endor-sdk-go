@@ -1,0 +1,247 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.3</storyId>
+    <title>Create Testing Framework and Utilities</title>
+    <status>drafted</status>
+    <generatedAt>December 1, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/4-3-create-testing-framework-and-utilities.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>Go developer building services with the endor-sdk-go framework</asA>
+    <iWant>comprehensive testing utilities and patterns for dependency-injected and composed services</iWant>
+    <soThat>I can write effective tests for complex service hierarchies and composition scenarios with confidence</soThat>
+    <tasks>
+- [ ] Task 1: Implement Test Builder Framework (AC: 1)
+  - [ ] Create `TestServiceBuilder` with fluent API for service hierarchy creation
+  - [ ] Implement dependency mocking selectors (`WithMockedRepo()`, `WithMockedConfig()`)
+  - [ ] Add realistic test data builders for common service patterns
+  - [ ] Create test scenario templates for single service, composed services, and complex hierarchies
+
+- [ ] Task 2: Build Composition Testing Utilities (AC: 2)
+  - [ ] Implement dependency injection assertion helpers
+  - [ ] Create service composition validation utilities
+  - [ ] Add lifecycle testing utilities (initialization, cleanup, error scenarios)
+  - [ ] Build middleware chain testing helpers
+
+- [ ] Task 3: Add Performance Testing Capabilities (AC: 3)
+  - [ ] Create benchmarking utilities for dependency injection overhead
+  - [ ] Implement memory usage tracking for service composition patterns
+  - [ ] Add latency measurement utilities for service interactions
+  - [ ] Build performance regression testing framework
+
+- [ ] Task 4: Implement Integration Testing Support (AC: 4)
+  - [ ] Add test container utilities for realistic database testing
+  - [ ] Create multi-service test orchestration framework
+  - [ ] Implement environment configuration management for testing
+  - [ ] Add network simulation utilities for distributed testing scenarios
+
+- [ ] Task 5: Create Test Data Management System (AC: 5)
+  - [ ] Build schema-compliant test data generators
+  - [ ] Implement relationship-aware test data creation utilities
+  - [ ] Add test data cleanup and isolation mechanisms
+  - [ ] Create export/import utilities for shared test scenarios
+
+- [ ] Task 6: Testing and Documentation (All ACs)
+  - [ ] Write comprehensive test suite for all testing utilities
+  - [ ] Create usage examples for each testing pattern
+  - [ ] Add performance benchmarks for testing framework overhead
+  - [ ] Document best practices for testing complex service hierarchies
+</tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. **Test Builder Framework**: Testing framework provides builder patterns for creating complex test scenarios:
+   - `NewTestServiceHierarchy()` creates realistic multi-service test setups
+   - `WithMockedDependencies()` allows selective mocking of specific dependencies
+   - `WithTestData()` provides realistic data fixtures for comprehensive testing
+   - Builders support both simple and complex dependency injection scenarios
+
+2. **Composition Testing Utilities**: Framework includes specialized utilities for testing service composition:
+   - `AssertDependencyInjected()` validates that dependencies are correctly wired
+   - `AssertCompositionValid()` verifies service hierarchies are properly constructed
+   - `TestServiceLifecycle()` validates initialization and cleanup patterns
+   - Support for testing middleware chains and cross-cutting concerns
+
+3. **Performance Testing Integration**: Testing utilities include performance measurement capabilities:
+   - Benchmarking utilities measure composition overhead
+   - Memory usage tracking for dependency injection patterns
+   - Latency measurement for service interaction patterns
+   - Performance regression detection for complex service hierarchies
+
+4. **Integration Testing Support**: Framework provides realistic multi-service testing scenarios:
+   - Test containers for realistic database interactions
+   - Multi-service orchestration for end-to-end testing
+   - Network simulation for distributed service testing
+   - Environment configuration management for test scenarios
+
+5. **Test Data Management**: Comprehensive test fixture system for realistic testing:
+   - Schema-compliant test data generators
+   - Relationship-aware test data creation (services, resources, categories)
+   - Test data cleanup and isolation between test runs
+   - Export/import utilities for shared test scenarios
+</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Enhanced Testability Requirements</section>
+        <snippet>FR5-8: Testing framework with unit testing without dependencies, test utilities, composition testing. Framework should enable comprehensive testing of dependency-injected and composed services with builder patterns and performance measurement capabilities.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Testing Strategy</section>
+        <snippet>Comprehensive testing approach for dependency-injected services with interface abstractions for mockability. Architecture supports testability through dependency injection patterns and service composition framework.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Testing Framework Extensions</section>
+        <snippet>Advanced testing utilities, composition testing patterns, performance benchmarks, and assertion helpers for the newly refactored dependency injection and service composition architecture.</snippet>
+      </doc>
+      <doc>
+        <path>docs/index.md</path>
+        <title>Project Documentation Index</title>
+        <section>Development Workflows</section>
+        <snippet>Framework supports type safety with generic handlers, automatic schema generation, and error handling. Testing workflow needs to accommodate both static services (EndorService) and hybrid services (EndorHybridService).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/testutils</path>
+        <kind>package</kind>
+        <symbol>testutils</symbol>
+        <lines>entire package</lines>
+        <reason>Foundation testing utilities package established in Story 1.4 to extend with composition-specific patterns</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces</path>
+        <kind>package</kind>
+        <symbol>interfaces</symbol>
+        <lines>entire package</lines>
+        <reason>Interface definitions for EndorServiceInterface, RepositoryInterface, ConfigProviderInterface that testing framework must mock</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di</path>
+        <kind>package</kind>
+        <symbol>dependency injection</symbol>
+        <lines>entire package</lines>
+        <reason>DI container from Epic 2 that testing framework must integrate with for realistic test scenarios</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/composition</path>
+        <kind>package</kind>
+        <symbol>service composition</symbol>
+        <lines>entire package</lines>
+        <reason>Service composition patterns from Epic 3 that testing framework must support for hierarchy testing</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/errors</path>
+        <kind>package</kind>
+        <symbol>error system</symbol>
+        <lines>entire package</lines>
+        <reason>Enhanced error system from Story 4.2 for comprehensive error scenario testing integration</reason>
+      </artifact>
+      <artifact>
+        <path>test/services</path>
+        <kind>directory</kind>
+        <symbol>test services</symbol>
+        <lines>entire directory</lines>
+        <reason>Existing test service implementations showing patterns that testing framework should support</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>testing</package>
+        <version>standard library</version>
+        <package>testify/assert</package>
+        <version>^1.8.0</version>
+        <package>testify/mock</package>
+        <version>^1.8.0</version>
+        <package>testify/suite</package>
+        <version>^1.8.0</version>
+        <package>gin-gonic/gin</package>
+        <version>^1.9.1</version>
+        <package>go.mongodb.org/mongo-driver</package>
+        <version>^1.12.1</version>
+        <package>prometheus/client_golang</package>
+        <version>^1.17.0</version>
+        <package>testcontainers/testcontainers-go</package>
+        <version>^0.25.0</version>
+        <package>testcontainers/testcontainers-go/modules/mongodb</package>
+        <version>^0.25.0</version>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Testing framework should have minimal overhead and not impact production builds (build tags: //go:build testing)</constraint>
+    <constraint>Built on top of existing sdk/testutils package established in Story 1.4</constraint>
+    <constraint>Must work seamlessly with dependency injection container from Epic 2</constraint>
+    <constraint>Focus on testing service composition patterns from Epic 3</constraint>
+    <constraint>Integration with Story 4.2's enhanced error system for error scenario testing</constraint>
+    <constraint>Support both unit testing (mocked dependencies) and integration testing (real dependencies)</constraint>
+    <constraint>Framework must accommodate both EndorService (static) and EndorHybridService (automatic CRUD) testing patterns</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>EndorServiceInterface</name>
+      <kind>Go interface</kind>
+      <signature>Interface for static services with manual endpoint control</signature>
+      <path>sdk/interfaces/endor_service_interface.go</path>
+    </interface>
+    <interface>
+      <name>RepositoryInterface</name>
+      <kind>Go interface</kind>
+      <signature>Interface for repository layer abstraction</signature>
+      <path>sdk/interfaces/repository_interface.go</path>
+    </interface>
+    <interface>
+      <name>ConfigProviderInterface</name>
+      <kind>Go interface</kind>
+      <signature>Interface for configuration management</signature>
+      <path>sdk/interfaces/config_provider_interface.go</path>
+    </interface>
+    <interface>
+      <name>TestServiceBuilder</name>
+      <kind>Testing utility interface</kind>
+      <signature>Builder pattern for creating test service hierarchies</signature>
+      <path>sdk/testutils/builders/service_builder.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Testing framework follows Go testing conventions with testify library integration. Tests are organized into unit tests (sdk/*_test.go), integration tests (test/), and benchmarks (performance/). Testing utilities use build tags to exclude from production builds and provide both mocked and real dependency testing scenarios.</standards>
+    <locations>
+      - sdk/testutils/builders/ (test builder utilities)
+      - sdk/testutils/assertions/ (composition and DI assertions)
+      - sdk/testutils/performance/ (benchmarking and regression testing)
+      - sdk/testutils/integration/ (test containers and orchestration)
+      - sdk/testutils/fixtures/ (test data management)
+      - test/composition/ (service composition testing patterns)
+      - test/performance/ (framework performance validation)
+      - test/integration/ (end-to-end multi-service testing)
+    </locations>
+    <ideas>
+      <idea ac="1">Test NewTestServiceHierarchy() builder creates complex multi-service setups with proper dependency injection</idea>
+      <idea ac="1">Test WithMockedDependencies() selectively mocks specific dependencies while preserving others</idea>
+      <idea ac="1">Test WithTestData() provides realistic fixtures for comprehensive testing scenarios</idea>
+      <idea ac="2">Test AssertDependencyInjected() validates correct dependency wiring in DI container</idea>
+      <idea ac="2">Test AssertCompositionValid() verifies service hierarchies are properly constructed</idea>
+      <idea ac="2">Test TestServiceLifecycle() validates initialization and cleanup patterns</idea>
+      <idea ac="3">Benchmark dependency injection overhead with composition testing utilities</idea>
+      <idea ac="3">Test memory usage tracking for service composition patterns under load</idea>
+      <idea ac="3">Test latency measurement utilities for service interaction patterns</idea>
+      <idea ac="4">Test container integration for realistic database testing scenarios</idea>
+      <idea ac="4">Test multi-service orchestration framework with EndorService and EndorHybridService</idea>
+      <idea ac="5">Test schema-compliant test data generators for MongoDB models</idea>
+      <idea ac="5">Test relationship-aware data creation for complex service dependencies</idea>
+    </ideas>
+  </tests>
+</story-context>

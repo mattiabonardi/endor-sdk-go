@@ -1,0 +1,216 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>5</storyId>
+    <title>implement-service-lifecycle-management</title>
+    <status>drafted</status>
+    <generatedAt>December 1, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/3-5-implement-service-lifecycle-management.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>framework user</asA>
+    <iWant>composed services to have proper lifecycle management</iWant>
+    <soThat>resources are allocated and cleaned up correctly in service hierarchies</soThat>
+    <tasks>- [ ] Task 1: Implement ServiceLifecycleInterface with core lifecycle methods (AC: 1)
+  - [ ] Define ServiceLifecycleInterface with Start(), Stop(), HealthCheck() methods
+  - [ ] Create lifecycle state enumeration (Created, Starting, Running, Stopping, Stopped, Failed)
+  - [ ] Implement lifecycle event system with proper event propagation through service hierarchy
+  - [ ] Add lifecycle timeout handling for start/stop operations with configurable timeouts
+- [ ] Task 2: Implement dependency-aware startup and shutdown ordering (AC: 2)
+  - [ ] Create dependency graph analysis from service composition to determine startup/shutdown ordering
+  - [ ] Implement topological sort for dependency-aware service ordering
+  - [ ] Add parallel startup/shutdown where dependencies allow for performance optimization
+  - [ ] Handle circular dependency detection and provide clear error messages
+- [ ] Task 3: Implement comprehensive health checking and status aggregation (AC: 3)
+  - [ ] Create health status enumeration (Healthy, Degraded, Unhealthy, Unknown)
+  - [ ] Implement health check aggregation with configurable policies (all-healthy, majority-healthy, critical-services-healthy)
+  - [ ] Add health check caching and periodic refresh to minimize performance impact
+  - [ ] Support deep health checks that verify dependency health propagation
+- [ ] Task 4: Implement graceful degradation and failure isolation (AC: 4)
+  - [ ] Create service isolation mechanisms to prevent failure cascades
+  - [ ] Implement circuit breaker patterns for failed services with automatic recovery
+  - [ ] Add partial service availability patterns enabling continued operation with reduced functionality
+  - [ ] Support graceful degradation policies defining which services are critical vs optional
+- [ ] Task 5: Implement lifecycle hooks and custom logic support (AC: 5)
+  - [ ] Create lifecycle hook interface (BeforeStart, AfterStart, BeforeStop, AfterStop)
+  - [ ] Implement hook registration and execution with proper error handling
+  - [ ] Add hook timeout handling and failure policies
+  - [ ] Support hook chaining and conditional execution based on service state
+- [ ] Task 6: Implement service recovery patterns and failure handling (AC: 6)
+  - [ ] Create automatic service recovery mechanisms for transient failures
+  - [ ] Implement configurable retry policies with exponential backoff
+  - [ ] Add service replacement patterns for permanent failures
+  - [ ] Support hot-swapping of services in composition hierarchy for zero-downtime updates</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **Lifecycle Event Propagation**: Lifecycle events (start, stop, health check) propagate correctly through the entire service composition hierarchy
+2. **Dependency-Aware Ordering**: Services start in correct dependency order (dependencies before dependents) and stop in reverse order (dependents before dependencies)  
+3. **Health Status Aggregation**: Health checks aggregate status from all composed services with proper failure handling and status reporting
+4. **Graceful Degradation**: Partial failures are handled gracefully allowing the system to continue with available services while properly isolating failed components
+5. **Lifecycle Hook Support**: Custom initialization and cleanup logic can be attached through lifecycle hooks with proper execution ordering and error handling
+6. **Service Recovery Patterns**: Transient service failures are handled with automatic recovery mechanisms and configurable retry policies</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Service Composition</section>
+        <snippet>FR20: Service lifecycle management supports proper dependency teardown. Framework provides robust lifecycle patterns for service hierarchies.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Service Composition Pattern</section>
+        <snippet>Decision 3 implements decorator pattern with middleware pipeline enabling lifecycle management coordination across service composition hierarchies.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Service Lifecycle Management</section>
+        <snippet>LifecycleManager provides dependency-aware service startup/shutdown with health aggregation, graceful degradation, and recovery patterns for service compositions.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 3.5</section>
+        <snippet>Implement Service Lifecycle Management with dependency-aware ordering, health aggregation, graceful degradation, and lifecycle hooks for service hierarchies.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/3-4-create-service-composition-utilities.md</path>
+        <title>Previous Story - Composition Utilities</title>
+        <section>Learnings and Integration</section>
+        <snippet>Composition utilities provide foundation for lifecycle coordination with sub-microsecond performance. ServiceChain, ServiceProxy, ServiceBranch patterns require coordinated lifecycle management.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/di/lifecycle.go</path>
+        <kind>service</kind>
+        <symbol>LifecycleManager</symbol>
+        <lines>1-520</lines>
+        <reason>Existing lifecycle management infrastructure with priority ordering, state management, and health monitoring integration</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di/lifecycle_test.go</path>
+        <kind>test</kind>
+        <symbol>TestLifecycleManager</symbol>
+        <lines>225-520</lines>
+        <reason>Comprehensive test patterns for lifecycle management including priority ordering, start/stop cycles, and container integration</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/composition/types.go</path>
+        <kind>interface</kind>
+        <symbol>CompositionPattern</symbol>
+        <lines>1-50</lines>
+        <reason>Core composition interface that lifecycle management must integrate with for service hierarchy coordination</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/composition/composition_test.go</path>
+        <kind>test</kind>
+        <symbol>MockService</symbol>
+        <lines>1-100</lines>
+        <reason>Test patterns for service composition that lifecycle management needs to support and coordinate</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/interfaces_test.go</path>
+        <kind>test</kind>
+        <symbol>EndorServiceInterface</symbol>
+        <lines>290-350</lines>
+        <reason>Interface compliance patterns that lifecycle management interfaces must follow for consistency</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <dependency>context</dependency>
+        <dependency>sync</dependency>
+        <dependency>time</dependency>
+        <dependency>testing</dependency>
+        <dependency>github.com/stretchr/testify</dependency>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>- Epic 3 Integration: Lifecycle management must coordinate with ServiceChain, ServiceProxy, ServiceBranch, ServiceMerger patterns from composition utilities
+- Performance Targets: Lifecycle operations < 100ms for simple compositions, < 1s for complex hierarchies, sub-millisecond overhead for simple operations
+- Interface Compliance: All lifecycle interfaces must preserve EndorServiceInterface and EndorHybridServiceInterface contracts
+- Dependency Injection: Lifecycle management must integrate with DI container for dependency graph analysis and startup/shutdown ordering
+- Zero Overhead: Abstractions must have zero runtime performance penalty when not using lifecycle features
+- Memory Optimization: Lifecycle patterns must minimize memory allocation through shared dependency integration
+- Health Monitoring: Health checks must be optimized with caching and periodic refresh to minimize performance impact
+- Failure Isolation: Circuit breaker patterns and graceful degradation must prevent cascade failures
+- Type Safety: Generic type constraints and interface validation patterns must maintain compile-time safety</constraints>
+  
+  <interfaces>
+    <interface>
+      <name>ServiceLifecycleInterface</name>
+      <kind>Core lifecycle interface</kind>
+      <signature>type ServiceLifecycleInterface interface {
+    Start(ctx context.Context) error
+    Stop(ctx context.Context) error
+    HealthCheck(ctx context.Context) HealthStatus
+    GetState() ServiceState
+    AddHook(hook LifecycleHook) error
+}</signature>
+      <path>sdk/lifecycle/interface.go</path>
+    </interface>
+    <interface>
+      <name>LifecycleManager</name>
+      <kind>Service coordination interface</kind>
+      <signature>type LifecycleManager interface {
+    RegisterService(service ServiceLifecycleInterface) error
+    StartAll(ctx context.Context) error
+    StopAll(ctx context.Context) error
+    GetHealth() CompositeHealthStatus
+    GetDependencyGraph() DependencyGraph
+}</signature>
+      <path>sdk/lifecycle/manager.go</path>
+    </interface>
+    <interface>
+      <name>LifecycleHook</name>
+      <kind>Lifecycle hook interface</kind>
+      <signature>type LifecycleHook interface {
+    BeforeStart(ctx context.Context, service ServiceLifecycleInterface) error
+    AfterStart(ctx context.Context, service ServiceLifecycleInterface) error
+    BeforeStop(ctx context.Context, service ServiceLifecycleInterface) error
+    AfterStop(ctx context.Context, service ServiceLifecycleInterface) error
+}</signature>
+      <path>sdk/lifecycle/hooks.go</path>
+    </interface>
+    <interface>
+      <name>HealthStatus</name>
+      <kind>Health aggregation interface</kind>
+      <signature>type HealthStatus struct {
+    Status ServiceHealthStatus
+    Details map[string]interface{}
+    LastCheck time.Time
+    Dependencies []DependencyHealth
+}</signature>
+      <path>sdk/lifecycle/health.go</path>
+    </interface>
+    <interface>
+      <name>Startable/Stoppable</name>
+      <kind>Existing DI lifecycle interfaces</kind>
+      <signature>type LifecycleAware interface {
+    Startable
+    Stoppable
+}</signature>
+      <path>sdk/di/lifecycle.go</path>
+    </interface>
+  </interfaces>
+  
+  <tests>
+    <standards>Testing standards follow patterns established in Epic 1-2: Unit tests with mocked dependencies using testutils package, integration tests with real dependencies, lifecycle-specific test patterns for startup/shutdown ordering, health aggregation validation, and failure recovery testing. All tests must use build tags for selective execution.</standards>
+    <locations>sdk/lifecycle/*_test.go for lifecycle-specific tests, sdk/di/lifecycle_test.go for DI integration, sdk/composition/composition_test.go for composition integration patterns, test/services/ for integration tests</locations>
+    <ideas>
+      <idea ac="1">Test lifecycle event propagation through ServiceChain and ServiceBranch compositions with mock services</idea>
+      <idea ac="2">Test dependency-aware ordering with circular dependency detection and topological sort validation</idea>
+      <idea ac="3">Test health aggregation policies (all-healthy, majority-healthy, critical-services) with mixed service states</idea>
+      <idea ac="4">Test graceful degradation when embedded services fail, verifying parent service continues with reduced functionality</idea>
+      <idea ac="5">Test lifecycle hooks execution order and error handling with chained hooks and timeout scenarios</idea>
+      <idea ac="6">Test service recovery patterns with automatic restart, exponential backoff, and hot-swapping capabilities</idea>
+    </ideas>
+  </tests>
+</story-context>

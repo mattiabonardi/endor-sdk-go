@@ -1,6 +1,9 @@
 package di
 
-import "reflect"
+import (
+	"context"
+	"reflect"
+)
 
 // Container defines the dependency injection container interface with
 // registration and resolution capabilities.
@@ -20,6 +23,10 @@ type Container interface {
 	// Returns error if the dependency is not registered or resolution fails.
 	ResolveType(interfaceType reflect.Type) (interface{}, error)
 
+	// ResolveTypeWithContext resolves a dependency by interface type with context for scoped dependencies.
+	// For Singleton scope, context is ignored. For Scoped scope, context determines the scope boundary.
+	ResolveTypeWithContext(ctx context.Context, interfaceType reflect.Type) (interface{}, error)
+
 	// Validate checks the completeness and correctness of the dependency graph.
 	// Returns slice of errors for any issues found (missing dependencies, circular dependencies, etc.).
 	// An empty slice indicates a valid dependency graph.
@@ -31,6 +38,24 @@ type Container interface {
 
 	// Reset clears all registered dependencies. Primarily used for testing scenarios.
 	Reset()
+
+	// GetHealthMonitor returns the health monitor instance for dependency health tracking
+	GetHealthMonitor() *HealthMonitor
+
+	// GetMemoryTracker returns the memory tracker for dependency optimization analysis
+	GetMemoryTracker() *MemoryTracker
+
+	// GetMemoryProfiler returns the memory profiler for memory usage analysis
+	GetMemoryProfiler() *MemoryProfiler
+
+	// GetPoolManager returns the dependency pool manager for resource pooling
+	GetPoolManager() *DependencyPoolManager
+
+	// GetLifecycleManager returns the lifecycle manager for dependency startup/shutdown
+	GetLifecycleManager() *LifecycleManager
+
+	// GetUpdateManager returns the dependency update manager for hot-reload and update propagation
+	GetUpdateManager() *DependencyUpdateManager
 }
 
 // Register provides type-safe registration of an interface implementation.
@@ -62,6 +87,32 @@ func Resolve[T any](container Container) (T, error) {
 		return zero, NewDependencyError(
 			interfaceType,
 			"resolution",
+			"resolved instance does not implement the requested interface",
+			map[string]interface{}{
+				"expected": interfaceType.String(),
+				"actual":   reflect.TypeOf(result).String(),
+			},
+		)
+	}
+
+	return typed, nil
+}
+
+// ResolveWithContext provides type-safe resolution of a dependency with context for scoped dependencies.
+// T must be an interface type that has been previously registered.
+func ResolveWithContext[T any](ctx context.Context, container Container) (T, error) {
+	var zero T
+	interfaceType := reflect.TypeOf((*T)(nil)).Elem()
+	result, err := container.ResolveTypeWithContext(ctx, interfaceType)
+	if err != nil {
+		return zero, err
+	}
+
+	typed, ok := result.(T)
+	if !ok {
+		return zero, NewDependencyError(
+			interfaceType,
+			"scoped resolution",
 			"resolved instance does not implement the requested interface",
 			map[string]interface{}{
 				"expected": interfaceType.String(),

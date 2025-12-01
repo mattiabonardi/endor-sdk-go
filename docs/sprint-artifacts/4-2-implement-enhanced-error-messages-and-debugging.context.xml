@@ -1,0 +1,153 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>2</storyId>
+    <title>Implement Enhanced Error Messages and Debugging</title>
+    <status>drafted</status>
+    <generatedAt>December 1, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/home/mattia-bonardi/endor/endor-sdk-go/docs/sprint-artifacts/4-2-implement-enhanced-error-messages-and-debugging.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>Go developer using endor-sdk-go</asA>
+    <iWant>clear, actionable error messages with contextual debugging information</iWant>
+    <soThat>I can quickly identify and resolve issues in my service configurations, dependency injection setup, and runtime failures</soThat>
+    <tasks>
+      <task id="1" title="Implement Enhanced DI Container Error Reporting" ac="1">
+        <subtask id="1.1">Create DIError type with contextual fields (missing interface, dependency chain)</subtask>
+        <subtask id="1.2">Add suggestion engine for common DI registration mistakes</subtask>
+        <subtask id="1.3">Implement dependency chain tracking in container</subtask>
+        <subtask id="1.4">Add available registrations lookup for error messages</subtask>
+      </task>
+      <task id="2" title="Add Service Configuration Validation Framework" ac="2">
+        <subtask id="2.1">Create ConfigValidator interface with validation rules</subtask>
+        <subtask id="2.2">Implement schema-based validation for service configuration</subtask>
+        <subtask id="2.3">Add environment variable resolution debugging</subtask>
+        <subtask id="2.4">Create validation error formatter with field-level detail</subtask>
+      </task>
+      <task id="3" title="Enhance Framework Runtime Error Context" ac="3">
+        <subtask id="3.1">Create ContextualError wrapper with service metadata</subtask>
+        <subtask id="3.2">Add operation context tracking (CRUD operation, middleware, etc.)</subtask>
+        <subtask id="3.3">Implement framework-aware stack trace annotation</subtask>
+        <subtask id="3.4">Add recovery suggestion system based on error patterns</subtask>
+      </task>
+      <task id="4" title="Implement Debug Mode and Logging" ac="4">
+        <subtask id="4.1">Add DebugMode configuration flag and environment variable</subtask>
+        <subtask id="4.2">Implement dependency resolution logging with trace IDs</subtask>
+        <subtask id="4.3">Add service lifecycle event tracking</subtask>
+        <subtask id="4.4">Create performance metrics collection for DI operations</subtask>
+      </task>
+      <task id="5" title="Create Error Classification and Handling" ac="5">
+        <subtask id="5.1">Define error type taxonomy (Configuration, DI, Runtime, Framework)</subtask>
+        <subtask id="5.2">Implement error classification interfaces</subtask>
+        <subtask id="5.3">Add error severity levels (Fatal, Warning, Info)</subtask>
+        <subtask id="5.4">Create error reporting utilities for framework bugs</subtask>
+      </task>
+      <task id="6" title="Testing and Validation" ac="All">
+        <subtask id="6.1">Write unit tests for all error scenarios</subtask>
+        <subtask id="6.2">Create integration tests with deliberate configuration errors</subtask>
+        <subtask id="6.3">Validate error message clarity with developer feedback</subtask>
+        <subtask id="6.4">Benchmark performance impact of debug mode</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1" title="Dependency Injection Error Context">
+      When DI container fails to resolve dependencies, error messages include:
+      - Missing interface registration details
+      - Available registered interfaces  
+      - Dependency chain that failed
+      - Suggested fixes (e.g., "Register MyInterface using container.Register[MyInterface](implementation)")
+    </criterion>
+    <criterion id="2" title="Service Configuration Validation">
+      Framework validates service configurations at startup and provides:
+      - Clear indication of invalid configuration keys
+      - Expected configuration format with examples
+      - Environment variable resolution debugging
+      - Schema validation errors with field-level detail
+    </criterion>
+    <criterion id="3" title="Runtime Error Enhancement">
+      All framework runtime errors include:
+      - Contextual information about the operation being performed
+      - Service instance information (name, type, dependencies)
+      - Stack trace with framework-specific annotations
+      - Recovery suggestions where applicable
+    </criterion>
+    <criterion id="4" title="Debug Mode Support">
+      Framework includes debug mode that:
+      - Logs detailed dependency resolution process
+      - Tracks service lifecycle events
+      - Provides performance metrics for DI container operations
+      - Enables verbose validation reporting
+    </criterion>
+    <criterion id="5" title="Error Classification System">
+      Errors are categorized by type:
+      - Configuration errors (startup-time, recoverable)
+      - Dependency injection errors (startup-time, fatal)
+      - Runtime service errors (request-time, recoverable)
+      - Framework bugs (unexpected, reportable)
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="Developer Experience" snippet="FR21: Framework provides clear error messages for dependency injection failures. FR22: Complete documentation includes testing patterns."/>
+      <artifact path="docs/architecture.md" title="System Architecture" section="Error Handling and Logging Strategy" snippet="Context-aware error handling with structured logging through dependency injection. Service composition requires error context to flow through service hierarchies."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Epic 4.2" snippet="Story 4.2: Implement structured error types (DependencyError, CompositionError), dependency graph visualization, debug mode with detailed tracing."/>
+    </docs>
+    <code>
+      <artifact path="sdk/errors.go" kind="error-handling" symbol="EndorError" reason="Basic framework error structure, needs enhancement with context and debugging information"/>
+      <artifact path="sdk/di/errors.go" kind="error-handling" symbol="DependencyError, CircularDependencyError, ValidationError" reason="Existing DI error types that form the foundation for enhanced error reporting"/>
+      <artifact path="sdk/composition/types.go" kind="error-handling" symbol="CompositionError" lines="80-120" reason="Service composition error handling that needs integration with new debugging system"/>
+      <artifact path="sdk/interfaces/logger.go" kind="interface" symbol="LoggerInterface" reason="Logging interface that will be extended with debug mode capabilities"/>
+      <artifact path="sdk/endor_hybrid_service_di_test.go" kind="test" symbol="EndorHybridServiceError" lines="125-130" reason="Example of existing validation errors that show current error patterns"/>
+      <artifact path="sdk/server.go" kind="service" symbol="EndorInitializer.WithContainer" lines="78-79" reason="DI container integration point where enhanced error reporting will be integrated"/>
+    </code>
+    <dependencies>
+      <go>
+        <dependency name="github.com/gin-gonic/gin" version="v1.10.0" scope="framework"/>
+        <dependency name="github.com/stretchr/testify" version="v1.11.1" scope="testing"/>
+        <dependency name="github.com/joho/godotenv" version="v1.5.1" scope="config"/>
+        <dependency name="github.com/prometheus/client_golang" version="v1.21.0" scope="monitoring"/>
+        <dependency name="go.mongodb.org/mongo-driver" version="v1.17.3" scope="database"/>
+        <dependency name="gopkg.in/yaml.v3" version="v3.0.1" scope="config"/>
+        <dependency name="golang.org/x/sync" version="v0.10.0" scope="concurrency"/>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Error system must integrate with existing logging infrastructure without breaking changes
+    - Debug mode should have minimal performance impact when disabled (< 1% overhead)
+    - Error messages must be actionable and include specific resolution steps
+    - All error types must implement Go error interface and support error wrapping
+    - Configuration validation must work with existing environment variable patterns
+    - Error classification must be consistent across all framework components
+    - Debug logging must support structured logging with context propagation
+  </constraints>
+
+  <interfaces>
+    <interface name="ErrorHandler" kind="framework-interface" signature="type ErrorHandler interface { HandleError(ctx context.Context, err error) error; WrapError(err error, context string) error }" path="sdk/interfaces/error.go"/>
+    <interface name="DebugLogger" kind="framework-interface" signature="type DebugLogger interface { LoggerInterface; WithTrace(traceID string) DebugLogger; EnableDebugMode(enabled bool) }" path="sdk/interfaces/logger.go"/>
+    <interface name="ConfigValidator" kind="framework-interface" signature="type ConfigValidator interface { Validate(config interface{}) error; ValidateField(field, value string) error }" path="sdk/interfaces/config.go"/>
+    <interface name="DependencyResolver" kind="DI-interface" signature="Resolve[T any]() (T, error)" path="sdk/di/container.go"/>
+  </interfaces>
+  <tests>
+    <standards>Framework uses testify/assert and testify/mock for unit testing with interface-based mocking. Integration tests use real implementations but with test databases. Build tags separate unit tests (//go:build unit) from integration tests (//go:build integration). Error testing validates both error types and error messages for clarity.</standards>
+    <locations>
+      <pattern>sdk/**/*_test.go</pattern>
+      <pattern>test/**/*_test.go</pattern>
+      <pattern>sdk/testutils/</pattern>
+    </locations>
+    <ideas>
+      <idea ac="1">Test DI container error reporting with missing dependencies, invalid registrations, and circular dependencies</idea>
+      <idea ac="2">Test configuration validation errors with invalid keys, missing environment variables, and schema violations</idea>
+      <idea ac="3">Test runtime error enhancement with service context, operation tracking, and recovery suggestions</idea>
+      <idea ac="4">Test debug mode logging with trace IDs, dependency resolution tracing, and performance metrics</idea>
+      <idea ac="5">Test error classification system with proper categorization and severity levels</idea>
+      <idea ac="all">Integration tests for complete error handling workflow from error occurrence to debug output</idea>
+    </ideas>
+  </tests>
+</story-context>

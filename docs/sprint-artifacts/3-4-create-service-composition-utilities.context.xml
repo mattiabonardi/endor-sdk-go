@@ -1,0 +1,233 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>4</storyId>
+    <title>create-service-composition-utilities</title>
+    <status>drafted</status>
+    <generatedAt>November 30, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/3-4-create-service-composition-utilities.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer building service hierarchies</asA>
+    <iWant>utility functions for common service composition patterns</iWant>
+    <soThat>I can build complex service graphs quickly and reliably</soThat>
+    <tasks>
+      <task id="1">Implement ServiceChain utility for sequential service execution</task>
+      <task id="2">Implement ServiceProxy utility for transparent service forwarding</task>
+      <task id="3">Implement ServiceBranch utility for conditional service routing</task>
+      <task id="4">Implement ServiceMerger utility for result aggregation</task>
+      <task id="5">Ensure type safety and interface contract preservation</task>
+      <task id="6">Implement comprehensive error handling and propagation</task>
+      <task id="7">Document performance characteristics and create benchmarks</task>
+      <task id="8">Support both static and dynamic composition patterns</task>
+      <task id="9">Validate interface compatibility and provide clear error messages</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Composition Pattern Utilities: Framework provides helper functions for common service composition patterns (ServiceChain, ServiceProxy, ServiceBranch, ServiceMerger)</criterion>
+    <criterion id="2">Type Safety Preservation: All composition utilities maintain full type safety and preserve interface contracts throughout the composition chain</criterion>
+    <criterion id="3">Error Flow Management: Error handling propagates correctly through composed service chains with proper context and error aggregation</criterion>
+    <criterion id="4">Performance Documentation: Each composition pattern has documented performance characteristics with benchmark data and optimization guidance</criterion>
+    <criterion id="5">Static and Dynamic Composition: Utilities support both compile-time service composition (static configuration) and runtime composition (dynamic service assembly)</criterion>
+    <criterion id="6">Interface Contract Validation: Composition utilities validate interface compatibility and provide clear error messages for mismatched service interfaces</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Service Composition Requirements</section>
+        <snippet>FR19: Middleware pattern enables cross-cutting concerns (extended to full service composition patterns). Provides foundation for complex service hierarchies using simple patterns.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Refactored Architecture Document</title>
+        <section>Decision 3: Service Composition Pattern</section>
+        <snippet>Decorator pattern with middleware pipeline enables ServiceChain, ServiceProxy, ServiceBranch, and ServiceMerger utilities through type-safe composition with zero overhead abstractions.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Composition Utilities API Design</section>
+        <snippet>CompositionPattern interface with Execute, Validate, and GetServices methods. ServiceChain for sequential execution, ServiceProxy for transparent forwarding, ServiceBranch for conditional routing, ServiceMerger for result aggregation.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 3.4: Create Service Composition Utilities</section>
+        <snippet>Helper functions for common service composition patterns with type safety, error handling, performance documentation, and both static and dynamic composition support.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/3-3-implement-shared-dependency-management.md</path>
+        <title>Shared Dependency Management Implementation</title>
+        <section>Learnings for Story 3.4</section>
+        <snippet>Dependency scoping foundation, health monitoring integration, concurrent access safety, and performance optimization provide patterns for composition utilities to leverage shared dependencies efficiently.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>sdk/interfaces/service.go</path>
+        <kind>interfaces</kind>
+        <symbol>EndorServiceInterface, EndorHybridServiceInterface</symbol>
+        <lines>1-50</lines>
+        <reason>Core service interfaces that composition utilities will work with and extend</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorService, WithMiddleware, DecoratedService</symbol>
+        <lines>1-100,373-400</lines>
+        <reason>Service implementation with middleware decoration patterns to extend for composition utilities</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/endor_hybrid_service.go</path>
+        <kind>service</kind>
+        <symbol>EndorHybridService, EmbedService, embeddedServices</symbol>
+        <lines>486-550</lines>
+        <reason>Service embedding implementation providing foundation for composition utility patterns</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di/container_impl.go</path>
+        <kind>container</kind>
+        <symbol>containerImpl, Register, Resolve</symbol>
+        <lines>1-100</lines>
+        <reason>Dependency injection container for automatic dependency resolution across composed services</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/di/shared.go</path>
+        <kind>dependency management</kind>
+        <symbol>SharedDependencyManager</symbol>
+        <lines>1-50</lines>
+        <reason>Shared dependency management that composition utilities must integrate with for efficient resource sharing</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/middleware/middleware.go</path>
+        <kind>middleware</kind>
+        <symbol>MiddlewareInterface, MiddlewarePipeline</symbol>
+        <lines>1-50</lines>
+        <reason>Middleware pipeline infrastructure that composition utilities must leverage for cross-cutting concerns</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/context.go</path>
+        <kind>context</kind>
+        <symbol>EndorContext</symbol>
+        <lines>1-60</lines>
+        <reason>Request context structure that composition utilities will pass through service chains</reason>
+      </artifact>
+      <artifact>
+        <path>sdk/errors.go</path>
+        <kind>error handling</kind>
+        <symbol>EndorError</symbol>
+        <lines>1-50</lines>
+        <reason>Error handling patterns for composition utility error aggregation and propagation</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <core>
+          <package>context</package>
+          <package>sync</package>
+          <package>reflect</package>
+          <package>time</package>
+          <package>fmt</package>
+          <package>errors</package>
+        </core>
+        <external>
+          <package>github.com/gin-gonic/gin</package>
+          <package>github.com/stretchr/testify</package>
+          <package>github.com/prometheus/client_golang</package>
+        </external>
+        <internal>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/interfaces</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/middleware</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/di</package>
+          <package>github.com/mattiabonardi/endor-sdk-go/sdk/testutils</package>
+        </internal>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Performance: Composition overhead < 10μs per service in chain, < 50μs for complex branched compositions
+    - Type Safety: Full compile-time type checking with generic constraints and interface validation
+    - Error Resilience: Graceful degradation with clear error boundaries and structured error aggregation
+    - Developer Experience: Intuitive composition APIs with fluent interfaces and clear error messages
+    - Flexibility: Support both simple chaining patterns and complex orchestration scenarios
+    - Integration: Must integrate with sdk/di/ container for automatic dependency injection across composed services
+    - Middleware: Must leverage sdk/middleware/ pipeline to ensure cross-cutting concerns apply to all services
+    - Shared Dependencies: Must integrate with shared dependency management from sdk/di/shared.go for efficient resource utilization
+    - Interface Compliance: All composition utilities must preserve EndorServiceInterface and EndorHybridServiceInterface contracts
+    - Zero Overhead: Abstractions must have zero runtime performance penalty when not using composition features
+    - Memory Optimization: Composition patterns must minimize memory allocation through shared dependency integration
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>CompositionPattern</name>
+      <kind>Core composition interface</kind>
+      <signature>type CompositionPattern interface {
+    Execute(ctx *EndorContext, request interface{}) (interface{}, error)
+    Validate() error
+    GetServices() []EndorServiceInterface
+}</signature>
+      <path>sdk/composition/types.go</path>
+    </interface>
+    <interface>
+      <name>ServiceChain</name>
+      <kind>Sequential execution utility</kind>
+      <signature>func ServiceChain[T any](services ...EndorServiceInterface) ChainedService[T]</signature>
+      <path>sdk/composition/chain.go</path>
+    </interface>
+    <interface>
+      <name>ServiceProxy</name>
+      <kind>Transparent forwarding utility</kind>
+      <signature>func ServiceProxy[T any](target EndorServiceInterface, interceptor ProxyInterceptor) ProxiedService[T]</signature>
+      <path>sdk/composition/proxy.go</path>
+    </interface>
+    <interface>
+      <name>ServiceBranch</name>
+      <kind>Conditional routing utility</kind>
+      <signature>func ServiceBranch[T any](router BranchRouter, services map[string]EndorServiceInterface) BranchedService[T]</signature>
+      <path>sdk/composition/branch.go</path>
+    </interface>
+    <interface>
+      <name>ServiceMerger</name>
+      <kind>Result aggregation utility</kind>
+      <signature>func ServiceMerger[T any](services []EndorServiceInterface, merger ResultMerger) MergedService[T]</signature>
+      <path>sdk/composition/merger.go</path>
+    </interface>
+    <interface>
+      <name>CompositionValidator</name>
+      <kind>Interface compatibility validation</kind>
+      <signature>type CompositionValidator interface {
+    ValidateChain(services []EndorServiceInterface) error
+    ValidateTypes[T any](input T, services []EndorServiceInterface) error
+    AnalyzeDependencyGraph(composition CompositionPattern) ([]string, error)
+}</signature>
+      <path>sdk/composition/validator.go</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Go testing framework with testify/assert for assertions. Interface mocking using testutils package. Benchmarking using testing.B for performance validation. Integration tests using real services with dependency injection. Table-driven tests for composition pattern variations. Property-based testing for composition validation edge cases.</standards>
+    <locations>sdk/composition/*_test.go, sdk/composition/*_integration_test.go, sdk/composition/benchmark_test.go, test/composition_test.go</locations>
+    <ideas>
+      <testIdea criteriaId="1">TestServiceChain_SequentialExecution: Verify ServiceChain executes services in order with proper data flow</testIdea>
+      <testIdea criteriaId="1">TestServiceProxy_TransparentForwarding: Validate ServiceProxy forwards requests with optional transformation</testIdea>
+      <testIdea criteriaId="1">TestServiceBranch_ConditionalRouting: Test ServiceBranch routes to correct service based on request analysis</testIdea>
+      <testIdea criteriaId="1">TestServiceMerger_ResultAggregation: Verify ServiceMerger combines results from multiple services correctly</testIdea>
+      <testIdea criteriaId="2">TestComposition_TypeSafety: Validate compile-time type checking and generic constraints work across all utilities</testIdea>
+      <testIdea criteriaId="2">TestComposition_InterfacePreservation: Ensure composed services maintain original interface contracts</testIdea>
+      <testIdea criteriaId="3">TestComposition_ErrorPropagation: Verify error handling flows correctly through composed service chains</testIdea>
+      <testIdea criteriaId="3">TestComposition_ErrorAggregation: Test error aggregation in parallel compositions (ServiceMerger)</testIdea>
+      <testIdea criteriaId="4">BenchmarkComposition_Performance: Measure composition overhead vs Epic 3 targets (< 10μs per service)</testIdea>
+      <testIdea criteriaId="4">TestComposition_PerformanceDocumentation: Validate documented performance characteristics match actual measurements</testIdea>
+      <testIdea criteriaId="5">TestComposition_StaticConfiguration: Test compile-time service composition with configuration</testIdea>
+      <testIdea criteriaId="5">TestComposition_DynamicAssembly: Verify runtime service composition and hot-swapping</testIdea>
+      <testIdea criteriaId="6">TestComposition_InterfaceValidation: Test interface compatibility checking with clear error messages</testIdea>
+      <testIdea criteriaId="6">TestComposition_CircularDependencyDetection: Verify dependency graph analysis prevents circular compositions</testIdea>
+    </ideas>
+  </tests>
+</story-context>

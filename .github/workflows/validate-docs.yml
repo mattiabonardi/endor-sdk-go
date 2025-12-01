@@ -1,0 +1,138 @@
+name: Validate Documentation Examples
+
+on:
+  push:
+    branches: [ main, feat/* ]
+    paths:
+      - 'docs/**/*.md'
+      - 'tools/validate-examples/**'
+      - '.github/workflows/validate-docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**/*.md'
+      - 'tools/validate-examples/**'
+
+jobs:
+  validate-examples:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Install dependencies
+      run: |
+        cd tools/validate-examples
+        go mod download
+        
+    - name: Run documentation example validation
+      run: |
+        chmod +x tools/validate-examples/validate-simple.sh
+        ./tools/validate-examples/validate-simple.sh
+        
+    - name: Run validation tests
+      run: |
+        cd tools/validate-examples
+        go test -v -race ./...
+        
+    - name: Generate validation report
+      if: always()
+      run: |
+        echo "# Documentation Examples Validation Report" > validation-report.md
+        echo "" >> validation-report.md
+        echo "**Workflow:** ${{ github.workflow }}" >> validation-report.md
+        echo "**Run ID:** ${{ github.run_id }}" >> validation-report.md
+        echo "**Triggered by:** ${{ github.event_name }}" >> validation-report.md
+        echo "**Branch:** ${{ github.ref_name }}" >> validation-report.md
+        echo "**Commit:** ${{ github.sha }}" >> validation-report.md
+        echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> validation-report.md
+        echo "" >> validation-report.md
+        
+        if [ -f "/tmp/endor-docs-validation/validation.log" ]; then
+          echo "## Validation Details" >> validation-report.md
+          echo "" >> validation-report.md
+          echo '```' >> validation-report.md
+          cat /tmp/endor-docs-validation/validation.log >> validation-report.md
+          echo '```' >> validation-report.md
+        fi
+        
+    - name: Upload validation report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: validation-report
+        path: validation-report.md
+        retention-days: 30
+        
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## ❌ Documentation Examples Validation Failed
+            
+            Some code examples in the documentation failed validation. Please check the workflow logs for details.
+            
+            **Workflow:** ${{ github.workflow }}
+            **Run ID:** ${{ github.run_id }}
+            
+            ### Next Steps:
+            1. Review the failing examples in the workflow logs
+            2. Fix any compilation or syntax errors
+            3. Ensure all imports are properly declared
+            4. Test examples locally with: \`./tools/validate-examples/validate-simple.sh\`
+            
+            ### Local Testing:
+            \`\`\`bash
+            # Run validation locally
+            ./tools/validate-examples/validate-simple.sh
+            
+            # Run with verbose output for debugging
+            VERBOSE=1 ./tools/validate-examples/validate-simple.sh
+            \`\`\`
+            `
+          })
+
+  validate-comprehensive:
+    runs-on: ubuntu-latest
+    needs: validate-examples
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Run comprehensive validation
+      run: |
+        cd tools/validate-examples
+        go mod download
+        go run main.go ../../docs
+        
+    - name: Update documentation status
+      if: success()
+      run: |
+        # Create/update documentation status badge
+        mkdir -p .github/badges
+        echo "![Documentation Examples](https://img.shields.io/badge/examples-validated-green)" > .github/badges/docs-examples.md
+        
+        # Commit badge update
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .github/badges/docs-examples.md || true
+        git commit -m "📊 Update documentation examples status badge [skip ci]" || exit 0
+        git push || exit 0

@@ -82,9 +82,9 @@ func TestRegister_NonInterface(t *testing.T) {
 	err := Register[*nonInterfaceImpl](container, impl, Singleton)
 	assert.Error(t, err)
 
-	var depErr *DependencyError
-	assert.True(t, errors.As(err, &depErr))
-	assert.Contains(t, depErr.Error(), "type is not an interface")
+	var diErr *DIError
+	assert.True(t, errors.As(err, &diErr))
+	assert.Contains(t, diErr.Error(), "type is not an interface")
 }
 
 func TestResolve_NotRegistered(t *testing.T) {
@@ -93,9 +93,9 @@ func TestResolve_NotRegistered(t *testing.T) {
 	_, err := Resolve[TestInterface](container)
 	assert.Error(t, err)
 
-	var depErr *DependencyError
-	assert.True(t, errors.As(err, &depErr))
-	assert.Contains(t, depErr.Error(), "no registration found")
+	var diErr *DIError
+	assert.True(t, errors.As(err, &diErr))
+	assert.Contains(t, diErr.Error(), "no registration found")
 }
 
 func TestRegisterFactory_Success(t *testing.T) {
@@ -169,9 +169,9 @@ func TestRegisterFactory_FactoryError(t *testing.T) {
 	_, err = Resolve[TestInterface](container)
 	assert.Error(t, err)
 
-	var depErr *DependencyError
-	assert.True(t, errors.As(err, &depErr))
-	assert.Contains(t, depErr.Error(), "factory function returned error")
+	var diErr *DIError
+	assert.True(t, errors.As(err, &diErr))
+	assert.Contains(t, diErr.Error(), "factory function returned error")
 }
 
 func TestValidate_Success(t *testing.T) {
@@ -196,9 +196,9 @@ func TestValidate_InterfaceComplianceError(t *testing.T) {
 	err := container.RegisterType(interfaceType, wrongImpl, Singleton)
 	assert.Error(t, err) // Registration should fail with our validation
 
-	var depErr *DependencyError
-	assert.True(t, errors.As(err, &depErr))
-	assert.Contains(t, depErr.Error(), "does not implement the interface")
+	var diErr *DIError
+	assert.True(t, errors.As(err, &diErr))
+	assert.Contains(t, diErr.Error(), "does not implement the interface")
 
 	// Since registration failed, validation should succeed (no invalid registrations)
 	validationErrors := container.Validate()

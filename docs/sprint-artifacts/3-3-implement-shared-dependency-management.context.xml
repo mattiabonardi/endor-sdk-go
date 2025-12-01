@@ -1,0 +1,154 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3</storyId>
+    <title>implement-shared-dependency-management</title>
+    <status>drafted</status>
+    <generatedAt>November 30, 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/3-3-implement-shared-dependency-management.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer composing multiple services</asA>
+    <iWant>services to share common dependencies efficiently</iWant>
+    <soThat>I avoid duplicate resource allocation and ensure consistency</soThat>
+    <tasks>- [ ] Task 1: Extend DI container with dependency scoping capabilities (AC: 1)
+  - [ ] Implement Singleton scope for shared instances across service lifetime
+  - [ ] Implement Scoped scope for shared instances within request/operation context  
+  - [ ] Implement Transient scope for new instances per resolution request
+  - [ ] Add scope validation and enforcement in dependency registration
+- [ ] Task 2: Implement automatic dependency sharing logic (AC: 2)
+  - [ ] Enhance container resolution to check existing singleton instances before creation
+  - [ ] Add dependency sharing detection for common framework dependencies
+  - [ ] Implement smart sharing for repository interfaces, configuration providers, loggers
+  - [ ] Add dependency sharing metrics and monitoring
+- [ ] Task 3: Ensure thread safety for shared dependencies (AC: 3)
+  - [ ] Implement concurrent access protection for singleton dependency resolution
+  - [ ] Add thread-safe dependency instance storage with minimal locking overhead
+  - [ ] Validate shared dependency implementations are thread-safe (repositories, configs)
+  - [ ] Implement performance tests for concurrent dependency access under load
+- [ ] Task 4: Implement dependency health monitoring and propagation (AC: 4)  
+  - [ ] Add health check interface for dependencies with status propagation
+  - [ ] Implement dependency health aggregation across all dependent services
+  - [ ] Add automatic service notification when shared dependencies become unavailable
+  - [ ] Implement circuit breaker patterns for unhealthy shared dependencies
+- [ ] Task 5: Optimize memory usage through efficient sharing (AC: 5)
+  - [ ] Add memory usage tracking for shared vs non-shared dependency patterns
+  - [ ] Implement dependency pooling for expensive resources (database connections)
+  - [ ] Add memory profiling tools to validate sharing effectiveness
+  - [ ] Optimize dependency reference management to prevent memory leaks
+- [ ] Task 6: Implement centralized lifecycle management (AC: 6)
+  - [ ] Add dependency startup ordering based on dependency graph analysis
+  - [ ] Implement proper shutdown sequencing (dependents stopped before dependencies)
+  - [ ] Add dependency lifecycle event broadcasting for monitoring
+  - [ ] Ensure graceful handling of dependency startup/shutdown failures
+- [ ] Task 7: Enable dependency update propagation (AC: 7)
+  - [ ] Implement dependency update notification system for configuration changes
+  - [ ] Add hot-reload support for shared configuration dependencies
+  - [ ] Implement dependency versioning for safe update propagation
+  - [ ] Add dependency change validation to prevent breaking service contracts</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **Dependency Scoping**: DI container supports Singleton, Scoped, and Transient dependency lifecycles for efficient resource sharing
+2. **Automatic Sharing**: Multiple services automatically share singleton dependencies (database clients, configuration, logging) without explicit coordination
+3. **Concurrent Access Safety**: Shared dependencies support concurrent access from multiple services with thread-safe operations and zero contention
+4. **Dependency Health Monitoring**: Shared dependency health affects all dependent services with automatic propagation and failover support
+5. **Memory Optimization**: Dependency sharing eliminates duplicate resource allocation and enables efficient memory usage across service hierarchies
+6. **Lifecycle Management**: Shared dependencies have centralized lifecycle management with proper startup/shutdown ordering
+7. **Update Propagation**: Configuration changes and dependency updates propagate to all dependent services automatically</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact path="docs/prd.md" title="Product Requirements Document" section="Functional Requirements Synthesis" snippet="FR18: Services can share common dependencies without coupling to implementations. Framework eliminates hard-coded singleton dependencies and supports both constructor injection and factory patterns."/>
+      <artifact path="docs/architecture.md" title="Architecture Document" section="Decision 1: Lightweight Custom DI Container" snippet="Interface-based registration with type-safe resolution using Go generics, lifecycle management (Singleton, Transient, Scoped), zero runtime reflection overhead, circular dependency detection."/>
+      <artifact path="docs/epics.md" title="Epic Breakdown" section="Epic 3: Service Composition Framework - Story 3.3" snippet="Implement dependency scoping in DI container: Singleton, Scoped, Transient. Add dependency health checking and automatic failover. Support dependency proxying for thread safety."/>
+      <artifact path="docs/sprint-artifacts/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="Shared Dependency Management API" snippet="Enhanced container with dependency scoping, SharedDependencyManager with singleton/scoped cache, HealthChecker interface for dependency monitoring and lifecycle coordination."/>
+      <artifact path="docs/sprint-artifacts/3-2-enable-endorservice-embedding-in-endorhybridservice.md" title="Story 3.2 Implementation" section="Learnings from Previous Story" snippet="Service composition patterns demonstrate effective dependency sharing across embedded services. Dependency validation patterns provide template for shared dependency health checking and lifecycle management."/>
+    </docs>
+    <code>
+      <artifact path="sdk/di/container_impl.go" kind="container" symbol="containerImpl" lines="1-50" reason="Core DI container implementation that needs enhancement with Scoped dependencies and health monitoring"/>
+      <artifact path="sdk/di/scopes.go" kind="scope" symbol="Scope" lines="1-35" reason="Current scope definitions (Singleton, Transient, Scoped) that need full implementation for Scoped lifecycle"/>
+      <artifact path="sdk/di/container.go" kind="interface" symbol="Container" lines="1-50" reason="Container interface that needs enhancement with health monitoring and lifecycle management methods"/>
+      <artifact path="sdk/endor_hybrid_service.go" kind="service" symbol="EndorHybridServiceImpl" lines="60-90" reason="Service composition implementation that demonstrates dependency sharing patterns for embedded services"/>
+      <artifact path="sdk/endor_service.go" kind="service" symbol="EndorService" lines="1-50" reason="Core service implementation that will benefit from shared dependency patterns"/>
+      <artifact path="sdk/interfaces/service.go" kind="interface" symbol="EndorServiceInterface" lines="1-50" reason="Service interfaces that define contracts for dependency injection and shared resource usage"/>
+      <artifact path="sdk/endor_hybrid_service_container_test.go" kind="test" symbol="TestEndorHybridService_ContainerScopes_SingletonBehavior" lines="188-220" reason="Existing test demonstrating singleton behavior that provides pattern for shared dependency testing"/>
+    </code>
+    <dependencies>
+      <go>
+        <core>
+          <package>context</package>
+          <package>reflect</package>
+          <package>sync</package>
+          <package>time</package>
+          <package>fmt</package>
+          <package>errors</package>
+        </core>
+        <external>
+          <package>github.com/gin-gonic/gin</package>
+          <package>github.com/stretchr/testify</package>
+          <package>go.mongodb.org/mongo-driver</package>
+        </external>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>- **Performance**: Dependency resolution must remain < 1μs for singletons, < 5μs for scoped dependencies as specified in Epic 2 foundation
+- **Thread Safety**: Zero contention for concurrent dependency access through optimized locking strategies and minimal shared state
+- **Memory Efficiency**: Eliminate duplicate dependency allocation through intelligent sharing without introducing memory leaks
+- **Interface Contracts**: Shared dependency enhancements must maintain all existing Container interface contracts and method signatures
+- **Epic Integration**: Must seamlessly integrate with service embedding from Story 3.2 and middleware pipeline from Story 3.1
+- **Backward Compatibility**: Existing Singleton and Transient scope behavior must remain unchanged during Scoped scope addition</constraints>
+
+  <interfaces>
+    <interface>
+      <name>HealthChecker</name>
+      <kind>Dependency health monitoring interface</kind>
+      <signature>type HealthChecker interface {
+    HealthCheck() error
+    OnHealthChange(callback func(healthy bool))
+}</signature>
+      <path>sdk/health/checker.go</path>
+    </interface>
+    <interface>
+      <name>SharedDependencyManager</name>
+      <kind>Scoped dependency lifecycle coordination</kind>
+      <signature>type SharedDependencyManager struct {
+    singletonCache map[reflect.Type]interface{}
+    scopedCache    map[string]map[reflect.Type]interface{}
+    healthCheckers map[reflect.Type]HealthChecker
+}</signature>
+      <path>sdk/di/shared.go</path>
+    </interface>
+    <interface>
+      <name>RegisterScoped</name>
+      <kind>Enhanced container registration method</kind>
+      <signature>func (c *Container) RegisterScoped[T any](impl T, scope DependencyScope) error</signature>
+      <path>sdk/di/container.go</path>
+    </interface>
+    <interface>
+      <name>DependencyScope</name>
+      <kind>Enhanced scope enumeration</kind>
+      <signature>type DependencyScope int
+const (
+    Singleton DependencyScope = iota
+    Scoped
+    Transient
+)</signature>
+      <path>sdk/di/scopes.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Testing follows Epic 1 patterns with comprehensive unit tests using testify/mock for dependency behavior verification. Integration tests validate shared dependency lifecycle with real MongoDB connections. Build tags separate unit tests (//go:build unit) from integration tests (//go:build integration) for fast CI/CD execution. Performance benchmarks ensure dependency resolution targets are met under concurrent load.</standards>
+    <locations>sdk/di/*_test.go for container enhancement tests, sdk/health/*_test.go for health monitoring tests, test/ directory for integration tests with shared dependencies across service compositions</locations>
+    <ideas>- AC1: Test Scoped dependency lifecycle with request context boundaries and proper cleanup
+- AC2: Test automatic sharing detection for common framework dependencies (repositories, configs, loggers) 
+- AC3: Test concurrent dependency resolution under high load with 1000+ goroutines to validate zero contention
+- AC4: Test dependency health monitoring with circuit breaker patterns and service failure propagation
+- AC5: Test memory usage optimization with before/after profiling to validate sharing effectiveness  
+- AC6: Test centralized lifecycle management with complex dependency graphs and shutdown ordering
+- AC7: Test configuration update propagation with hot-reload scenarios and service notification patterns</ideas>
+  </tests>
+</story-context>
