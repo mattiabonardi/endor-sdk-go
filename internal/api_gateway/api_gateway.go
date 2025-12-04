@@ -6,7 +6,7 @@ import (
 	"path"
 	"path/filepath"
 
-	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"gopkg.in/yaml.v3"
 )
 

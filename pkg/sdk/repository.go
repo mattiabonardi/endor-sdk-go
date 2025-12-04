@@ -23,3 +23,21 @@ type StaticResourceInstanceRepositoryInterface[T ResourceInstanceInterface] inte
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
 	Update(ctx context.Context, dto UpdateByIdDTO[T]) (T, error)
 }
+
+type ReadInstanceDTO struct {
+	Id string `json:"id,omitempty"`
+}
+
+type CreateDTO[T any] struct {
+	Data T `json:"data" binding:"required"`
+}
+
+type UpdateByIdDTO[T any] struct {
+	Id   string `json:"id,omitempty"`
+	Data T      `json:"data" binding:"required"`
+}
+
+type ReadDTO struct {
+	Filter     map[string]interface{} `json:"filter"`
+	Projection map[string]interface{} `json:"projection"`
+}

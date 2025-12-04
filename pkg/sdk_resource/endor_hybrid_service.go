@@ -169,21 +169,21 @@ func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema 
 			},
 			fmt.Sprintf("Search for available list of %s (%s)", resource, resourceDescription),
 		),
-		"create": NewConfigurableAction(
-			EndorServiceActionOptions{
+		"create": sdk.NewConfigurableAction(
+			sdk.EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Create the instance of %s (%s)", resource, resourceDescription),
 				Public:          false,
 				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
+				InputSchema: &sdk.RootSchema{
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeObject,
+						Properties: &map[string]sdk.Schema{
 							"data": schema.Schema,
 						},
 					},
 				},
 			},
-			func(c *EndorContext[CreateDTO[ResourceInstance[T]]]) (*Response[ResourceInstance[T]], error) {
+			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstance[T]]]) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 				return defaultCreate(c, schema, repository, resource)
 			},
 		),
@@ -217,8 +217,8 @@ func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema 
 	}
 }
 
-func defaultSchema[T ResourceInstanceInterface](_ *EndorContext[NoPayload], schema RootSchema) (*Response[any], error) {
-	return NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
+func defaultSchema[T sdk.ResourceInstanceInterface](_ *sdk.EndorContext[sdk.NoPayload], schema sdk.RootSchema) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
 }
 
 func defaultInstance[T ResourceInstanceInterface](c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceRepository[T]) (*Response[*ResourceInstance[T]], error) {

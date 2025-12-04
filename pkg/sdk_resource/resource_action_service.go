@@ -1,23 +1,27 @@
 package sdk_resource
 
-func NewResourceActionService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService) *EndorService {
+import (
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+)
+
+func NewResourceActionService(microServiceId string, services *[]sdk.EndorService, hybridServices *[]sdk.EndorHybridService) *sdk.EndorService {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
 	}
-	return &EndorService{
+	return &sdk.EndorService{
 		Resource:    "resource-action",
 		Description: "Resource Action",
-		Methods: map[string]EndorServiceAction{
-			"schema": NewAction(
+		Methods: map[string]sdk.EndorServiceAction{
+			"schema": sdk.NewAction(
 				resourceMethodService.schema,
 				"Get the schema of the resource method",
 			),
-			"list": NewAction(
+			"list": sdk.NewAction(
 				resourceMethodService.list,
 				"Search for available resources",
 			),
-			"instance": NewAction(
+			"instance": sdk.NewAction(
 				resourceMethodService.instance,
 				"Get the specified instance of resources",
 			),
@@ -27,26 +31,26 @@ func NewResourceActionService(microServiceId string, services *[]EndorService, h
 
 type ResourceActionService struct {
 	microServiceId string
-	services       *[]EndorService
-	hybridServices *[]EndorHybridService
+	services       *[]sdk.EndorService
+	hybridServices *[]sdk.EndorHybridService
 }
 
-func (h *ResourceActionService) schema(c *EndorContext[NoPayload]) (*Response[any], error) {
-	return NewResponseBuilder[any]().AddSchema(NewSchema(&ResourceAction{})).Build(), nil
+func (h *ResourceActionService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.ResourceAction{})).Build(), nil
 }
 
-func (h *ResourceActionService) list(c *EndorContext[NoPayload]) (*Response[[]ResourceAction], error) {
+func (h *ResourceActionService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.ResourceAction], error) {
 	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ResourceActionList()
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceAction]().AddData(&resourceMethods).AddSchema(NewSchema(&ResourceAction{})).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.ResourceAction]().AddData(&resourceMethods).AddSchema(sdk.NewSchema(&sdk.ResourceAction{})).Build(), nil
 }
 
-func (h *ResourceActionService) instance(c *EndorContext[ReadInstanceDTO]) (*Response[ResourceAction], error) {
+func (h *ResourceActionService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.ResourceAction], error) {
 	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceAction]().AddData(&resourceAction.resourceAction).AddSchema(NewSchema(&ResourceAction{})).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceAction]().AddData(&resourceAction.resourceAction).AddSchema(sdk.NewSchema(&sdk.ResourceAction{})).Build(), nil
 }

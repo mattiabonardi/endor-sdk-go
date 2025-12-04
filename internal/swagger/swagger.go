@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
 //go:embed swagger/*
@@ -51,11 +51,11 @@ type OpenAPIOperation struct {
 }
 
 type OpenAPIParameter struct {
-	Name        string `json:"name"`
-	In          string `json:"in"`
-	Schema      Schema `json:"schema"`
-	Description string `json:"description"`
-	Required    bool   `json:"required"`
+	Name        string     `json:"name"`
+	In          string     `json:"in"`
+	Schema      sdk.Schema `json:"schema"`
+	Description string     `json:"description"`
+	Required    bool       `json:"required"`
 }
 
 type OpenAPIRequestBody struct {
@@ -65,11 +65,11 @@ type OpenAPIRequestBody struct {
 }
 
 type OpenAPIMediaType struct {
-	Schema Schema `json:"schema"`
+	Schema sdk.Schema `json:"schema"`
 }
 
 type OpenApiComponents struct {
-	Schemas map[string]Schema `json:"schemas"`
+	Schemas map[string]sdk.Schema `json:"schemas"`
 }
 
 type OpenApiAuth struct {
@@ -88,7 +88,7 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (string, error) {
+func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorService, baseApiPath string) (string, error) {
 	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
@@ -125,7 +125,7 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	return swaggerFolder, err
 }
 
-func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []sdk.EndorService, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
@@ -149,19 +149,19 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 								Properties: &map[string]sdk.Schema{
 									"gravity": {
 										Type: sdk.SchemaTypeString,
-										Enum: &[]string{string(sdk.Info), string(Warning), string(Error), string(Fatal)},
+										Enum: &[]string{string(sdk.ResponseMessageGravityInfo), string(sdk.ResponseMessageGravityInfo), string(sdk.ResponseMessageGravityError), string(sdk.ResponseMessageGravityFatal)},
 									},
 									"value": {
-										Type: StringType,
+										Type: sdk.SchemaTypeString,
 									},
 								},
 							},
 						},
 						"data": {
-							Type: ObjectType,
+							Type: sdk.SchemaTypeObject,
 						},
 						"schema": {
-							Type: ObjectType,
+							Type: sdk.SchemaTypeObject,
 						},
 					},
 				},
@@ -178,8 +178,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					{
 						Name: "X-User-ID",
 						In:   "header",
-						Schema: Schema{
-							Type: StringType,
+						Schema: sdk.Schema{
+							Type: sdk.SchemaTypeString,
 						},
 						Description: "User id",
 						Required:    false,
@@ -187,8 +187,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					{
 						Name: "X-User-Session",
 						In:   "header",
-						Schema: Schema{
-							Type: StringType,
+						Schema: sdk.Schema{
+							Type: sdk.SchemaTypeString,
 						},
 						Description: "User session",
 						Required:    false,
@@ -196,8 +196,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					{
 						Name: "X-Development",
 						In:   "header",
-						Schema: Schema{
-							Type: BooleanType,
+						Schema: sdk.Schema{
+							Type: sdk.SchemaTypeBoolean,
 						},
 						Description: "Development flag",
 						Required:    false,
@@ -214,7 +214,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 						Description: "Default response",
 						Content: map[string]OpenAPIMediaType{
 							"application/json": {
-								Schema: Schema{
+								Schema: sdk.Schema{
 									Reference: "#/components/schemas/DefaultEndorResponse",
 								},
 							},
@@ -256,7 +256,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 					operation.RequestBody = &OpenAPIRequestBody{
 						Content: map[string]OpenAPIMediaType{
 							"application/json": {
-								Schema: Schema{
+								Schema: sdk.Schema{
 									Reference: fmt.Sprintf("#/components/schemas/%s", last),
 								},
 							},

@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	sdk_server "github.com/mattiabonardi/endor-sdk-go/pkg/server"
 	services_test "github.com/mattiabonardi/endor-sdk-go/test/services"
 )
 
@@ -12,7 +13,7 @@ type Payload struct {
 }
 
 func main() {
-	sdk.NewEndorInitializer().WithEndorServices(&[]sdk.EndorService{
+	sdk_server.NewEndorInitializer().WithEndorServices(&[]sdk.EndorService{
 		services_test.NewService1(),
 	}).WithHybridServices(&[]sdk.EndorHybridService{
 		services_test.NewService2(),

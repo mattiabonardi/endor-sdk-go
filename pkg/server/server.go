@@ -1,4 +1,4 @@
-package server
+package sdk_server
 
 import (
 	"fmt"
@@ -7,8 +7,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
 	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
-	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -77,12 +80,12 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !resourceServiceExists {
-		*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
-		*h.internalEndorServices = append(*h.internalEndorServices, *NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+		*h.internalEndorServices = append(*h.internalEndorServices, *sdk_resource.NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+		*h.internalEndorServices = append(*h.internalEndorServices, *sdk_resource.NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
 	}
 
 	// get all resources
-	EndorServiceRepository := NewEndorServiceRepository(microserviceId, h.internalEndorServices, h.internalHybridServices)
+	EndorServiceRepository := sdk_resource.NewEndorServiceRepository(microserviceId, h.internalEndorServices, h.internalHybridServices)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
@@ -97,7 +100,7 @@ func (h *Endor) Init(microserviceId string) {
 			if len(pathSegments) == 6 {
 				action = pathSegments[4] + "/" + pathSegments[5]
 			}
-			endorRepositoryDictionary, err := EndorServiceRepository.Instance(ReadInstanceDTO{
+			endorRepositoryDictionary, err := EndorServiceRepository.Instance(sdk.ReadInstanceDTO{
 				Id: resource,
 			})
 			if err == nil {
@@ -107,16 +110,16 @@ func (h *Endor) Init(microserviceId string) {
 				}
 			}
 		}
-		response := NewDefaultResponseBuilder()
-		response.AddMessage(NewMessage(Fatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
+		response := sdk.NewDefaultResponseBuilder()
+		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err = InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), resources)
+	err = api_gateway.InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), resources)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), resources, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), resources, "/api")
 	if err != nil {
 		log.Fatal(err)
 	}
