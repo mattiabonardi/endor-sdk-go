@@ -1,4 +1,4 @@
-package sdk
+package sdk_resource
 
 func NewResourceActionService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService) *EndorService {
 	resourceMethodService := ResourceActionService{

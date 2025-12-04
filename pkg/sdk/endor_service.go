@@ -41,13 +41,13 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 		InputSchema:     nil,
 	}
 	// resolve input params dynamically
-	options.InputSchema = resolveInputSchema[T]()
+	options.InputSchema = ResolveGenericSchema[T]()
 	return NewConfigurableAction(options, handler)
 }
 
 func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceAction {
 	if options.InputSchema == nil {
-		options.InputSchema = resolveInputSchema[T]()
+		options.InputSchema = ResolveGenericSchema[T]()
 	}
 	return &endorServiceActionImpl[T, R]{handler: handler, options: options}
 }
@@ -85,7 +85,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 		var t T
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
 			if err := c.ShouldBindJSON(&ec.Payload); err != nil {
-				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())).Build())
+				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 				return
 			}
 		}
@@ -94,9 +94,9 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 		if err != nil {
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
-				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, endorError.Error())))
+				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())))
 			} else {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(Fatal, err.Error())))
+				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())))
 			}
 		} else {
 			c.Header("x-endor-microservice", microserviceId)
@@ -109,15 +109,16 @@ func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 	return m.options
 }
 
-func resolveInputSchema[T any]() *RootSchema {
-	var zeroT T
-	tType := reflect.TypeOf(zeroT)
-	if tType.Kind() == reflect.Ptr {
-		tType = tType.Elem()
-	}
-	// convert type to schema
-	if tType != nil && tType != reflect.TypeOf(NoPayload{}) {
-		return NewSchemaByType(tType)
-	}
-	return nil
+type EndorHybridServiceCategory interface {
+	GetID() string
+	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction
+}
+
+type EndorHybridService interface {
+	GetResource() string
+	GetResourceDescription() string
+	GetPriority() *int
+	WithCategories(categories []EndorHybridServiceCategory) EndorHybridService
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridService
+	ToEndorService(metadataSchema Schema) EndorService
 }

@@ -1,29 +1,31 @@
-package sdk
+package repository
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type MongoResourceInstanceRepository[T ResourceInstanceInterface] struct {
+type MongoResourceInstanceRepository[T sdk.ResourceInstanceInterface] struct {
 	collectionName string
 	options        ResourceInstanceRepositoryOptions
 }
 
-func NewMongoResourceInstanceRepository[T ResourceInstanceInterface](resourceId string, options ResourceInstanceRepositoryOptions) *MongoResourceInstanceRepository[T] {
+func NewMongoResourceInstanceRepository[T sdk.ResourceInstanceInterface](resourceId string, options ResourceInstanceRepositoryOptions) *MongoResourceInstanceRepository[T] {
 	return &MongoResourceInstanceRepository[T]{
 		collectionName: resourceId,
 		options:        options,
 	}
 }
 
-func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstance[T], error) {
+func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.ResourceInstance[T], error) {
 	var rawResult bson.M
 
 	// Preparazione del filtro
@@ -31,7 +33,7 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -42,9 +44,9 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 	err := r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+			return nil, sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 		}
-		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
 	}
 
 	// Estrai e converti i metadata in modo robusto
@@ -63,13 +65,13 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 		if oid, ok := rawResult["_id"].(primitive.ObjectID); ok {
 			idStr = oid.Hex()
 		} else {
-			return nil, NewInternalServerError(fmt.Errorf("invalid _id type in database"))
+			return nil, sdk.NewInternalServerError(fmt.Errorf("invalid _id type in database"))
 		}
 	} else {
 		if s, ok := rawResult["_id"].(string); ok {
 			idStr = s
 		} else {
-			return nil, NewInternalServerError(fmt.Errorf("invalid _id type in database"))
+			return nil, sdk.NewInternalServerError(fmt.Errorf("invalid _id type in database"))
 		}
 	}
 	delete(rawResult, "_id")
@@ -78,22 +80,22 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto R
 	var thisModel T
 	resourceBytes, err := bson.Marshal(rawResult)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to marshal raw resource: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal raw resource: %w", err))
 	}
 	if err := bson.Unmarshal(resourceBytes, &thisModel); err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal to model: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal to model: %w", err))
 	}
 
 	// Imposta l'ID string nel modello
 	thisModel.SetID(idStr)
 
-	return &ResourceInstance[T]{
+	return &sdk.ResourceInstance[T]{
 		This:     thisModel,
 		Metadata: metadata,
 	}, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadDTO) ([]ResourceInstance[T], error) {
+func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.ResourceInstance[T], error) {
 	mongoFilter, err := prepareFilter[T](dto.Filter)
 	if err != nil {
 		return nil, err
@@ -101,16 +103,16 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 	opts := options.Find().SetProjection(prepareProjection[T](dto.Projection))
 	cursor, err := r.getCollection().Find(ctx, mongoFilter, opts)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to list resources: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list resources: %w", err))
 	}
 	defer cursor.Close(ctx)
 
 	var rawResults []bson.M
 	if err := cursor.All(ctx, &rawResults); err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to decode resources: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode resources: %w", err))
 	}
 
-	results := make([]ResourceInstance[T], 0, len(rawResults))
+	results := make([]sdk.ResourceInstance[T], 0, len(rawResults))
 	for _, raw := range rawResults {
 		// Estrai e converti metadata in modo robusto
 		metadata := make(map[string]interface{})
@@ -128,13 +130,13 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 			if oid, ok := raw["_id"].(primitive.ObjectID); ok {
 				idStr = oid.Hex()
 			} else {
-				return nil, NewInternalServerError(fmt.Errorf("invalid _id type in database"))
+				return nil, sdk.NewInternalServerError(fmt.Errorf("invalid _id type in database"))
 			}
 		} else {
 			if s, ok := raw["_id"].(string); ok {
 				idStr = s
 			} else {
-				return nil, NewInternalServerError(fmt.Errorf("invalid _id type in database"))
+				return nil, sdk.NewInternalServerError(fmt.Errorf("invalid _id type in database"))
 			}
 		}
 		delete(raw, "_id")
@@ -143,16 +145,16 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 		var thisModel T
 		resourceBytes, err := bson.Marshal(raw)
 		if err != nil {
-			return nil, NewInternalServerError(fmt.Errorf("failed to marshal raw resource: %w", err))
+			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal raw resource: %w", err))
 		}
 		if err := bson.Unmarshal(resourceBytes, &thisModel); err != nil {
-			return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal to model: %w", err))
+			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal to model: %w", err))
 		}
 
 		// Imposta l'ID string nel modello
 		thisModel.SetID(idStr)
 
-		results = append(results, ResourceInstance[T]{
+		results = append(results, sdk.ResourceInstance[T]{
 			This:     thisModel,
 			Metadata: metadata,
 		})
@@ -161,7 +163,7 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto ReadD
 	return results, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto CreateDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
+func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[sdk.ResourceInstance[T]]) (*sdk.ResourceInstance[T], error) {
 	idPtr := dto.Data.This.GetID()
 	var idStr string
 
@@ -171,15 +173,15 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto Cre
 		dto.Data.This.SetID(idStr)
 	} else {
 		if idPtr == nil || *idPtr == "" {
-			return nil, NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
+			return nil, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
 		}
 		idStr = *idPtr
 
-		_, err := r.Instance(ctx, ReadInstanceDTO{Id: idStr})
+		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 		if err == nil {
-			return nil, NewConflictError(fmt.Errorf("resource instance with id %v already exists", idStr))
+			return nil, sdk.NewConflictError(fmt.Errorf("resource instance with id %v already exists", idStr))
 		}
-		var endorErr *EndorError
+		var endorErr *sdk.EndorError
 		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
 			return nil, err
 		}
@@ -187,11 +189,11 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto Cre
 
 	resourceBytes, err := bson.Marshal(dto.Data.This)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
 	}
 	var resourceMap bson.M
 	if err := bson.Unmarshal(resourceBytes, &resourceMap); err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
 	}
 
 	// _id
@@ -208,16 +210,16 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto Cre
 	_, err = r.getCollection().InsertOne(ctx, resourceMap)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return nil, NewConflictError(fmt.Errorf("resource instance already exists: %w", err))
+			return nil, sdk.NewConflictError(fmt.Errorf("resource instance already exists: %w", err))
 		}
-		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
 	}
 
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstance[T]]) (*ResourceInstance[T], error) {
-	_, err := r.Instance(ctx, ReadInstanceDTO{Id: dto.Id})
+func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]) (*sdk.ResourceInstance[T], error) {
+	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +228,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -235,12 +237,12 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 
 	resourceBytes, err := bson.Marshal(dto.Data.This)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal resource: %w", err))
 	}
 
 	var resourceMap bson.M
 	if err := bson.Unmarshal(resourceBytes, &resourceMap); err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal resource: %w", err))
 	}
 
 	if *r.options.AutoGenerateID {
@@ -254,18 +256,18 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto Upd
 
 	result, err := r.getCollection().ReplaceOne(ctx, filter, resourceMap)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
 	}
 	if result.MatchedCount == 0 {
-		return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+		return nil, sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 	}
 
 	dto.Data.This.SetID(dto.Id)
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
-	_, err := r.Instance(ctx, ReadInstanceDTO{Id: dto.Id})
+func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
+	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return err
 	}
@@ -274,7 +276,7 @@ func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto Rea
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -283,17 +285,17 @@ func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto Rea
 
 	result, err := r.getCollection().DeleteOne(ctx, filter)
 	if err != nil {
-		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
+		return sdk.NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
 	}
 
 	if result.DeletedCount == 0 {
-		return NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+		return sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 	}
 
 	return nil
 }
 
-func prepareProjection[T ResourceInstanceInterface](projection map[string]interface{}) bson.M {
+func prepareProjection[T sdk.ResourceInstanceInterface](projection map[string]interface{}) bson.M {
 	result := bson.M{}
 
 	// Creiamo un'istanza vuota di T per capire quali campi sono "normali"
@@ -315,7 +317,7 @@ func prepareProjection[T ResourceInstanceInterface](projection map[string]interf
 	return result
 }
 
-func prepareFilter[T ResourceInstanceInterface](filter map[string]interface{}) (bson.M, error) {
+func prepareFilter[T sdk.ResourceInstanceInterface](filter map[string]interface{}) (bson.M, error) {
 	result := bson.M{}
 
 	// Creiamo un'istanza vuota di T per capire quali campi sono "normali"
@@ -338,16 +340,16 @@ func prepareFilter[T ResourceInstanceInterface](filter map[string]interface{}) (
 }
 
 func (r *MongoResourceInstanceRepository[T]) getCollection() *mongo.Collection {
-	client, _ := GetMongoClient()
-	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
+	client, _ := sdk.GetMongoClient()
+	return client.Database(configuration.GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
 
-type MongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] struct {
+type MongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] struct {
 	collectionName string
 	options        ResourceInstanceRepositoryOptions
 }
 
-func NewMongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](
+func NewMongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](
 	resourceId string,
 	options ResourceInstanceRepositoryOptions,
 ) *MongoResourceInstanceSpecializedRepository[T, C] {
@@ -357,7 +359,7 @@ func NewMongoResourceInstanceSpecializedRepository[T ResourceInstanceInterface, 
 	}
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.Context, dto ReadInstanceDTO) (*ResourceInstanceSpecialized[T, C], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	var rawResult bson.M
 
 	// Preparazione filtro
@@ -365,7 +367,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -376,28 +378,28 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.
 	err := r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+			return nil, sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 		}
-		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
 	}
 
 	// Converti in ResourceInstanceSpecialized
 	return r.convertToSpecialized(rawResult)
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Context, dto ReadDTO) ([]ResourceInstanceSpecialized[T, C], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.ResourceInstanceSpecialized[T, C], error) {
 	cursor, err := r.getCollection().Find(ctx, bson.M{})
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to find resource instances: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find resource instances: %w", err))
 	}
 	defer cursor.Close(ctx)
 
 	var rawResults []bson.M
 	if err = cursor.All(ctx, &rawResults); err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to decode resource instances: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode resource instances: %w", err))
 	}
 
-	specializedResults := make([]ResourceInstanceSpecialized[T, C], len(rawResults))
+	specializedResults := make([]sdk.ResourceInstanceSpecialized[T, C], len(rawResults))
 	for i, rawResult := range rawResults {
 		converted, err := r.convertToSpecialized(rawResult)
 		if err != nil {
@@ -409,7 +411,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Cont
 	return specializedResults, nil
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Context, dto CreateDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Context, dto sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	doc, err := r.convertFromSpecialized(dto.Data)
 	if err != nil {
 		return nil, err
@@ -427,18 +429,18 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Co
 
 	_, err = r.getCollection().InsertOne(ctx, doc)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to create resource instance: %w", err))
 	}
 
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Context, dto ReadInstanceDTO) error {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	var filter bson.M
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -447,17 +449,17 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Co
 
 	result, err := r.getCollection().DeleteOne(ctx, filter)
 	if err != nil {
-		return NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
+		return sdk.NewInternalServerError(fmt.Errorf("failed to delete resource instance: %w", err))
 	}
 
 	if result.DeletedCount == 0 {
-		return NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
+		return sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 	}
 
 	return nil
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Context, dto UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]) (*ResourceInstanceSpecialized[T, C], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	doc, err := r.convertFromSpecialized(dto.Data)
 	if err != nil {
 		return nil, err
@@ -467,7 +469,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Co
 	if *r.options.AutoGenerateID {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
-			return nil, NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
 		}
 		filter = bson.M{"_id": objectID}
 	} else {
@@ -477,18 +479,18 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Co
 	update := bson.M{"$set": doc}
 	_, err = r.getCollection().UpdateOne(ctx, filter, update)
 	if err != nil {
-		return nil, NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
 	}
 
 	return &dto.Data, nil
 }
 
 func (r *MongoResourceInstanceSpecializedRepository[T, C]) getCollection() *mongo.Collection {
-	client, _ := GetMongoClient()
-	return client.Database(GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
+	client, _ := sdk.GetMongoClient()
+	return client.Database(configuration.GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(rawResult bson.M) (*ResourceInstanceSpecialized[T, C], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(rawResult bson.M) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	metadata := make(map[string]interface{})
 	if rawMeta, ok := rawResult["metadata"]; ok && rawMeta != nil {
 		switch m := rawMeta.(type) {
@@ -552,7 +554,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(
 		}
 	}
 
-	res := &ResourceInstanceSpecialized[T, C]{
+	res := &sdk.ResourceInstanceSpecialized[T, C]{
 		This:         baseThis,
 		CategoryThis: categoryThis,
 		Metadata:     metadata,
@@ -560,7 +562,7 @@ func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertToSpecialized(
 	return res, nil
 }
 
-func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertFromSpecialized(data ResourceInstanceSpecialized[T, C]) (bson.M, error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) convertFromSpecialized(data sdk.ResourceInstanceSpecialized[T, C]) (bson.M, error) {
 	doc := bson.M{}
 
 	// merge This

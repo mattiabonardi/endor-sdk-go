@@ -1,4 +1,4 @@
-package sdk
+package configuration
 
 import (
 	"log"

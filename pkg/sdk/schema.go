@@ -11,36 +11,36 @@ import (
 type SchemaTypeName string
 
 const (
-	StringType  SchemaTypeName = "string"
-	IntegerType SchemaTypeName = "integer"
-	NumberType  SchemaTypeName = "number"
-	BooleanType SchemaTypeName = "boolean"
-	ObjectType  SchemaTypeName = "object"
-	ArrayType   SchemaTypeName = "array"
+	SchemaTypeString  SchemaTypeName = "string"
+	SchemaTypeInteger SchemaTypeName = "integer"
+	SchemaTypeNumber  SchemaTypeName = "number"
+	SchemaTypeBoolean SchemaTypeName = "boolean"
+	SchemaTypeObject  SchemaTypeName = "object"
+	SchemaTypeArray   SchemaTypeName = "array"
 )
 
 type SchemaFormatName string
 
 const (
-	DateTimeFormat     SchemaFormatName = "date-time"
-	DateFormat         SchemaFormatName = "date"
-	TimeFormat         SchemaFormatName = "time"
-	EmailFormat        SchemaFormatName = "email"
-	HostnameFormat     SchemaFormatName = "hostname"
-	IPv4Format         SchemaFormatName = "ipv4"
-	IPv6Format         SchemaFormatName = "ipv6"
-	URIFormat          SchemaFormatName = "uri"
-	UUIDFormat         SchemaFormatName = "uuid"
-	PasswordFormat     SchemaFormatName = "password"
-	CountryCodeFormat  SchemaFormatName = "country-code"  // ISO 3166-1 alpha-2 country code
-	LanguageCodeFormat SchemaFormatName = "language-code" // Language tag (e.g., en-US)
-	CurrencyFormat     SchemaFormatName = "currency"      // Currency code (e.g., USD, EUR)
-	YAMLFormat         SchemaFormatName = "yaml"
-	JSONFormat         SchemaFormatName = "json"
-	AssetFormat        SchemaFormatName = "asset"
-	ImageAssetFormat   SchemaFormatName = "image-asset"
-	AudioAssetFormat   SchemaFormatName = "audio-asset"
-	VideoAssetFormat   SchemaFormatName = "video-asset"
+	SchemaFormatDateTime     SchemaFormatName = "date-time"
+	SchemaFormatDate         SchemaFormatName = "date"
+	SchemaFormatTime         SchemaFormatName = "time"
+	SchemaFormatEmail        SchemaFormatName = "email"
+	SchemaFormatHostname     SchemaFormatName = "hostname"
+	SchemaFormatIPv4         SchemaFormatName = "ipv4"
+	SchemaFormatIPv6         SchemaFormatName = "ipv6"
+	SchemaFormatURI          SchemaFormatName = "uri"
+	SchemaFormatUUID         SchemaFormatName = "uuid"
+	SchemaFormatPassword     SchemaFormatName = "password"
+	SchemaFormatCountryCode  SchemaFormatName = "country-code"  // ISO 3166-1 alpha-2 country code
+	SchemaFormatLanguageCode SchemaFormatName = "language-code" // Language tag (e.g., en-US)
+	SchemaFormatCurrency     SchemaFormatName = "currency"      // Currency code (e.g., USD, EUR)
+	SchemaFormatYAML         SchemaFormatName = "yaml"
+	SchemaFormatJSON         SchemaFormatName = "json"
+	SchemaFormatAsset        SchemaFormatName = "asset"
+	SchemaFormatImageAsset   SchemaFormatName = "image-asset"
+	SchemaFormatAudioAsset   SchemaFormatName = "audio-asset"
+	SchemaFormatVideoAsset   SchemaFormatName = "video-asset"
 )
 
 func NewSchemaFormat(f SchemaFormatName) *SchemaFormatName {
@@ -101,6 +101,19 @@ func NewSchemaByType(t reflect.Type) *RootSchema {
 	}
 }
 
+func ResolveGenericSchema[T any]() *RootSchema {
+	var zeroT T
+	tType := reflect.TypeOf(zeroT)
+	if tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	// convert type to schema
+	if tType != nil && tType != reflect.TypeOf(NoPayload{}) {
+		return NewSchemaByType(tType)
+	}
+	return nil
+}
+
 func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 	// Dereference pointer types
 	if t.Kind() == reflect.Ptr {
@@ -112,7 +125,7 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 	// Check for infinite recursion - if we've seen this type before, return a simple string schema
 	if visited[typeName] {
 		return Schema{
-			Type:        StringType,
+			Type:        SchemaTypeString,
 			Description: &[]string{"Recursive reference to " + typeName}[0],
 		}
 	}
@@ -125,7 +138,7 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 	visited[typeName] = true
 
 	schema := Schema{
-		Type:       ObjectType,
+		Type:       SchemaTypeObject,
 		Properties: &map[string]Schema{},
 	}
 
@@ -170,31 +183,31 @@ func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited m
 
 	// Handle special types
 	if t.PkgPath() == "go.mongodb.org/mongo-driver/bson/primitive" && t.Name() == "ObjectID" {
-		schema = Schema{Type: StringType}
+		schema = Schema{Type: SchemaTypeString}
 	} else if t.PkgPath() == "go.mongodb.org/mongo-driver/bson/primitive" && t.Name() == "DateTime" {
-		schema = Schema{Type: StringType, Format: NewSchemaFormat(DateTimeFormat)}
+		schema = Schema{Type: SchemaTypeString, Format: NewSchemaFormat(SchemaFormatDateTime)}
 	} else {
 		// Handle built-in kinds
 		switch t.Kind() {
 		case reflect.String:
-			schema = Schema{Type: StringType}
+			schema = Schema{Type: SchemaTypeString}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			schema = Schema{Type: IntegerType}
+			schema = Schema{Type: SchemaTypeInteger}
 		case reflect.Float32, reflect.Float64:
-			schema = Schema{Type: NumberType}
+			schema = Schema{Type: SchemaTypeNumber}
 		case reflect.Bool:
-			schema = Schema{Type: BooleanType}
+			schema = Schema{Type: SchemaTypeBoolean}
 		case reflect.Slice, reflect.Array:
 			// Don't recurse with the same field – array element doesn't have tags
 			itemSchema := resolveExpandedFieldSchema(reflect.StructField{}, t.Elem(), visited)
 			schema = Schema{
-				Type:  ArrayType,
+				Type:  SchemaTypeArray,
 				Items: &itemSchema,
 			}
 		case reflect.Struct:
 			schema = buildExpandedSchema(t, visited)
 		default:
-			schema = Schema{Type: StringType}
+			schema = Schema{Type: SchemaTypeString}
 		}
 	}
 

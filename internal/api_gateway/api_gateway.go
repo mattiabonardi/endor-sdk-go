@@ -1,4 +1,4 @@
-package sdk
+package api_gateway
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 
+	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,7 +39,7 @@ type ApiGatewayConfigurationServer struct {
 	URL string `yaml:"url"`
 }
 
-func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddress string, services []EndorService) error {
+func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorService) error {
 	// Create model
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 

@@ -1,4 +1,4 @@
-package sdk
+package server
 
 import (
 	"fmt"
@@ -7,12 +7,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
+	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Endor struct {
-	internalEndorServices  *[]EndorService
-	internalHybridServices *[]EndorHybridService
+	internalEndorServices  *[]sdk.EndorService
+	internalHybridServices *[]sdk.EndorHybridService
 	postInitFunc           func()
 }
 
@@ -26,12 +28,12 @@ func NewEndorInitializer() *EndorInitializer {
 	}
 }
 
-func (b *EndorInitializer) WithEndorServices(services *[]EndorService) *EndorInitializer {
+func (b *EndorInitializer) WithEndorServices(services *[]sdk.EndorService) *EndorInitializer {
 	b.endor.internalEndorServices = services
 	return b
 }
 
-func (b *EndorInitializer) WithHybridServices(services *[]EndorHybridService) *EndorInitializer {
+func (b *EndorInitializer) WithHybridServices(services *[]sdk.EndorHybridService) *EndorInitializer {
 	b.endor.internalHybridServices = services
 	return b
 }
@@ -47,7 +49,7 @@ func (b *EndorInitializer) Build() *Endor {
 
 func (h *Endor) Init(microserviceId string) {
 	// load configuration
-	config := GetConfig()
+	config := configuration.GetConfig()
 
 	// define runtime configuration
 	config.DynamicResourceDocumentDBName = microserviceId

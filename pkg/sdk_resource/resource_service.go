@@ -1,10 +1,12 @@
-package sdk
+package sdk_resource
 
 import (
 	"fmt"
+
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewResourceService(microServiceId string, services *[]EndorService, hybridServices *[]EndorHybridService) *EndorService {
+func NewResourceService(microServiceId string, services *[]sdk.EndorService, hybridServices *[]sdk.EndorHybridService) *EndorService {
 	resourceService := ResourceService{
 		microServiceId: microServiceId,
 		services:       services,

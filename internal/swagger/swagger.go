@@ -1,4 +1,4 @@
-package sdk
+package swagger
 
 import (
 	"embed"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	sdk "github.com/mattiabonardi/endor-sdk-go/sdk"
 )
 
 //go:embed swagger/*
@@ -137,17 +139,17 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 		},
 		Tags: []OpenAPITag{},
 		Components: OpenApiComponents{
-			Schemas: map[string]Schema{
+			Schemas: map[string]sdk.Schema{
 				"DefaultEndorResponse": {
-					Type: ObjectType,
-					Properties: &map[string]Schema{
+					Type: sdk.SchemaTypeObject,
+					Properties: &map[string]sdk.Schema{
 						"messages": {
-							Items: &Schema{
-								Type: ObjectType,
-								Properties: &map[string]Schema{
+							Items: &sdk.Schema{
+								Type: sdk.SchemaTypeObject,
+								Properties: &map[string]sdk.Schema{
 									"gravity": {
-										Type: StringType,
-										Enum: &[]string{string(Info), string(Warning), string(Error), string(Fatal)},
+										Type: sdk.SchemaTypeString,
+										Enum: &[]string{string(sdk.Info), string(Warning), string(Error), string(Fatal)},
 									},
 									"value": {
 										Type: StringType,

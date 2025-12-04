@@ -2,9 +2,9 @@ package sdk
 
 // Response with Generics
 type Response[T any] struct {
-	Messages []Message   `json:"messages"`
-	Data     *T          `json:"data"`
-	Schema   *RootSchema `json:"schema"`
+	Messages []ResponseMessage `json:"messages"`
+	Data     *T                `json:"data"`
+	Schema   *RootSchema       `json:"schema"`
 }
 
 // ResponseBuilder with Generics
@@ -16,7 +16,7 @@ type ResponseBuilder[T any] struct {
 func NewResponseBuilder[T any]() *ResponseBuilder[T] {
 	return &ResponseBuilder[T]{
 		response: Response[T]{
-			Messages: []Message{},
+			Messages: []ResponseMessage{},
 		},
 	}
 }
@@ -25,12 +25,12 @@ func NewResponseBuilder[T any]() *ResponseBuilder[T] {
 func NewDefaultResponseBuilder() *ResponseBuilder[map[string]any] {
 	return &ResponseBuilder[map[string]any]{
 		response: Response[map[string]any]{
-			Messages: []Message{},
+			Messages: []ResponseMessage{},
 		},
 	}
 }
 
-func (h *ResponseBuilder[T]) AddMessage(message Message) *ResponseBuilder[T] {
+func (h *ResponseBuilder[T]) AddMessage(message ResponseMessage) *ResponseBuilder[T] {
 	h.response.Messages = append(h.response.Messages, message)
 	return h
 }
@@ -49,33 +49,23 @@ func (h *ResponseBuilder[T]) Build() *Response[T] {
 	return &h.response
 }
 
-type Meta struct {
-	Default  Presentation            `json:"default"`
-	Elements map[string]Presentation `json:"elements"`
-}
-
-type Presentation struct {
-	Entity string `json:"entity"`
-	Icon   string `json:"icon"`
-}
-
-type Message struct {
-	Gravity MessageGravity `json:"gravity"`
-	Value   string         `json:"value"`
+type ResponseMessage struct {
+	Gravity ResponseMessageGravity `json:"gravity"`
+	Value   string                 `json:"value"`
 }
 
 // Message Gravity
-type MessageGravity string
+type ResponseMessageGravity string
 
 const (
-	Info    MessageGravity = "Info"
-	Warning MessageGravity = "Warning"
-	Error   MessageGravity = "Error"
-	Fatal   MessageGravity = "Fatal"
+	ResponseMessageGravityInfo    ResponseMessageGravity = "Info"
+	ResponseMessageGravityWarning ResponseMessageGravity = "Warning"
+	ResponseMessageGravityError   ResponseMessageGravity = "Error"
+	ResponseMessageGravityFatal   ResponseMessageGravity = "Fatal"
 )
 
-func NewMessage(gravity MessageGravity, value string) Message {
-	return Message{
+func NewMessage(gravity ResponseMessageGravity, value string) ResponseMessage {
+	return ResponseMessage{
 		Gravity: gravity,
 		Value:   value,
 	}
