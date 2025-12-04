@@ -38,24 +38,6 @@ type Container interface {
 
 	// Reset clears all registered dependencies. Primarily used for testing scenarios.
 	Reset()
-
-	// GetHealthMonitor returns the health monitor instance for dependency health tracking
-	GetHealthMonitor() *HealthMonitor
-
-	// GetMemoryTracker returns the memory tracker for dependency optimization analysis
-	GetMemoryTracker() *MemoryTracker
-
-	// GetMemoryProfiler returns the memory profiler for memory usage analysis
-	GetMemoryProfiler() *MemoryProfiler
-
-	// GetPoolManager returns the dependency pool manager for resource pooling
-	GetPoolManager() *DependencyPoolManager
-
-	// GetLifecycleManager returns the lifecycle manager for dependency startup/shutdown
-	GetLifecycleManager() *LifecycleManager
-
-	// GetUpdateManager returns the dependency update manager for hot-reload and update propagation
-	GetUpdateManager() *DependencyUpdateManager
 }
 
 // Register provides type-safe registration of an interface implementation.

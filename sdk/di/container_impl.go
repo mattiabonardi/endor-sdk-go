@@ -17,66 +17,17 @@ type containerImpl struct {
 	// sharedManager manages scoped and singleton dependency sharing
 	sharedManager *SharedDependencyManager
 	// healthMonitor manages dependency health monitoring
-	healthMonitor *HealthMonitor
-	// circuitBreakerManager manages circuit breakers for dependencies
-	circuitBreakerManager *CircuitBreakerManager
-	// memoryTracker tracks memory usage optimization
-	memoryTracker *MemoryTracker
-	// memoryProfiler profiles memory usage patterns
-	memoryProfiler *MemoryProfiler
-	// poolManager manages dependency pools for expensive resources
-	poolManager *DependencyPoolManager
-	// lifecycleManager manages dependency startup and shutdown ordering
-	lifecycleManager *LifecycleManager
-	// updateManager manages dependency updates and propagation
-	updateManager *DependencyUpdateManager
-	// suggestionEngine provides intelligent error suggestions
-	suggestionEngine *SuggestionEngine
 	// mutex protects concurrent access to container state
 	mutex sync.RWMutex
 }
 
 // newContainerImpl creates a new container implementation
 func newContainerImpl() Container {
-	healthMonitor := NewHealthMonitor()
-	circuitBreakerManager := NewCircuitBreakerManager(DefaultCircuitBreakerConfig())
-	memoryTracker := NewMemoryTracker()
-	memoryProfiler := NewMemoryProfiler(true) // Enable profiling by default
-	poolManager := NewDependencyPoolManager()
-	lifecycleManager := NewLifecycleManager()
-	suggestionEngine := NewSuggestionEngine()
-
-	// Add circuit breaker listener to health monitor
-	cbListener := NewHealthAwareCircuitBreakerListener(circuitBreakerManager)
-	healthMonitor.AddListener(cbListener)
-
-	container := &containerImpl{
-		registrations:         make(map[string]*registration),
-		singletons:            make(map[string]interface{}),
-		sharedManager:         NewSharedDependencyManager(),
-		healthMonitor:         healthMonitor,
-		circuitBreakerManager: circuitBreakerManager,
-		memoryTracker:         memoryTracker,
-		memoryProfiler:        memoryProfiler,
-		poolManager:           poolManager,
-		lifecycleManager:      lifecycleManager,
-		suggestionEngine:      suggestionEngine,
+	return &containerImpl{
+		registrations: make(map[string]*registration),
+		singletons:    make(map[string]interface{}),
+		sharedManager: NewSharedDependencyManager(),
 	}
-
-	// Initialize update manager after container is created
-	updateManager := NewDependencyUpdateManager(container)
-	container.updateManager = updateManager
-
-	return container
-}
-
-// updateSuggestionEngine updates the suggestion engine with current registrations
-func (c *containerImpl) updateSuggestionEngine() {
-	registeredTypes := make(map[string]reflect.Type)
-	for typeKey, reg := range c.registrations {
-		registeredTypes[typeKey] = reg.interfaceType
-	}
-	c.suggestionEngine.UpdateRegisteredTypes(registeredTypes)
 }
 
 // RegisterType registers an implementation for an interface type
