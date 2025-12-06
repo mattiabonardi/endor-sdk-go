@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -54,7 +54,7 @@ func TestSchemaTypes(t *testing.T) {
 	}
 
 	// Root should be object type with properties
-	if schema.Type != sdk.ObjectType {
+	if schema.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected object type at root, got %v", schema.Type)
 	}
 
@@ -67,19 +67,19 @@ func TestSchemaTypes(t *testing.T) {
 		t.Fatalf("Expected 11 properties, got %d", len(userSchemaProperties))
 	}
 
-	if userSchemaProperties["id"].Type != sdk.StringType {
+	if userSchemaProperties["id"].Type != sdk.SchemaTypeString {
 		t.Fatalf("Expected id to be string type, got %v", userSchemaProperties["id"].Type)
 	}
-	if userSchemaProperties["age"].Type != sdk.IntegerType {
+	if userSchemaProperties["age"].Type != sdk.SchemaTypeInteger {
 		t.Fatalf("Received %v", userSchemaProperties["age"].Type)
 	}
-	if userSchemaProperties["active"].Type != sdk.BooleanType {
+	if userSchemaProperties["active"].Type != sdk.SchemaTypeBoolean {
 		t.Fatalf("Received %v", userSchemaProperties["active"].Type)
 	}
-	if userSchemaProperties["hobbies"].Type != sdk.ArrayType {
+	if userSchemaProperties["hobbies"].Type != sdk.SchemaTypeArray {
 		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Type)
 	}
-	if userSchemaProperties["hobbies"].Items.Type != sdk.StringType {
+	if userSchemaProperties["hobbies"].Items.Type != sdk.SchemaTypeString {
 		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Items.Type)
 	}
 
@@ -87,7 +87,7 @@ func TestSchemaTypes(t *testing.T) {
 	if userSchemaProperties["address"].Reference != "" {
 		t.Fatalf("Expected address to be expanded, not referenced")
 	}
-	if userSchemaProperties["address"].Type != sdk.ObjectType {
+	if userSchemaProperties["address"].Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected address to be object type, got %v", userSchemaProperties["address"].Type)
 	}
 	if userSchemaProperties["address"].Properties == nil {
@@ -99,13 +99,13 @@ func TestSchemaTypes(t *testing.T) {
 	}
 
 	// cars array should have expanded items, not references
-	if userSchemaProperties["cars"].Type != sdk.ArrayType {
+	if userSchemaProperties["cars"].Type != sdk.SchemaTypeArray {
 		t.Fatalf("Received %v", userSchemaProperties["cars"].Type)
 	}
 	if userSchemaProperties["cars"].Items.Reference != "" {
 		t.Fatalf("Expected cars items to be expanded, not referenced")
 	}
-	if userSchemaProperties["cars"].Items.Type != sdk.ObjectType {
+	if userSchemaProperties["cars"].Items.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected cars items to be object type, got %v", userSchemaProperties["cars"].Items.Type)
 	}
 	if userSchemaProperties["cars"].Items.Properties == nil {
@@ -117,21 +117,21 @@ func TestSchemaTypes(t *testing.T) {
 	}
 
 	// date time
-	if userSchemaProperties["dateTime"].Type != sdk.StringType {
+	if userSchemaProperties["dateTime"].Type != sdk.SchemaTypeString {
 		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Type)
 	}
-	if *userSchemaProperties["dateTime"].Format != sdk.DateTimeFormat {
+	if *userSchemaProperties["dateTime"].Format != sdk.SchemaFormatDateTime {
 		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Format)
 	}
 
 	// date (with decorators)
-	if userSchemaProperties["date"].Type != sdk.StringType {
+	if userSchemaProperties["date"].Type != sdk.SchemaTypeString {
 		t.Fatalf("Received %v", userSchemaProperties["date"].Type)
 	}
 	if *userSchemaProperties["date"].Description != "The Date" {
 		t.Fatalf("Received %v", userSchemaProperties["date"].Description)
 	}
-	if *userSchemaProperties["date"].Format != sdk.DateFormat {
+	if *userSchemaProperties["date"].Format != sdk.SchemaFormatDate {
 		t.Fatalf("Received %v", userSchemaProperties["date"].Format)
 	}
 
@@ -174,7 +174,7 @@ func TestRicorsionTypes(t *testing.T) {
 	}
 
 	// Root should be object type with properties
-	if schema.Type != sdk.ObjectType {
+	if schema.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected object type at root, got %v", schema.Type)
 	}
 
@@ -186,7 +186,7 @@ func TestRicorsionTypes(t *testing.T) {
 
 	// Check value property (should be expanded Car object)
 	valueProp := carTreeNodeSchemaProperties["value"]
-	if valueProp.Type != sdk.ObjectType {
+	if valueProp.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected value to be object type, got %v", valueProp.Type)
 	}
 	if valueProp.Properties == nil {
@@ -194,13 +194,13 @@ func TestRicorsionTypes(t *testing.T) {
 	}
 
 	// Check children property (array with recursive handling)
-	if carTreeNodeSchemaProperties["children"].Type != sdk.ArrayType {
+	if carTreeNodeSchemaProperties["children"].Type != sdk.SchemaTypeArray {
 		t.Fatalf("Expected children to be array type, got %v", carTreeNodeSchemaProperties["children"].Type)
 	}
 
 	// The recursive reference should be handled as a simple string schema
 	childrenItems := carTreeNodeSchemaProperties["children"].Items
-	if childrenItems.Type != sdk.StringType {
+	if childrenItems.Type != sdk.SchemaTypeString {
 		t.Fatalf("Expected recursive children items to be string type (recursion prevention), got %v", childrenItems.Type)
 	}
 	if childrenItems.Description == nil || !strings.Contains(*childrenItems.Description, "Recursive reference") {
@@ -220,7 +220,7 @@ func TestNoPayload(t *testing.T) {
 	}
 
 	// Should be object type with empty properties
-	if schema.Type != sdk.ObjectType {
+	if schema.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected object type, got %v", schema.Type)
 	}
 	if schema.Properties == nil {
@@ -245,7 +245,7 @@ func TestWithGenerics(t *testing.T) {
 	}
 
 	// Should be object type with properties
-	if schema.Type != sdk.ObjectType {
+	if schema.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected object type, got %v", schema.Type)
 	}
 	if schema.Properties == nil {
@@ -259,7 +259,7 @@ func TestWithGenerics(t *testing.T) {
 	if valueProp.Reference != "" {
 		t.Fatalf("Expected value to be expanded, not referenced")
 	}
-	if valueProp.Type != sdk.ObjectType {
+	if valueProp.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected value to be object type, got %v", valueProp.Type)
 	}
 	if valueProp.Properties == nil {
@@ -282,7 +282,7 @@ func TestExpandedSchema(t *testing.T) {
 	}
 
 	// Should have type object at root
-	if schema.Type != sdk.ObjectType {
+	if schema.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected object type at root, got %v", schema.Type)
 	}
 
@@ -301,7 +301,7 @@ func TestExpandedSchema(t *testing.T) {
 	if addressProp.Reference != "" {
 		t.Fatalf("Expected address to be expanded, not referenced")
 	}
-	if addressProp.Type != sdk.ObjectType {
+	if addressProp.Type != sdk.SchemaTypeObject {
 		t.Fatalf("Expected address to be object type, got %v", addressProp.Type)
 	}
 	if addressProp.Properties == nil {

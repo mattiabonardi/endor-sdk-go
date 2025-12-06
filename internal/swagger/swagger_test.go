@@ -1,14 +1,15 @@
-package swagger
+package swagger_test
 
 import (
 	"testing"
 
+	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
+	test_utils_service "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/service"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	services_test "github.com/mattiabonardi/endor-sdk-go/test/services"
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{services_test.NewService1()}, "/api")
+	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorService{test_utils_service.NewService1()}, "/api")
 	if err != nil {
 		t.Fail()
 	}

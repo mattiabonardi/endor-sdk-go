@@ -1,6 +1,6 @@
-package examples_services
+package test_utils_service
 
-import "github.com/mattiabonardi/endor-sdk-go/sdk"
+import "github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 
 type Service1Action1Payload struct {
 	Greet string `json:"greet"`
@@ -10,11 +10,11 @@ type Service1 struct {
 }
 
 func (h *Service1) action1(c *sdk.EndorContext[Service1Action1Payload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello World")).Build(), nil
 }
 
 func (h *Service1) cat1_action1(c *sdk.EndorContext[Service1Action1Payload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.Info, "Hello World")).Build(), nil
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello World")).Build(), nil
 }
 
 func NewService1() sdk.EndorService {

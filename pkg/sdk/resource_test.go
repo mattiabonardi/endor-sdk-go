@@ -3,7 +3,7 @@ package sdk_test
 import (
 	"testing"
 
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
 func TestNewResourceDefinitionFromYAML(t *testing.T) {

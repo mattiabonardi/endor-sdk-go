@@ -1,7 +1,8 @@
-package services_test
+package test_utils_service
 
 import (
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
 )
 
 type Service2BaseModel struct {
@@ -48,7 +49,7 @@ type Service2 struct {
 
 func (h *Service2) action1(c *sdk.EndorContext[Service2Action1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.Info, "Hello from Hybrid Service")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Service")).
 		Build(), nil
 }
 
@@ -58,15 +59,15 @@ func NewService2() sdk.EndorHybridService {
 	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
 	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
 
-	return sdk.NewHybridService[*Service2BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
+	return sdk_resource.NewHybridService[*Service2BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
 		WithCategories(
 			[]sdk.EndorHybridServiceCategory{
-				sdk.NewEndorHybridServiceCategory[*Service2BaseModel, *sdk.DynamicResourceSpecialized](sdk.Category{
+				sdk_resource.NewEndorHybridServiceCategory[*Service2BaseModel, *sdk.DynamicResourceSpecialized](sdk.Category{
 					ID:                   "cat-1",
 					Description:          "Category 1",
 					AdditionalAttributes: category1AdditionalSchema,
 				}),
-				sdk.NewEndorHybridServiceCategory[*Service2BaseModel, *Category2Schema](sdk.Category{
+				sdk_resource.NewEndorHybridServiceCategory[*Service2BaseModel, *Category2Schema](sdk.Category{
 					ID:                   "cat-2",
 					Description:          "Category 2",
 					AdditionalAttributes: category2AdditionalSchema,

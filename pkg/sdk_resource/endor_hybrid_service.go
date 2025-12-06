@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
@@ -143,28 +144,28 @@ func getCategorySchemaWithMetadata[T sdk.ResourceInstanceInterface, C sdk.Resour
 	return rootSchema
 }
 
-func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema RootSchema, resourceDescription string) map[string]EndorServiceAction {
+func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema sdk.RootSchema, resourceDescription string) map[string]sdk.EndorServiceAction {
 	// Crea repository usando DynamicResource come default (per ora)
 	autogenerateID := true
-	repository := NewResourceInstanceRepository[T](resource, ResourceInstanceRepositoryOptions{
+	repository := repository.NewResourceInstanceRepository[T](resource, repository.ResourceInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
 
-	return map[string]EndorServiceAction{
-		"schema": NewAction(
-			func(c *EndorContext[NoPayload]) (*Response[any], error) {
+	return map[string]sdk.EndorServiceAction{
+		"schema": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
 			fmt.Sprintf("Get the schema of the %s (%s)", resource, resourceDescription),
 		),
-		"instance": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstance[T]], error) {
+		"instance": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.ResourceInstance[T]], error) {
 				return defaultInstance(c, schema, repository)
 			},
 			fmt.Sprintf("Get the instance of %s (%s)", resource, resourceDescription),
 		),
-		"list": NewAction(
-			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstance[T]], error) {
+		"list": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.ResourceInstance[T]], error) {
 				return defaultList(c, schema, repository)
 			},
 			fmt.Sprintf("Search for available list of %s (%s)", resource, resourceDescription),
@@ -187,29 +188,29 @@ func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema 
 				return defaultCreate(c, schema, repository, resource)
 			},
 		),
-		"update": NewConfigurableAction(
-			EndorServiceActionOptions{
+		"update": sdk.NewConfigurableAction(
+			sdk.EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Update the existing instance of %s (%s)", resource, resourceDescription),
 				Public:          false,
 				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
+				InputSchema: &sdk.RootSchema{
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeObject,
+						Properties: &map[string]sdk.Schema{
 							"id": {
-								Type: StringType,
+								Type: sdk.SchemaTypeString,
 							},
 							"data": schema.Schema,
 						},
 					},
 				},
 			},
-			func(c *EndorContext[UpdateByIdDTO[ResourceInstance[T]]]) (*Response[ResourceInstance[T]], error) {
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]]) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 				return defaultUpdate(c, schema, repository, resource)
 			},
 		),
-		"delete": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
+		"delete": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
 				return defaultDelete(c, repository, resource)
 			},
 			fmt.Sprintf("Delete the existing instance of %s (%s)", resource, resourceDescription),
@@ -221,114 +222,114 @@ func defaultSchema[T sdk.ResourceInstanceInterface](_ *sdk.EndorContext[sdk.NoPa
 	return sdk.NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
 }
 
-func defaultInstance[T ResourceInstanceInterface](c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceRepository[T]) (*Response[*ResourceInstance[T]], error) {
+func defaultInstance[T sdk.ResourceInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T]) (*sdk.Response[*sdk.ResourceInstance[T]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[*ResourceInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.ResourceInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultList[T ResourceInstanceInterface](c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceRepository[T]) (*Response[[]ResourceInstance[T]], error) {
+func defaultList[T sdk.ResourceInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T]) (*sdk.Response[[]sdk.ResourceInstance[T]], error) {
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.ResourceInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreate[T ResourceInstanceInterface](c *EndorContext[CreateDTO[ResourceInstance[T]]], schema RootSchema, repository *ResourceInstanceRepository[T], resource string) (*Response[ResourceInstance[T]], error) {
+func defaultCreate[T sdk.ResourceInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstance[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created", resource))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created", resource))).Build(), nil
 }
 
-func defaultUpdate[T ResourceInstanceInterface](c *EndorContext[UpdateByIdDTO[ResourceInstance[T]]], schema RootSchema, repository *ResourceInstanceRepository[T], resource string) (*Response[ResourceInstance[T]], error) {
+func defaultUpdate[T sdk.ResourceInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated", resource))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated", resource))).Build(), nil
 }
 
-func defaultDelete[T ResourceInstanceInterface](c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceRepository[T], resource string) (*Response[any], error) {
+func defaultDelete[T sdk.ResourceInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[any], error) {
 	err := repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted", resource))).Build(), nil
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s deleted", resource))).Build(), nil
 }
 
-func getDefaultActionsForCategory[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](resource string, schema RootSchema, resourceDescription string, categoryID string) map[string]EndorServiceAction {
+func getDefaultActionsForCategory[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](resource string, schema sdk.RootSchema, resourceDescription string, categoryID string) map[string]sdk.EndorServiceAction {
 	autogenerateID := true
 
-	repository := NewResourceInstanceSpecializedRepository[T, C](
+	repository := repository.NewResourceInstanceSpecializedRepository[T, C](
 		resource,
-		ResourceInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
+		repository.ResourceInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
 	)
 
-	return map[string]EndorServiceAction{
-		categoryID + "/schema": NewAction(
-			func(c *EndorContext[NoPayload]) (*Response[any], error) {
+	return map[string]sdk.EndorServiceAction{
+		categoryID + "/schema": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
 			fmt.Sprintf("Get the schema of the %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		categoryID + "/list": NewAction(
-			func(c *EndorContext[ReadDTO]) (*Response[[]ResourceInstanceSpecialized[T, C]], error) {
+		categoryID + "/list": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.ResourceInstanceSpecialized[T, C]], error) {
 				return defaultListSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Search for available list of %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		categoryID + "/create": NewConfigurableAction(
-			EndorServiceActionOptions{
+		categoryID + "/create": sdk.NewConfigurableAction(
+			sdk.EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Create the instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 				Public:          false,
 				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
+				InputSchema: &sdk.RootSchema{
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeObject,
+						Properties: &map[string]sdk.Schema{
 							"data": schema.Schema,
 						},
 					},
 				},
 			},
-			func(c *EndorContext[CreateDTO[ResourceInstanceSpecialized[T, C]]]) (*Response[ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]]) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
 				return defaultCreateSpecialized(c, schema, repository, resource)
 			},
 		),
-		categoryID + "/instance": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[*ResourceInstanceSpecialized[T, C]], error) {
+		categoryID + "/instance": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.ResourceInstanceSpecialized[T, C]], error) {
 				return defaultInstanceSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
-		categoryID + "/update": NewConfigurableAction(
-			EndorServiceActionOptions{
+		categoryID + "/update": sdk.NewConfigurableAction(
+			sdk.EndorServiceActionOptions{
 				Description:     fmt.Sprintf("Update the existing instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
 				Public:          false,
 				ValidatePayload: true,
-				InputSchema: &RootSchema{
-					Schema: Schema{
-						Type: ObjectType,
-						Properties: &map[string]Schema{
+				InputSchema: &sdk.RootSchema{
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeObject,
+						Properties: &map[string]sdk.Schema{
 							"id": {
-								Type: StringType,
+								Type: sdk.SchemaTypeString,
 							},
 							"data": schema.Schema,
 						},
 					},
 				},
 			},
-			func(c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]]) (*Response[ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]]) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
 				return defaultUpdateSpecialized(c, schema, repository, resource)
 			},
 		),
-		categoryID + "/delete": NewAction(
-			func(c *EndorContext[ReadInstanceDTO]) (*Response[any], error) {
+		categoryID + "/delete": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
 				return defaultDeleteSpecialized(c, repository, resource)
 			},
 			fmt.Sprintf("Delete the existing instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
@@ -336,42 +337,42 @@ func getDefaultActionsForCategory[T ResourceInstanceInterface, C ResourceInstanc
 	}
 }
 
-func defaultListSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C]) (*Response[[]ResourceInstanceSpecialized[T, C]], error) {
+func defaultListSpecialized[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[[]sdk.ResourceInstanceSpecialized[T, C]], error) {
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[[]ResourceInstanceSpecialized[T, C]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.ResourceInstanceSpecialized[T, C]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreateSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[CreateDTO[ResourceInstanceSpecialized[T, C]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[ResourceInstanceSpecialized[T, C]], error) {
+func defaultCreateSpecialized[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s created (category)", resource))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created (category)", resource))).Build(), nil
 }
 
-func defaultInstanceSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadInstanceDTO], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C]) (*Response[*ResourceInstanceSpecialized[T, C]], error) {
+func defaultInstanceSpecialized[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[*sdk.ResourceInstanceSpecialized[T, C]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[*ResourceInstanceSpecialized[T, C]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.ResourceInstanceSpecialized[T, C]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[UpdateByIdDTO[ResourceInstanceSpecialized[T, C]]], schema RootSchema, repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[ResourceInstanceSpecialized[T, C]], error) {
+func defaultUpdateSpecialized[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[ResourceInstanceSpecialized[T, C]]().AddData(updated).AddSchema(&schema).AddMessage(NewMessage(Info, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
 }
 
-func defaultDeleteSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface](c *EndorContext[ReadInstanceDTO], repository *ResourceInstanceSpecializedRepository[T, C], resource string) (*Response[any], error) {
+func defaultDeleteSpecialized[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[any], error) {
 	err := repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return NewResponseBuilder[any]().AddMessage(NewMessage(Info, fmt.Sprintf("%s deleted (category)", resource))).Build(), nil
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s deleted (category)", resource))).Build(), nil
 }

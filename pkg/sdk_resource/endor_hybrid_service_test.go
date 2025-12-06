@@ -1,10 +1,10 @@
-package sdk
+package sdk_resource_test
 
 import (
 	"testing"
 
-	"github.com/mattiabonardi/endor-sdk-go/sdk"
-	services_test "github.com/mattiabonardi/endor-sdk-go/test/services"
+	test_utils_service "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/service"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
 type AdditionalAttributesMock struct {
@@ -12,8 +12,7 @@ type AdditionalAttributesMock struct {
 }
 
 func TestEndorHybridService(t *testing.T) {
-
-	hybridService := services_test.NewService2()
+	hybridService := test_utils_service.NewService2()
 	endorService := hybridService.ToEndorService(
 		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
 	)
