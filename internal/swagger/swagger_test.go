@@ -20,7 +20,8 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	// endor resources
 	assert.Equal(t, "Resource 1 (EndorService with categories)", def.Tags[0].Description, "Expected correct tag description")
 	// check paths
-	assert.Len(t, def.Paths, 2, "Expected 2 paths")
+	assert.Len(t, def.Paths, 3, "Expected 3 paths")
 	assert.Contains(t, def.Paths, "/api/v1/resource-1/action1", "Expected '/api/v1/resource-1/action1' path to exist")
 	assert.Contains(t, def.Paths, "/api/v1/resource-1/cat_1/action1", "Expected '/api/v1/resource-1/cat_1/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/resource-1/public-action", "Expected '/api/v1/resource-1/public-action' path to exist")
 }

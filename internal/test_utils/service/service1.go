@@ -17,6 +17,10 @@ func (h *Service1) cat1_action1(c *sdk.EndorContext[Service1Action1Payload]) (*s
 	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello World")).Build(), nil
 }
 
+func (h *Service1) publicAction(c *sdk.EndorContext[Service1Action1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Public Hello World")).Build(), nil
+}
+
 func NewService1() sdk.EndorService {
 	service := Service1{}
 	return sdk.EndorService{
@@ -30,6 +34,14 @@ func NewService1() sdk.EndorService {
 			"cat_1/action1": sdk.NewAction(
 				service.cat1_action1,
 				"Action specified for category",
+			),
+			"public-action": sdk.NewConfigurableAction(
+				sdk.EndorServiceActionOptions{
+					Description:     "Public Action that doesn't require authentication",
+					Public:          true,
+					ValidatePayload: true,
+				},
+				service.publicAction,
 			),
 		},
 	}
