@@ -12,19 +12,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// MongoResourceInstanceRepository with dependency injection
-type MongoResourceInstanceRepository[T sdk.ResourceInstanceInterface] struct {
+// MongoResourceInstanceSpecializedRepository with dependency injection
+type MongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] struct {
 	collectionName string
 	idConverter    IDConverter
-	docConverter   *DocumentConverter[T]
+	docConverter   *SpecializedDocumentConverter[T, C]
 	autoGenerateID bool
 }
 
-// NewMongoResourceInstanceRepository creates repository with injected dependencies
-func NewMongoResourceInstanceRepository[T sdk.ResourceInstanceInterface](
+// NewMongoResourceInstanceSpecializedRepository creates specialized repository with injected dependencies
+func NewMongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](
 	collectionName string,
 	options ResourceInstanceRepositoryOptions,
-) *MongoResourceInstanceRepository[T] {
+) *MongoResourceInstanceSpecializedRepository[T, C] {
 	var idConverter IDConverter
 	if *options.AutoGenerateID {
 		idConverter = &ObjectIDConverter{}
@@ -32,15 +32,15 @@ func NewMongoResourceInstanceRepository[T sdk.ResourceInstanceInterface](
 		idConverter = &StringIDConverter{}
 	}
 
-	return &MongoResourceInstanceRepository[T]{
+	return &MongoResourceInstanceSpecializedRepository[T, C]{
 		collectionName: collectionName,
 		idConverter:    idConverter,
-		docConverter:   &DocumentConverter[T]{},
+		docConverter:   &SpecializedDocumentConverter[T, C]{},
 		autoGenerateID: *options.AutoGenerateID,
 	}
 }
 
-func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.ResourceInstance[T], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	var rawResult bson.M
 
 	filter, err := r.idConverter.ToFilter(dto.Id)
@@ -56,23 +56,10 @@ func (r *MongoResourceInstanceRepository[T]) Instance(ctx context.Context, dto s
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find resource instance: %w", err))
 	}
 
-	metadata, err := r.docConverter.ExtractMetadata(rawResult)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to extract metadata: %w", err))
-	}
-
-	model, err := r.docConverter.ToModel(rawResult, r.idConverter)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(err)
-	}
-
-	return &sdk.ResourceInstance[T]{
-		This:     model,
-		Metadata: metadata,
-	}, nil
+	return r.docConverter.ToSpecialized(rawResult, r.idConverter)
 }
 
-func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.ResourceInstance[T], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.ResourceInstanceSpecialized[T, C], error) {
 	mongoFilter, err := prepareFilter[T](dto.Filter)
 	if err != nil {
 		return nil, err
@@ -81,37 +68,28 @@ func (r *MongoResourceInstanceRepository[T]) List(ctx context.Context, dto sdk.R
 	opts := options.Find().SetProjection(prepareProjection[T](dto.Projection))
 	cursor, err := r.getCollection().Find(ctx, mongoFilter, opts)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list resources: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find resource instances: %w", err))
 	}
 	defer cursor.Close(ctx)
 
 	var rawResults []bson.M
-	if err := cursor.All(ctx, &rawResults); err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode resources: %w", err))
+	if err = cursor.All(ctx, &rawResults); err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode resource instances: %w", err))
 	}
 
-	results := make([]sdk.ResourceInstance[T], 0, len(rawResults))
-	for _, raw := range rawResults {
-		metadata, err := r.docConverter.ExtractMetadata(raw)
-		if err != nil {
-			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to extract metadata: %w", err))
-		}
-
-		model, err := r.docConverter.ToModel(raw, r.idConverter)
+	specializedResults := make([]sdk.ResourceInstanceSpecialized[T, C], 0, len(rawResults))
+	for _, rawResult := range rawResults {
+		converted, err := r.docConverter.ToSpecialized(rawResult, r.idConverter)
 		if err != nil {
 			return nil, sdk.NewInternalServerError(err)
 		}
-
-		results = append(results, sdk.ResourceInstance[T]{
-			This:     model,
-			Metadata: metadata,
-		})
+		specializedResults = append(specializedResults, *converted)
 	}
 
-	return results, nil
+	return specializedResults, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[sdk.ResourceInstance[T]]) (*sdk.ResourceInstance[T], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Create(ctx context.Context, dto sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	idPtr := dto.Data.This.GetID()
 	var idStr string
 
@@ -135,7 +113,7 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto sdk
 		}
 	}
 
-	doc, err := r.docConverter.ToDocument(dto.Data.This, dto.Data.Metadata, r.idConverter)
+	doc, err := r.docConverter.ToDocument(dto.Data, r.idConverter)
 	if err != nil {
 		return nil, sdk.NewInternalServerError(err)
 	}
@@ -151,7 +129,7 @@ func (r *MongoResourceInstanceRepository[T]) Create(ctx context.Context, dto sdk
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]) (*sdk.ResourceInstance[T], error) {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]) (*sdk.ResourceInstanceSpecialized[T, C], error) {
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return nil, err
@@ -162,7 +140,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto sdk
 		return nil, sdk.NewBadRequestError(err)
 	}
 
-	doc, err := r.docConverter.ToDocument(dto.Data.This, dto.Data.Metadata, r.idConverter)
+	doc, err := r.docConverter.ToDocument(dto.Data, r.idConverter)
 	if err != nil {
 		return nil, sdk.NewInternalServerError(err)
 	}
@@ -171,6 +149,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto sdk
 	if err != nil {
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update resource instance: %w", err))
 	}
+
 	if result.MatchedCount == 0 {
 		return nil, sdk.NewNotFoundError(fmt.Errorf("resource instance with id %v not found", dto.Id))
 	}
@@ -179,7 +158,7 @@ func (r *MongoResourceInstanceRepository[T]) Update(ctx context.Context, dto sdk
 	return &dto.Data, nil
 }
 
-func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return err
@@ -202,42 +181,7 @@ func (r *MongoResourceInstanceRepository[T]) Delete(ctx context.Context, dto sdk
 	return nil
 }
 
-// Helper functions remain the same
-func prepareProjection[T sdk.ResourceInstanceInterface](projection map[string]interface{}) bson.M {
-	result := bson.M{}
-	var thisModel T
-	modelFields := map[string]struct{}{}
-	b, _ := bson.Marshal(thisModel)
-	_ = bson.Unmarshal(b, &modelFields)
-
-	for k, v := range projection {
-		if _, ok := modelFields[k]; ok {
-			result[k] = v
-		} else {
-			result["metadata."+k] = v
-		}
-	}
-	return result
-}
-
-func prepareFilter[T sdk.ResourceInstanceInterface](filter map[string]interface{}) (bson.M, error) {
-	result := bson.M{}
-	var thisModel T
-	modelFields := map[string]struct{}{}
-	b, _ := bson.Marshal(thisModel)
-	_ = bson.Unmarshal(b, &modelFields)
-
-	for k, v := range filter {
-		if _, ok := modelFields[k]; ok {
-			result[k] = v
-		} else {
-			result["metadata."+k] = v
-		}
-	}
-	return result, nil
-}
-
-func (r *MongoResourceInstanceRepository[T]) getCollection() *mongo.Collection {
+func (r *MongoResourceInstanceSpecializedRepository[T, C]) getCollection() *mongo.Collection {
 	client, _ := sdk.GetMongoClient()
 	return client.Database(configuration.GetConfig().DynamicResourceDocumentDBName).Collection(r.collectionName)
 }
