@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewResourceDefinitionFromYAML(t *testing.T) {
@@ -20,16 +22,10 @@ properties:
 		AdditionalAttributes: yamlInput,
 	}
 	def, err := resource.UnmarshalAdditionalAttributes()
-	if err != nil {
-		t.Fatalf("Error parsing definition: %v", err)
-	}
+	require.NoError(t, err, "Error parsing definition")
 
-	if def.Schema.Type != "object" {
-		t.Errorf("Expected schema type 'object', got %q", def.Schema.Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, def.Schema.Type, "Expected schema type 'object'")
 
 	properties := *def.Schema.Properties
-	if _, ok := properties["name"]; !ok {
-		t.Errorf("Schema properties missing 'name'")
-	}
+	assert.Contains(t, properties, "name", "Schema properties missing 'name'")
 }

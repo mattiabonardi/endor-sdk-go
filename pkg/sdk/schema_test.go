@@ -1,10 +1,10 @@
 package sdk_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -44,227 +44,124 @@ func TestSchemaTypes(t *testing.T) {
 	schema := sdk.NewSchema(&User{})
 
 	// With expanded schema, no root reference
-	if schema.Reference != "" {
-		t.Fatalf("Expected no root reference, got %v", schema.Reference)
-	}
+	assert.Empty(t, schema.Reference, "Expected no root reference")
 
 	// Definitions should be empty
-	if len(schema.Definitions) != 0 {
-		t.Fatalf("Expected empty definitions, got %d", len(schema.Definitions))
-	}
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
 
 	// Root should be object type with properties
-	if schema.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected object type at root, got %v", schema.Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
 
-	if schema.Properties == nil {
-		t.Fatalf("Expected properties to be present")
-	}
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
 
 	userSchemaProperties := *schema.Properties
-	if len(userSchemaProperties) != 11 {
-		t.Fatalf("Expected 11 properties, got %d", len(userSchemaProperties))
-	}
+	assert.Len(t, userSchemaProperties, 11, "Expected 11 properties")
 
-	if userSchemaProperties["id"].Type != sdk.SchemaTypeString {
-		t.Fatalf("Expected id to be string type, got %v", userSchemaProperties["id"].Type)
-	}
-	if userSchemaProperties["age"].Type != sdk.SchemaTypeInteger {
-		t.Fatalf("Received %v", userSchemaProperties["age"].Type)
-	}
-	if userSchemaProperties["active"].Type != sdk.SchemaTypeBoolean {
-		t.Fatalf("Received %v", userSchemaProperties["active"].Type)
-	}
-	if userSchemaProperties["hobbies"].Type != sdk.SchemaTypeArray {
-		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Type)
-	}
-	if userSchemaProperties["hobbies"].Items.Type != sdk.SchemaTypeString {
-		t.Fatalf("Received %v", userSchemaProperties["hobbies"].Items.Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeString, userSchemaProperties["id"].Type, "Expected id to be string type")
+	assert.Equal(t, sdk.SchemaTypeInteger, userSchemaProperties["age"].Type, "Expected age to be integer type")
+	assert.Equal(t, sdk.SchemaTypeBoolean, userSchemaProperties["active"].Type, "Expected active to be boolean type")
+	assert.Equal(t, sdk.SchemaTypeArray, userSchemaProperties["hobbies"].Type, "Expected hobbies to be array type")
+	assert.Equal(t, sdk.SchemaTypeString, userSchemaProperties["hobbies"].Items.Type, "Expected hobbies items to be string type")
 
 	// address should be expanded object, not reference
-	if userSchemaProperties["address"].Reference != "" {
-		t.Fatalf("Expected address to be expanded, not referenced")
-	}
-	if userSchemaProperties["address"].Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected address to be object type, got %v", userSchemaProperties["address"].Type)
-	}
-	if userSchemaProperties["address"].Properties == nil {
-		t.Fatalf("Expected address properties to be expanded")
-	}
+	assert.Empty(t, userSchemaProperties["address"].Reference, "Expected address to be expanded, not referenced")
+	assert.Equal(t, sdk.SchemaTypeObject, userSchemaProperties["address"].Type, "Expected address to be object type")
+	assert.NotNil(t, userSchemaProperties["address"].Properties, "Expected address properties to be expanded")
 	addressSchemaProperties := *userSchemaProperties["address"].Properties
-	if len(addressSchemaProperties) != 2 {
-		t.Fatalf("Expected 2 address properties, got %d", len(addressSchemaProperties))
-	}
+	assert.Len(t, addressSchemaProperties, 2, "Expected 2 address properties")
 
 	// cars array should have expanded items, not references
-	if userSchemaProperties["cars"].Type != sdk.SchemaTypeArray {
-		t.Fatalf("Received %v", userSchemaProperties["cars"].Type)
-	}
-	if userSchemaProperties["cars"].Items.Reference != "" {
-		t.Fatalf("Expected cars items to be expanded, not referenced")
-	}
-	if userSchemaProperties["cars"].Items.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected cars items to be object type, got %v", userSchemaProperties["cars"].Items.Type)
-	}
-	if userSchemaProperties["cars"].Items.Properties == nil {
-		t.Fatalf("Expected cars items properties to be expanded")
-	}
+	assert.Equal(t, sdk.SchemaTypeArray, userSchemaProperties["cars"].Type, "Expected cars to be array type")
+	assert.Empty(t, userSchemaProperties["cars"].Items.Reference, "Expected cars items to be expanded, not referenced")
+	assert.Equal(t, sdk.SchemaTypeObject, userSchemaProperties["cars"].Items.Type, "Expected cars items to be object type")
+	assert.NotNil(t, userSchemaProperties["cars"].Items.Properties, "Expected cars items properties to be expanded")
 	carSchemaProperties := *userSchemaProperties["cars"].Items.Properties
-	if len(carSchemaProperties) != 1 {
-		t.Fatalf("Expected 1 car property, got %d", len(carSchemaProperties))
-	}
+	assert.Len(t, carSchemaProperties, 1, "Expected 1 car property")
 
 	// date time
-	if userSchemaProperties["dateTime"].Type != sdk.SchemaTypeString {
-		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Type)
-	}
-	if *userSchemaProperties["dateTime"].Format != sdk.SchemaFormatDateTime {
-		t.Fatalf("Received %v", userSchemaProperties["dateTime"].Format)
-	}
+	assert.Equal(t, sdk.SchemaTypeString, userSchemaProperties["dateTime"].Type, "Expected dateTime to be string type")
+	assert.Equal(t, sdk.SchemaFormatDateTime, *userSchemaProperties["dateTime"].Format, "Expected dateTime format to be datetime")
 
 	// date (with decorators)
-	if userSchemaProperties["date"].Type != sdk.SchemaTypeString {
-		t.Fatalf("Received %v", userSchemaProperties["date"].Type)
-	}
-	if *userSchemaProperties["date"].Description != "The Date" {
-		t.Fatalf("Received %v", userSchemaProperties["date"].Description)
-	}
-	if *userSchemaProperties["date"].Format != sdk.SchemaFormatDate {
-		t.Fatalf("Received %v", userSchemaProperties["date"].Format)
-	}
+	assert.Equal(t, sdk.SchemaTypeString, userSchemaProperties["date"].Type, "Expected date to be string type")
+	assert.Equal(t, "The Date", *userSchemaProperties["date"].Description, "Expected correct date description")
+	assert.Equal(t, sdk.SchemaFormatDate, *userSchemaProperties["date"].Format, "Expected date format to be date")
 
 	// ui schema
-	if *userSchemaProperties["date"].UISchema.Resource != "xxx" {
-		t.Fatalf("Received %v", userSchemaProperties["date"].UISchema.Resource)
-	}
-	if !*userSchemaProperties["date"].UISchema.Hidden {
-		t.Fatalf("Received %v", userSchemaProperties["date"].UISchema.Hidden)
-	}
+	assert.Equal(t, "xxx", *userSchemaProperties["date"].UISchema.Resource, "Expected correct UI schema resource")
+	assert.True(t, *userSchemaProperties["date"].UISchema.Hidden, "Expected UI schema hidden to be true")
 
 	// Root UI schema order
-	if len(*schema.UISchema.Order) != 11 {
-		t.Fatalf("Expected 11 ordered fields, got %d", len(*schema.UISchema.Order))
-	}
+	assert.Len(t, *schema.UISchema.Order, 11, "Expected 11 ordered fields")
 	order := *schema.UISchema.Order
-	if order[0] != "id" {
-		t.Fatalf("Expected first field to be 'id', got %v", order[0])
-	}
-	if order[1] != "name" {
-		t.Fatalf("Expected second field to be 'name', got %v", order[1])
-	}
-	if order[4] != "active" {
-		t.Fatalf("Expected fifth field to be 'active', got %v", order[4])
-	}
-	if order[8] != "car" {
-		t.Fatalf("Expected ninth field to be 'car', got %v", order[8])
-	}
+	assert.Equal(t, "id", order[0], "Expected first field to be 'id'")
+	assert.Equal(t, "name", order[1], "Expected second field to be 'name'")
+	assert.Equal(t, "active", order[4], "Expected fifth field to be 'active'")
+	assert.Equal(t, "car", order[8], "Expected ninth field to be 'car'")
 }
 
 func TestRicorsionTypes(t *testing.T) {
 	schema := sdk.NewSchema(&CarTreeNode{})
 
 	// With expanded schema, no definitions and no root reference
-	if len(schema.Definitions) != 0 {
-		t.Fatalf("Expected empty definitions, got %d", len(schema.Definitions))
-	}
-	if schema.Reference != "" {
-		t.Fatalf("Expected no root reference, got %v", schema.Reference)
-	}
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
 
 	// Root should be object type with properties
-	if schema.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected object type at root, got %v", schema.Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
 
-	if schema.Properties == nil {
-		t.Fatalf("Expected properties to be present")
-	}
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
 
 	carTreeNodeSchemaProperties := *schema.Properties
 
 	// Check value property (should be expanded Car object)
 	valueProp := carTreeNodeSchemaProperties["value"]
-	if valueProp.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected value to be object type, got %v", valueProp.Type)
-	}
-	if valueProp.Properties == nil {
-		t.Fatalf("Expected value properties to be expanded")
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, valueProp.Type, "Expected value to be object type")
+	assert.NotNil(t, valueProp.Properties, "Expected value properties to be expanded")
 
 	// Check children property (array with recursive handling)
-	if carTreeNodeSchemaProperties["children"].Type != sdk.SchemaTypeArray {
-		t.Fatalf("Expected children to be array type, got %v", carTreeNodeSchemaProperties["children"].Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeArray, carTreeNodeSchemaProperties["children"].Type, "Expected children to be array type")
 
 	// The recursive reference should be handled as a simple string schema
 	childrenItems := carTreeNodeSchemaProperties["children"].Items
-	if childrenItems.Type != sdk.SchemaTypeString {
-		t.Fatalf("Expected recursive children items to be string type (recursion prevention), got %v", childrenItems.Type)
-	}
-	if childrenItems.Description == nil || !strings.Contains(*childrenItems.Description, "Recursive reference") {
-		t.Fatalf("Expected recursive description to be present")
-	}
+	assert.Equal(t, sdk.SchemaTypeString, childrenItems.Type, "Expected recursive children items to be string type (recursion prevention)")
+	assert.NotNil(t, childrenItems.Description, "Expected recursive description to be present")
+	assert.Contains(t, *childrenItems.Description, "Recursive reference", "Expected recursive description to contain 'Recursive reference'")
 }
 
 func TestNoPayload(t *testing.T) {
 	schema := sdk.NewSchema(sdk.NoPayload{})
 
 	// With expanded schema, no definitions and no root reference
-	if len(schema.Definitions) != 0 {
-		t.Fatalf("Expected empty definitions, got %d", len(schema.Definitions))
-	}
-	if schema.Reference != "" {
-		t.Fatalf("Expected no root reference, got %v", schema.Reference)
-	}
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
 
 	// Should be object type with empty properties
-	if schema.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected object type, got %v", schema.Type)
-	}
-	if schema.Properties == nil {
-		t.Fatalf("Expected properties to be present (even if empty)")
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type")
+	assert.NotNil(t, schema.Properties, "Expected properties to be present (even if empty)")
 
 	noPayloadSchemaProperties := *schema.Properties
-	if len(noPayloadSchemaProperties) != 0 {
-		t.Fatalf("Expected 0 properties, got %d", len(noPayloadSchemaProperties))
-	}
+	assert.Empty(t, noPayloadSchemaProperties, "Expected 0 properties")
 }
 
 func TestWithGenerics(t *testing.T) {
 	schema := sdk.NewSchema(&GenericCar[Car]{})
 
 	// With expanded schema, no definitions and no root reference
-	if len(schema.Definitions) != 0 {
-		t.Fatalf("Expected empty definitions, got %d", len(schema.Definitions))
-	}
-	if schema.Reference != "" {
-		t.Fatalf("Expected no root reference, got %v", schema.Reference)
-	}
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
 
 	// Should be object type with properties
-	if schema.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected object type, got %v", schema.Type)
-	}
-	if schema.Properties == nil {
-		t.Fatalf("Expected properties to be present")
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type")
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
 
 	genericCarSchemaProperties := *schema.Properties
 
 	// Value property should be expanded Car object, not reference
 	valueProp := genericCarSchemaProperties["value"]
-	if valueProp.Reference != "" {
-		t.Fatalf("Expected value to be expanded, not referenced")
-	}
-	if valueProp.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected value to be object type, got %v", valueProp.Type)
-	}
-	if valueProp.Properties == nil {
-		t.Fatalf("Expected value properties to be expanded")
-	}
+	assert.Empty(t, valueProp.Reference, "Expected value to be expanded, not referenced")
+	assert.Equal(t, sdk.SchemaTypeObject, valueProp.Type, "Expected value to be object type")
+	assert.NotNil(t, valueProp.Properties, "Expected value properties to be expanded")
 }
 
 func TestExpandedSchema(t *testing.T) {
@@ -272,44 +169,26 @@ func TestExpandedSchema(t *testing.T) {
 	schema := sdk.NewSchema(&User{})
 
 	// Should not have any definitions (empty map)
-	if len(schema.Definitions) != 0 {
-		t.Fatalf("Expected empty definitions, got %d", len(schema.Definitions))
-	}
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
 
 	// Should not have a reference at root level
-	if schema.Reference != "" {
-		t.Fatalf("Expected no root reference, got %v", schema.Reference)
-	}
+	assert.Empty(t, schema.Reference, "Expected no root reference")
 
 	// Should have type object at root
-	if schema.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected object type at root, got %v", schema.Type)
-	}
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
 
 	// Should have properties directly expanded
-	if schema.Properties == nil {
-		t.Fatalf("Expected properties to be present")
-	}
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
 
 	props := *schema.Properties
-	if len(props) != 11 {
-		t.Fatalf("Expected 11 properties, got %d", len(props))
-	}
+	assert.Len(t, props, 11, "Expected 11 properties")
 
 	// Check nested object is expanded, not referenced
 	addressProp := props["address"]
-	if addressProp.Reference != "" {
-		t.Fatalf("Expected address to be expanded, not referenced")
-	}
-	if addressProp.Type != sdk.SchemaTypeObject {
-		t.Fatalf("Expected address to be object type, got %v", addressProp.Type)
-	}
-	if addressProp.Properties == nil {
-		t.Fatalf("Expected address properties to be expanded")
-	}
+	assert.Empty(t, addressProp.Reference, "Expected address to be expanded, not referenced")
+	assert.Equal(t, sdk.SchemaTypeObject, addressProp.Type, "Expected address to be object type")
+	assert.NotNil(t, addressProp.Properties, "Expected address properties to be expanded")
 
 	addressProps := *addressProp.Properties
-	if len(addressProps) != 2 {
-		t.Fatalf("Expected 2 address properties, got %d", len(addressProps))
-	}
+	assert.Len(t, addressProps, 2, "Expected 2 address properties")
 }
