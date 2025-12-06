@@ -14,6 +14,7 @@ type ServerConfig struct {
 	HybridResourcesEnabled        bool
 	DynamicResourcesEnabled       bool
 	DynamicResourceDocumentDBName string
+	LogType                       string
 }
 
 // Variabili globali per il singleton
@@ -42,12 +43,14 @@ func loadConfiguration() *ServerConfig {
 
 	hybridResourcesEnabled := getEnvAsBool("HYBRID_RESOURCES_ENABLED", false)
 	dynamicResourcesEnabled := getEnvAsBool("DYNAMIC_RESOURCES_ENABLED", false)
+	logType := getEnv("LOG_TYPE", "JSON")
 
 	return &ServerConfig{
 		ServerPort:              port,
 		DocumentDBUri:           dbUri,
 		HybridResourcesEnabled:  hybridResourcesEnabled,
 		DynamicResourcesEnabled: dynamicResourcesEnabled,
+		LogType:                 logType,
 	}
 }
 

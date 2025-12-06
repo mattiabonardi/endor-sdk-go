@@ -11,13 +11,12 @@ type Session struct {
 }
 
 type EndorContext[T any] struct {
-	MicroServiceId         string
-	Session                Session
-	Payload                T
-	ResourceMetadataSchema RootSchema
-	CategoryID             *string // ID della categoria per API specializzate, nil se non categorizzata
+	MicroServiceId string
+	Session        Session
+	Payload        T
 
 	GinContext *gin.Context
+	Logger     Logger
 }
 
 type NoPayload struct{}

@@ -105,7 +105,7 @@ func (h *Endor) Init(microserviceId string) {
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					method.CreateHTTPCallback(microserviceId)(c)
+					method.CreateHTTPCallback(microserviceId, resource, action)(c)
 					return
 				}
 			}

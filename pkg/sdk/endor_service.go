@@ -6,12 +6,13 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 )
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceAction interface {
-	CreateHTTPCallback(microserviceId string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, resource string, action string) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
 }
 
@@ -57,7 +58,7 @@ type endorServiceActionImpl[T any, R any] struct {
 	options EndorServiceActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string) func(c *gin.Context) {
+func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, resource string, action string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -68,23 +69,32 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 			Username:    c.GetHeader("x-user-id"),
 			Development: development,
 		}
-		// Recupera categoryID dal context Gin se presente
-		var categoryID *string
-		if catID, exists := c.Get("categoryID"); exists {
-			if catIDStr, ok := catID.(string); ok {
-				categoryID = &catIDStr
-			}
-		}
+
+		// logger
+		configuration := configuration.GetConfig()
+		logger := NewLogger(Config{
+			LogType: LogType(configuration.LogType),
+		}, LogContext{
+			UserSession: session.Id,
+			UserID:      session.Username,
+			Resource:    resource,
+			Action:      action,
+		})
+
+		// log incoming request
+		logger.Info("Incoming request")
 
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
 			Session:        session,
-			CategoryID:     categoryID,
 			GinContext:     c,
+			Logger:         *logger,
 		}
 		var t T
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
 			if err := c.ShouldBindJSON(&ec.Payload); err != nil {
+				//TODO: implements JSON Schema validation
+				logger.Error(err.Error())
 				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 				return
 			}
@@ -94,8 +104,10 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string)
 		if err != nil {
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
+				logger.Error(endorError.Error())
 				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())))
 			} else {
+				logger.Error(err.Error())
 				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())))
 			}
 		} else {

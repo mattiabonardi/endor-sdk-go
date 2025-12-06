@@ -170,7 +170,6 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						resource:     resource,
 					}
 				} else {
-
 					// Create default hybrid service with all 6 actions
 					hybridService := NewHybridService[*sdk.DynamicResource](resource.ID, resource.Description)
 					resources[resource.ID] = EndorServiceDictionary{
