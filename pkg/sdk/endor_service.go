@@ -152,6 +152,7 @@ type EndorHybridServiceInterface interface {
 
 type EndorHybridSpecializedServiceInterface interface {
 	EndorServiceInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridSpecializedServiceInterface
 	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
 	ToEndorService(metadataSchema Schema) EndorService
 }

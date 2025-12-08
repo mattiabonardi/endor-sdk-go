@@ -9,7 +9,7 @@ import (
 )
 
 func TestEndorHybridSpecializedService(t *testing.T) {
-	hybridService := test_utils_service.NewService2()
+	hybridService := test_utils_service.NewService3()
 	endorService := hybridService.ToEndorService(
 		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
 	)
@@ -28,6 +28,8 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	if dataSchema, ok := (*endorService.Methods["create"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'create' missing 'id'")
+		_, typeExists := (*dataSchema.Properties)["type"]
+		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
 		_, attributeExists := (*dataSchema.Properties)["attribute"]
 		assert.True(t, attributeExists, "input schema for method 'create' missing 'attribute'")
 		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
@@ -40,6 +42,8 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	if dataSchema, ok := (*endorService.Methods["update"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'update' missing 'id'")
+		_, typeExists := (*dataSchema.Properties)["type"]
+		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
 		_, attributeExists := (*dataSchema.Properties)["attribute"]
 		assert.True(t, attributeExists, "input schema for method 'update' missing 'attribute'")
 		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
@@ -70,12 +74,12 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	if dataSchema, ok := (*endorService.Methods["cat-1/create"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-1/create' missing 'id'")
+		_, typeExists := (*dataSchema.Properties)["type"]
+		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
 		_, attributeExists := (*dataSchema.Properties)["attribute"]
 		assert.True(t, attributeExists, "input schema for method 'cat-1/create' missing 'attribute'")
 		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
 		assert.True(t, additionalAttributeExists, "input schema for method 'cat-1/create' missing 'additionalAttribute'")
-		_, categoryTypeExists := (*dataSchema.Properties)["categoryType"]
-		assert.True(t, categoryTypeExists, "input schema for method 'cat-1/create' missing 'categoryType'")
 		_, additionalAttributeCat1Exists := (*dataSchema.Properties)["additionalAttributeCat1"]
 		assert.True(t, additionalAttributeCat1Exists, "input schema for method 'cat-1/create' missing 'additionalAttributeCat1'")
 	} else {
@@ -84,12 +88,12 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	if dataSchema, ok := (*endorService.Methods["cat-1/update"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-1/update' missing 'id'")
+		_, typeExists := (*dataSchema.Properties)["type"]
+		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
 		_, attributeExists := (*dataSchema.Properties)["attribute"]
 		assert.True(t, attributeExists, "input schema for method 'cat-1/update' missing 'attribute'")
 		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
 		assert.True(t, additionalAttributeExists, "input schema for method 'cat-1/update' missing 'additionalAttribute'")
-		_, categoryTypeExists := (*dataSchema.Properties)["categoryType"]
-		assert.True(t, categoryTypeExists, "input schema for method 'cat-1/update' missing 'categoryType'")
 		_, additionalAttributeCat1Exists := (*dataSchema.Properties)["additionalAttributeCat1"]
 		assert.True(t, additionalAttributeCat1Exists, "input schema for method 'cat-1/update' missing 'additionalAttributeCat1'")
 	} else {
@@ -107,12 +111,12 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	if dataSchema, ok := (*endorService.Methods["cat-2/create"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-2/create' missing 'id'")
+		_, typeExists := (*dataSchema.Properties)["type"]
+		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
 		_, attributeExists := (*dataSchema.Properties)["attribute"]
 		assert.True(t, attributeExists, "input schema for method 'cat-2/create' missing 'attribute'")
 		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
 		assert.True(t, additionalAttributeExists, "input schema for method 'cat-2/create' missing 'additionalAttribute'")
-		_, categoryTypeExists := (*dataSchema.Properties)["categoryType"]
-		assert.True(t, categoryTypeExists, "input schema for method 'cat-2/create' missing 'categoryType'")
 		_, attributeCat2Exists := (*dataSchema.Properties)["attributeCat2"]
 		assert.True(t, attributeCat2Exists, "input schema for method 'cat-2/create' missing 'attributeCat2'")
 		_, additionalAttributeCat2Exists := (*dataSchema.Properties)["additionalAttributeCat2"]

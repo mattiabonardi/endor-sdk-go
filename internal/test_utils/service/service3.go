@@ -56,11 +56,26 @@ type Category2AdditionalSchema struct {
 	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
+type Service3Action1Payload struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
+type Service3 struct {
+}
+
+func (h *Service3) action1(c *sdk.EndorContext[Service2Action1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Service")).
+		Build(), nil
+}
+
 func NewService3() sdk.EndorHybridSpecializedServiceInterface {
+	service3 := Service3{}
 	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
 	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
 
-	return sdk_resource.NewHybridSpecializedService[*Service3BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
+	return sdk_resource.NewHybridSpecializedService[*Service3BaseModel]("resource-3", "Resource 3 (EndorHybridSpecializedService with static categories)").
 		WithCategories(
 			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
 				sdk_resource.NewEndorHybridSpecializedServiceCategory[*Service3BaseModel, *Category1AdditionalSchema](sdk.Category{
@@ -74,5 +89,13 @@ func NewService3() sdk.EndorHybridSpecializedServiceInterface {
 					AdditionalAttributes: category2AdditionalSchema,
 				}),
 			},
-		)
+		).
+		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction {
+			return map[string]sdk.EndorServiceAction{
+				"action-1": sdk.NewAction(
+					service3.action1,
+					"Test hybrid action",
+				),
+			}
+		})
 }
