@@ -1,0 +1,97 @@
+package sdk_resource
+
+import (
+	"fmt"
+
+	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+)
+
+func NewResourceService(microServiceId string, services *[]sdk.EndorServiceInterface) *sdk.EndorService {
+	resourceService := ResourceService{
+		microServiceId: microServiceId,
+		services:       services,
+	}
+	service := &sdk.EndorService{
+		Resource:    "resource",
+		Description: "Resource",
+		Methods: map[string]sdk.EndorServiceAction{
+			"schema": sdk.NewAction(
+				resourceService.schema,
+				"Get the schema of the resource",
+			),
+			"list": sdk.NewAction(
+				resourceService.list,
+				"Search for available resources",
+			),
+			"instance": sdk.NewAction(
+				resourceService.instance,
+				"Get the specified instance of resources",
+			),
+		},
+	}
+	if configuration.GetConfig().HybridResourcesEnabled || configuration.GetConfig().DynamicResourcesEnabled {
+		service.Methods["update"] = sdk.NewAction(resourceService.update, "Update an existing resource")
+	}
+	if configuration.GetConfig().DynamicResourcesEnabled {
+		service.Methods["create"] = sdk.NewAction(resourceService.create, "Create a new resource")
+		service.Methods["delete"] = sdk.NewAction(resourceService.delete, "Delete an existing resource")
+	}
+	return service
+}
+
+type ResourceService struct {
+	microServiceId string
+	services       *[]sdk.EndorServiceInterface
+}
+
+func (h *ResourceService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+}
+
+func (h *ResourceService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.Resource], error) {
+	resources, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceList()
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]sdk.Resource, 0, len(resources))
+	for _, r := range resources {
+		if r.ID != "resource" && r.ID != "resource-action" {
+			filtered = append(filtered, r)
+		}
+	}
+	resources = filtered
+	return sdk.NewResponseBuilder[[]sdk.Resource]().AddData(&resources).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+}
+
+func (h *ResourceService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Instance(c.Payload)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.NewResponseBuilder[sdk.Resource]().AddData(&resource.resource).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+}
+
+func (h *ResourceService) create(c *sdk.EndorContext[sdk.CreateDTO[sdk.Resource]]) (*sdk.Response[sdk.Resource], error) {
+	err := NewEndorServiceRepository(h.microServiceId, h.services).Create(c.Payload)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.NewResponseBuilder[sdk.Resource]().AddData(&c.Payload.Data).AddSchema(sdk.NewSchema(&sdk.Resource{})).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("resource %s created", c.Payload.Data.ID))).Build(), nil
+}
+
+func (h *ResourceService) update(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.Resource]]) (*sdk.Response[sdk.Resource], error) {
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.NewResponseBuilder[sdk.Resource]().AddData(resource).AddSchema(sdk.NewSchema(&sdk.Resource{})).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "resource updated")).Build(), nil
+}
+
+func (h *ResourceService) delete(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
+	err := NewEndorServiceRepository(h.microServiceId, h.services).DeleteOne(c.Payload)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.NewResponseBuilder[sdk.Resource]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("resource %s deleted", c.Payload.Id))).Build(), nil
+}
