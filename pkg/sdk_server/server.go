@@ -99,7 +99,12 @@ func (h *Endor) Init(microserviceId string) {
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
-					method.CreateHTTPCallback(microserviceId, resource, action)(c)
+					category := ""
+					if strings.Contains(action, "/") {
+						parts := strings.SplitN(action, "/", 2)
+						category = parts[0]
+					}
+					method.CreateHTTPCallback(microserviceId, resource, action, category)(c)
 					return
 				}
 			}

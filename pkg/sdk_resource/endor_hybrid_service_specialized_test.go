@@ -53,10 +53,6 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	}
 	_, updateIdExists := (*endorService.Methods["update"].GetOptions().InputSchema.Properties)["id"]
 	assert.True(t, updateIdExists, "'id' property not found in input schema for method 'update'")
-	_, deleteExists := endorService.Methods["delete"]
-	assert.True(t, deleteExists, "method 'delete' not found in endorService methods map")
-	_, deleteIdExists := (*endorService.Methods["delete"].GetOptions().InputSchema.Properties)["id"]
-	assert.True(t, deleteIdExists, "'id' property not found in input schema for method 'delete'")
 	_, action1Exists := endorService.Methods["action-1"]
 	assert.True(t, action1Exists, "method 'action-1' not found in endorService methods map")
 	// categories
@@ -101,10 +97,6 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	}
 	_, cat1UpdateIdExists := (*endorService.Methods["cat-1/update"].GetOptions().InputSchema.Properties)["id"]
 	assert.True(t, cat1UpdateIdExists, "'id' property not found in input schema for method 'cat-1/update'")
-	_, cat1DeleteExists := endorService.Methods["cat-1/delete"]
-	assert.True(t, cat1DeleteExists, "method 'cat-1/delete' not found in endorService methods map")
-	_, cat1DeleteIdExists := (*endorService.Methods["cat-1/delete"].GetOptions().InputSchema.Properties)["id"]
-	assert.True(t, cat1DeleteIdExists, "'id' property not found in input schema for method 'cat-1/delete'")
 	// check categories default methods (cat-2)
 	_, cat2CreateExists := endorService.Methods["cat-2/create"]
 	assert.True(t, cat2CreateExists, "method 'cat-2/create' not found in endorService methods map")

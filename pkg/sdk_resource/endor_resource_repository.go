@@ -127,12 +127,14 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					v.EndorService = (*v.OriginalInstance).ToEndorService(defintion.Schema)
 					resources[resource.ID] = v
 				} else {
-					// create a new hybrid service
-					hybridService := NewHybridService[*sdk.DynamicResource](resource.ID, resource.Description)
-					resources[resource.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema),
-						resource:     resource,
-					}
+					//TODO: log that only hybrid service supports additional attributes
+				}
+			} else {
+				// create a new hybrid service
+				hybridService := NewHybridService[*sdk.DynamicResource](resource.ID, resource.Description)
+				resources[resource.ID] = EndorServiceDictionary{
+					EndorService: hybridService.ToEndorService(defintion.Schema),
+					resource:     resource,
 				}
 			}
 		}

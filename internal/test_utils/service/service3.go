@@ -19,14 +19,6 @@ func (h *Service3BaseModel) SetID(id string) {
 	h.ID = id
 }
 
-func (h Service3BaseModel) GetType() *string {
-	return &h.Type
-}
-
-func (h *Service3BaseModel) SetType(specializedType string) {
-	h.Type = specializedType
-}
-
 func (h Service3BaseModel) GetCategoryType() *string {
 	return &h.Type
 }
@@ -40,16 +32,7 @@ type Category1AdditionalSchema struct {
 }
 
 type Category2Schema struct {
-	CategoryType  string `json:"categoryType" bson:"categoryType" schema:"readOnly=true"`
 	AttributeCat2 string `json:"attributeCat2"`
-}
-
-func (c Category2Schema) GetCategoryType() *string {
-	return &c.CategoryType
-}
-
-func (c *Category2Schema) SetCategoryType(categoryType string) {
-	c.CategoryType = categoryType
 }
 
 type Category2AdditionalSchema struct {

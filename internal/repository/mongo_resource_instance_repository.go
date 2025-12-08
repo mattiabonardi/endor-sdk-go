@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -224,8 +226,22 @@ func prepareFilter[T sdk.ResourceInstanceInterface](filter map[string]interface{
 	result := bson.M{}
 	var thisModel T
 	modelFields := map[string]struct{}{}
-	b, _ := bson.Marshal(thisModel)
-	_ = bson.Unmarshal(b, &modelFields)
+
+	// Use reflection to get the actual field names from bson tags
+	t := reflect.TypeOf(thisModel)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		bsonTag := field.Tag.Get("bson")
+		if bsonTag != "" && bsonTag != "-" {
+			// Handle bson tags like "type" or "type,omitempty"
+			tagName := strings.Split(bsonTag, ",")[0]
+			modelFields[tagName] = struct{}{}
+		}
+	}
 
 	for k, v := range filter {
 		if _, ok := modelFields[k]; ok {

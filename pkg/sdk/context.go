@@ -14,6 +14,7 @@ type EndorContext[T any] struct {
 	MicroServiceId string
 	Session        Session
 	Payload        T
+	CategoryType   string
 
 	GinContext *gin.Context
 	Logger     Logger

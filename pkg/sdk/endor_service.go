@@ -12,7 +12,7 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceAction interface {
-	CreateHTTPCallback(microserviceId string, resource string, action string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, resource string, action string, category string) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
 }
 
@@ -74,7 +74,7 @@ type endorServiceActionImpl[T any, R any] struct {
 	options EndorServiceActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, resource string, action string) func(c *gin.Context) {
+func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, resource string, action string, categoryType string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -105,6 +105,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			Session:        session,
 			GinContext:     c,
 			Logger:         *logger,
+			CategoryType:   categoryType,
 		}
 		var t T
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {

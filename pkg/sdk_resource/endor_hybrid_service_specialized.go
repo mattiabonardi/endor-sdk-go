@@ -205,16 +205,21 @@ func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface, C 
 				return defaultUpdateSpecialized(c, schema, repository, resource)
 			},
 		),
-		categoryID + "/delete": sdk.NewAction(
-			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
-				return defaultDeleteSpecialized(c, repository, resource)
-			},
-			fmt.Sprintf("Delete the existing instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
-		),
 	}
 }
 
 func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[[]sdk.ResourceInstanceSpecialized[T, C]], error) {
+	categoryFilter := map[string]interface{}{"type": c.CategoryType}
+	if len(c.Payload.Filter) > 0 {
+		c.Payload.Filter = map[string]interface{}{
+			"$and": []interface{}{
+				categoryFilter,
+				c.Payload.Filter,
+			},
+		}
+	} else {
+		c.Payload.Filter = categoryFilter
+	}
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -223,12 +228,12 @@ func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c
 }
 
 func defaultCreateSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
-	// force category type to
+	c.Payload.Data.SetCategoryType(c.CategoryType)
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created (category)", resource))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", resource, *created.GetID()))).Build(), nil
 }
 
 func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[*sdk.ResourceInstanceSpecialized[T, C]], error) {
@@ -240,17 +245,10 @@ func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface, C an
 }
 
 func defaultUpdateSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
+	c.Payload.Data.SetCategoryType(c.CategoryType)
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
-}
-
-func defaultDeleteSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[any], error) {
-	err := repository.Delete(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
-	}
-	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s deleted (category)", resource))).Build(), nil
 }
