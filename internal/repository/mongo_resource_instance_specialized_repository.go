@@ -13,7 +13,7 @@ import (
 )
 
 // MongoResourceInstanceSpecializedRepository with dependency injection
-type MongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] struct {
+type MongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceSpecializedInterface, C any] struct {
 	collectionName string
 	idConverter    IDConverter
 	docConverter   *SpecializedDocumentConverter[T, C]
@@ -21,7 +21,7 @@ type MongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface,
 }
 
 // NewMongoResourceInstanceSpecializedRepository creates specialized repository with injected dependencies
-func NewMongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](
+func NewMongoResourceInstanceSpecializedRepository[T sdk.ResourceInstanceSpecializedInterface, C any](
 	collectionName string,
 	options ResourceInstanceRepositoryOptions,
 ) *MongoResourceInstanceSpecializedRepository[T, C] {

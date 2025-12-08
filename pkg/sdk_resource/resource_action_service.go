@@ -4,7 +4,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewResourceActionService(microServiceId string, services *[]sdk.EndorService, hybridServices *[]sdk.EndorHybridService) *sdk.EndorService {
+func NewResourceActionService(microServiceId string, services *[]sdk.EndorServiceInterface) *sdk.EndorService {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
@@ -31,8 +31,7 @@ func NewResourceActionService(microServiceId string, services *[]sdk.EndorServic
 
 type ResourceActionService struct {
 	microServiceId string
-	services       *[]sdk.EndorService
-	hybridServices *[]sdk.EndorHybridService
+	services       *[]sdk.EndorServiceInterface
 }
 
 func (h *ResourceActionService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
@@ -40,7 +39,7 @@ func (h *ResourceActionService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk
 }
 
 func (h *ResourceActionService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.ResourceAction], error) {
-	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ResourceActionList()
+	resourceMethods, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceActionList()
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +47,7 @@ func (h *ResourceActionService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.R
 }
 
 func (h *ResourceActionService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.ResourceAction], error) {
-	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ActionInstance(c.Payload)
+	resourceAction, err := NewEndorServiceRepository(h.microServiceId, h.services).ActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}

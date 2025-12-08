@@ -11,6 +11,8 @@ type ResourceInstanceInterface interface {
 }
 
 type ResourceInstanceSpecializedInterface interface {
+	GetID() *string
+	SetID(id string)
 	GetCategoryType() *string
 	SetCategoryType(categoryType string)
 }
@@ -89,20 +91,26 @@ func (d *ResourceInstance[T]) GetID() *string {
 }
 
 // ResourceInstanceSpecialized define the abstract model of a specialized instance
-type ResourceInstanceSpecialized[T ResourceInstanceInterface, C ResourceInstanceSpecializedInterface] struct {
+type ResourceInstanceSpecialized[T ResourceInstanceSpecializedInterface, C any] struct {
 	This         T                      `json:",inline" bson:"this"`
 	CategoryThis C                      `json:",inline" bson:"categoryThis"`
 	Metadata     map[string]interface{} `json:",inline" bson:"metadata,omitempty"`
 }
 
-// GetID implementa ResourceInstanceInterface
 func (r *ResourceInstanceSpecialized[T, C]) GetID() *string {
 	return r.This.GetID()
 }
 
-// SetID implementa ResourceInstanceInterface
 func (r *ResourceInstanceSpecialized[T, C]) SetID(id string) {
 	r.This.SetID(id)
+}
+
+func (r *ResourceInstanceSpecialized[T, C]) GetCategoryType() *string {
+	return r.This.GetCategoryType()
+}
+
+func (r *ResourceInstanceSpecialized[T, C]) SetCategoryType(categoryType string) {
+	r.This.SetCategoryType(categoryType)
 }
 
 func (r *ResourceInstanceSpecialized[T, C]) UnmarshalJSON(data []byte) error {

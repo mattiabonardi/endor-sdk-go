@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -180,4 +182,61 @@ func (l *Logger) Error(msg string) {
 // ErrorWithFields logs an error message with additional fields
 func (l *Logger) ErrorWithFields(msg string, fields map[string]interface{}) {
 	l.log(ERROR, msg, fields)
+}
+
+// ErrorWithStackTrace logs an error with stack trace
+func (l *Logger) ErrorWithStackTrace(err error) {
+	if err == nil {
+		return
+	}
+
+	stackTrace := captureStackTrace(3) // Skip 3 frames: captureStackTrace, ErrorWithStackTrace, and the runtime
+
+	fields := map[string]interface{}{
+		"error":       err.Error(),
+		"stack_trace": stackTrace,
+	}
+
+	l.log(ERROR, "Error occurred", fields)
+}
+
+// captureStackTrace captures the current stack trace
+func captureStackTrace(skip int) []string {
+	const maxStackDepth = 32
+	pcs := make([]uintptr, maxStackDepth)
+	n := runtime.Callers(skip, pcs)
+
+	frames := runtime.CallersFrames(pcs[:n])
+	var stackTrace []string
+
+	for {
+		frame, more := frames.Next()
+
+		// Format: function at file:line
+		trace := fmt.Sprintf("%s at %s:%d", frame.Function, shortenPath(frame.File), frame.Line)
+		stackTrace = append(stackTrace, trace)
+
+		if !more {
+			break
+		}
+	}
+
+	return stackTrace
+}
+
+// shortenPath shortens the file path to make it more readable
+func shortenPath(path string) string {
+	// Try to find common base paths and shorten them
+	if idx := strings.LastIndex(path, "/src/"); idx != -1 {
+		return path[idx+5:]
+	}
+	if idx := strings.LastIndex(path, "/pkg/mod/"); idx != -1 {
+		return path[idx+9:]
+	}
+	// Return last 2 path components if possible
+	parts := strings.Split(path, "/")
+	if len(parts) > 2 {
+		return strings.Join(parts[len(parts)-2:], "/")
+	}
+	return path
 }

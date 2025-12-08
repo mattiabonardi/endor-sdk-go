@@ -34,6 +34,22 @@ type EndorService struct {
 	Version string
 }
 
+func (h EndorService) GetResource() string {
+	return h.Resource
+}
+
+func (h EndorService) GetResourceDescription() string {
+	return h.Description
+}
+
+func (h EndorService) GetPriority() *int {
+	return h.Priority
+}
+
+func (h EndorService) ToEndorService(schema Schema) EndorService {
+	return h
+}
+
 func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceAction {
 	options := EndorServiceActionOptions{
 		Description:     description,
@@ -94,7 +110,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
 			if err := c.ShouldBindJSON(&ec.Payload); err != nil {
 				//TODO: implements JSON Schema validation
-				logger.Error(err.Error())
+				logger.ErrorWithStackTrace(err)
 				c.AbortWithStatusJSON(http.StatusBadRequest, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 				return
 			}
@@ -104,10 +120,10 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		if err != nil {
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
-				logger.Error(endorError.Error())
+				logger.ErrorWithStackTrace(endorError)
 				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())))
 			} else {
-				logger.Error(err.Error())
+				logger.ErrorWithStackTrace(err)
 				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())))
 			}
 		} else {
@@ -121,16 +137,26 @@ func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 	return m.options
 }
 
-type EndorHybridServiceCategory interface {
-	GetID() string
-	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction
-}
-
-type EndorHybridService interface {
+type EndorServiceInterface interface {
 	GetResource() string
 	GetResourceDescription() string
 	GetPriority() *int
-	WithCategories(categories []EndorHybridServiceCategory) EndorHybridService
-	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridService
 	ToEndorService(metadataSchema Schema) EndorService
+}
+
+type EndorHybridServiceInterface interface {
+	EndorServiceInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridServiceInterface
+	ToEndorService(metadataSchema Schema) EndorService
+}
+
+type EndorHybridSpecializedServiceInterface interface {
+	EndorServiceInterface
+	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
+	ToEndorService(metadataSchema Schema) EndorService
+}
+
+type EndorHybridSpecializedServiceCategoryInterface interface {
+	GetID() string
+	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction
 }

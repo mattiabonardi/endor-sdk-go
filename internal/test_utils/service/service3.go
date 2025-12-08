@@ -1,0 +1,78 @@
+package test_utils_service
+
+import (
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+)
+
+type Service3BaseModel struct {
+	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
+	Type      string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
+	Attribute string `json:"attribute"`
+}
+
+func (h Service3BaseModel) GetID() *string {
+	return &h.ID
+}
+
+func (h *Service3BaseModel) SetID(id string) {
+	h.ID = id
+}
+
+func (h Service3BaseModel) GetType() *string {
+	return &h.Type
+}
+
+func (h *Service3BaseModel) SetType(specializedType string) {
+	h.Type = specializedType
+}
+
+func (h Service3BaseModel) GetCategoryType() *string {
+	return &h.Type
+}
+
+func (h *Service3BaseModel) SetCategoryType(categoryType string) {
+	h.Type = categoryType
+}
+
+type Category1AdditionalSchema struct {
+	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
+}
+
+type Category2Schema struct {
+	CategoryType  string `json:"categoryType" bson:"categoryType" schema:"readOnly=true"`
+	AttributeCat2 string `json:"attributeCat2"`
+}
+
+func (c Category2Schema) GetCategoryType() *string {
+	return &c.CategoryType
+}
+
+func (c *Category2Schema) SetCategoryType(categoryType string) {
+	c.CategoryType = categoryType
+}
+
+type Category2AdditionalSchema struct {
+	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
+}
+
+func NewService3() sdk.EndorHybridSpecializedServiceInterface {
+	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
+	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
+
+	return sdk_resource.NewHybridSpecializedService[*Service3BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
+		WithCategories(
+			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*Service3BaseModel, *Category1AdditionalSchema](sdk.Category{
+					ID:                   "cat-1",
+					Description:          "Category 1",
+					AdditionalAttributes: category1AdditionalSchema,
+				}),
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*Service3BaseModel, *Category2Schema](sdk.Category{
+					ID:                   "cat-2",
+					Description:          "Category 2",
+					AdditionalAttributes: category2AdditionalSchema,
+				}),
+			},
+		)
+}

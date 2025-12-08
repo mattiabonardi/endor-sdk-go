@@ -122,7 +122,17 @@ func (h *DynamicResource) SetID(id string) {
 }
 
 type DynamicResourceSpecialized struct {
+	Id           string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
+	Description  string `json:"description" bson:"description" schema:"title=Description"`
 	CategoryType string `json:"categoryType" bson:"categoryType" schema:"title=Type,readOnly=true"`
+}
+
+func (h *DynamicResourceSpecialized) GetID() *string {
+	return &h.Id
+}
+
+func (h *DynamicResourceSpecialized) SetID(id string) {
+	h.Id = id
 }
 
 func (h *DynamicResourceSpecialized) GetCategoryType() *string {

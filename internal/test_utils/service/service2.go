@@ -23,27 +23,6 @@ type Service2Action1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type Category1AdditionalSchema struct {
-	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
-}
-
-type Category2Schema struct {
-	CategoryType  string `json:"categoryType" bson:"categoryType" schema:"readOnly=true"`
-	AttributeCat2 string `json:"attributeCat2"`
-}
-
-func (c Category2Schema) GetCategoryType() *string {
-	return &c.CategoryType
-}
-
-func (c *Category2Schema) SetCategoryType(categoryType string) {
-	c.CategoryType = categoryType
-}
-
-type Category2AdditionalSchema struct {
-	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
-}
-
 type Service2 struct {
 }
 
@@ -53,27 +32,9 @@ func (h *Service2) action1(c *sdk.EndorContext[Service2Action1Payload]) (*sdk.Re
 		Build(), nil
 }
 
-func NewService2() sdk.EndorHybridService {
+func NewService2() sdk.EndorHybridServiceInterface {
 	service2 := Service2{}
-
-	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
-	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
-
-	return sdk_resource.NewHybridService[*Service2BaseModel]("resource-2", "Resource 2 (EndorHybridService with static categories)").
-		WithCategories(
-			[]sdk.EndorHybridServiceCategory{
-				sdk_resource.NewEndorHybridServiceCategory[*Service2BaseModel, *sdk.DynamicResourceSpecialized](sdk.Category{
-					ID:                   "cat-1",
-					Description:          "Category 1",
-					AdditionalAttributes: category1AdditionalSchema,
-				}),
-				sdk_resource.NewEndorHybridServiceCategory[*Service2BaseModel, *Category2Schema](sdk.Category{
-					ID:                   "cat-2",
-					Description:          "Category 2",
-					AdditionalAttributes: category2AdditionalSchema,
-				}),
-			},
-		).
+	return sdk_resource.NewHybridService[*Service2BaseModel]("resource-2", "Resource 2 (EndorHybridService)").
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction {
 			return map[string]sdk.EndorServiceAction{
 				"action-1": sdk.NewAction(

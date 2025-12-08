@@ -7,7 +7,7 @@ import (
 )
 
 // ResourceInstanceSpecializedRepositoryInterface defines interface for specialized repositories
-type ResourceInstanceSpecializedRepositoryInterface[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] interface {
+type ResourceInstanceSpecializedRepositoryInterface[T sdk.ResourceInstanceSpecializedInterface, C any] interface {
 	Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.ResourceInstanceSpecialized[T, C], error)
 	List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.ResourceInstanceSpecialized[T, C], error)
 	Create(ctx context.Context, dto sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]) (*sdk.ResourceInstanceSpecialized[T, C], error)
@@ -16,12 +16,12 @@ type ResourceInstanceSpecializedRepositoryInterface[T sdk.ResourceInstanceInterf
 }
 
 // ResourceInstanceSpecializedRepository handles specialized resource operations independently
-type ResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] struct {
+type ResourceInstanceSpecializedRepository[T sdk.ResourceInstanceSpecializedInterface, C any] struct {
 	repository ResourceInstanceSpecializedRepositoryInterface[T, C]
 }
 
 // NewResourceInstanceSpecializedRepository creates a new specialized repository
-func NewResourceInstanceSpecializedRepository[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface](
+func NewResourceInstanceSpecializedRepository[T sdk.ResourceInstanceSpecializedInterface, C any](
 	resourceId string,
 	options ResourceInstanceRepositoryOptions,
 ) *ResourceInstanceSpecializedRepository[T, C] {

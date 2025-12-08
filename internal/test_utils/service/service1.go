@@ -10,6 +10,8 @@ type Service1 struct {
 }
 
 func (h *Service1) action1(c *sdk.EndorContext[Service1Action1Payload]) (*sdk.Response[any], error) {
+	// test logger
+	c.Logger.Info("Test logger")
 	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello World")).Build(), nil
 }
 

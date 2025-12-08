@@ -7,11 +7,10 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewResourceService(microServiceId string, services *[]sdk.EndorService, hybridServices *[]sdk.EndorHybridService) *sdk.EndorService {
+func NewResourceService(microServiceId string, services *[]sdk.EndorServiceInterface) *sdk.EndorService {
 	resourceService := ResourceService{
 		microServiceId: microServiceId,
 		services:       services,
-		hybridServices: hybridServices,
 	}
 	service := &sdk.EndorService{
 		Resource:    "resource",
@@ -43,8 +42,7 @@ func NewResourceService(microServiceId string, services *[]sdk.EndorService, hyb
 
 type ResourceService struct {
 	microServiceId string
-	services       *[]sdk.EndorService
-	hybridServices *[]sdk.EndorHybridService
+	services       *[]sdk.EndorServiceInterface
 }
 
 func (h *ResourceService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
@@ -52,7 +50,7 @@ func (h *ResourceService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Respo
 }
 
 func (h *ResourceService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.Resource], error) {
-	resources, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).ResourceList()
+	resources, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceList()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +65,7 @@ func (h *ResourceService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Respons
 }
 
 func (h *ResourceService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).Instance(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Instance(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +73,7 @@ func (h *ResourceService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*s
 }
 
 func (h *ResourceService) create(c *sdk.EndorContext[sdk.CreateDTO[sdk.Resource]]) (*sdk.Response[sdk.Resource], error) {
-	err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).Create(c.Payload)
+	err := NewEndorServiceRepository(h.microServiceId, h.services).Create(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +81,7 @@ func (h *ResourceService) create(c *sdk.EndorContext[sdk.CreateDTO[sdk.Resource]
 }
 
 func (h *ResourceService) update(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.Resource]]) (*sdk.Response[sdk.Resource], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).UpdateOne(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +89,7 @@ func (h *ResourceService) update(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.Resou
 }
 
 func (h *ResourceService) delete(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
-	err := NewEndorServiceRepository(h.microServiceId, h.services, h.hybridServices).DeleteOne(c.Payload)
+	err := NewEndorServiceRepository(h.microServiceId, h.services).DeleteOne(c.Payload)
 	if err != nil {
 		return nil, err
 	}

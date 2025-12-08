@@ -147,7 +147,7 @@ func (c *DocumentConverter[T]) ToDocument(model T, metadata map[string]interface
 }
 
 // SpecializedDocumentConverter handles conversions for specialized resources
-type SpecializedDocumentConverter[T sdk.ResourceInstanceInterface, C sdk.ResourceInstanceSpecializedInterface] struct{}
+type SpecializedDocumentConverter[T sdk.ResourceInstanceSpecializedInterface, C any] struct{}
 
 func (c *SpecializedDocumentConverter[T, C]) ExtractMetadata(raw bson.M) (map[string]interface{}, error) {
 	metadata := make(map[string]interface{})

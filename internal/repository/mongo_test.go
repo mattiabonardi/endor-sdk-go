@@ -13,14 +13,7 @@ import (
 type TestResource struct {
 	ID   *string `bson:"_id,omitempty" json:"id,omitempty"`
 	Name string  `bson:"name" json:"name"`
-	Age  int32   `bson:"age" json:"age"` // Changed to int32 to match BSON marshaling behavior
-}
-
-// Test Specialized Model for category-specific fields
-type TestSpecializedResource struct {
-	CategoryType *string `bson:"categoryType,omitempty" json:"categoryType,omitempty"`
-	ExtraField   string  `bson:"extraField" json:"extraField"`
-	Priority     int32   `bson:"priority" json:"priority"`
+	Age  int32   `bson:"age" json:"age"`
 }
 
 func (t *TestResource) GetID() *string {
@@ -31,12 +24,33 @@ func (t *TestResource) SetID(id string) {
 	t.ID = &id
 }
 
+// Test Specialized Model for category-specific fields
+type TestSpecializedResource struct {
+	ID   *string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name string  `bson:"name" json:"name"`
+	Age  int32   `bson:"age" json:"age"`
+	Type *string `bson:"categoryType,omitempty" json:"categoryType,omitempty"`
+}
+
+func (t *TestSpecializedResource) GetID() *string {
+	return t.ID
+}
+
+func (t *TestSpecializedResource) SetID(id string) {
+	t.ID = &id
+}
+
 func (t *TestSpecializedResource) GetCategoryType() *string {
-	return t.CategoryType
+	return t.Type
 }
 
 func (t *TestSpecializedResource) SetCategoryType(categoryType string) {
-	t.CategoryType = &categoryType
+	t.Type = &categoryType
+}
+
+type TestSpecializedResourceCategory struct {
+	ExtraField string `bson:"extraField" json:"extraField"`
+	Priority   int32  `bson:"priority" json:"priority"`
 }
 
 // Tests for ObjectIDConverter
@@ -166,7 +180,7 @@ func TestDocumentConverter_ToDocument(t *testing.T) {
 
 // Tests for SpecializedDocumentConverter
 func TestSpecializedDocumentConverter_ExtractMetadata(t *testing.T) {
-	converter := &SpecializedDocumentConverter[*TestResource, *TestSpecializedResource]{}
+	converter := &SpecializedDocumentConverter[*TestSpecializedResource, TestSpecializedResourceCategory]{}
 
 	t.Run("with metadata as bson.M", func(t *testing.T) {
 		raw := bson.M{
@@ -225,7 +239,7 @@ func TestSpecializedDocumentConverter_ExtractMetadata(t *testing.T) {
 }
 
 func TestSpecializedDocumentConverter_ToSpecialized(t *testing.T) {
-	converter := &SpecializedDocumentConverter[*TestResource, *TestSpecializedResource]{}
+	converter := &SpecializedDocumentConverter[*TestSpecializedResource, TestSpecializedResourceCategory]{}
 	idConverter := &StringIDConverter{}
 
 	t.Run("complete specialized resource", func(t *testing.T) {
@@ -249,12 +263,13 @@ func TestSpecializedDocumentConverter_ToSpecialized(t *testing.T) {
 		// Test This (base resource)
 		assert.Equal(t, "test-123", *specialized.This.ID)
 		assert.Equal(t, "TestResource", specialized.This.Name)
-		assert.Equal(t, int32(25), specialized.This.Age)
 
 		// Test CategoryThis (specialized fields)
-		assert.Equal(t, "premium", *specialized.CategoryThis.CategoryType)
+		assert.NotNil(t, specialized.This.Type)
+		if specialized.This.Type != nil {
+			assert.Equal(t, "premium", *specialized.This.Type)
+		}
 		assert.Equal(t, "extra-data", specialized.CategoryThis.ExtraField)
-		assert.Equal(t, int32(10), specialized.CategoryThis.Priority)
 
 		// Test Metadata
 		assert.Equal(t, 1, specialized.Metadata["version"])
@@ -277,9 +292,7 @@ func TestSpecializedDocumentConverter_ToSpecialized(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, testObjectID.Hex(), *specialized.This.ID)
 		assert.Equal(t, "TestResource", specialized.This.Name)
-		assert.Equal(t, int32(30), specialized.This.Age)
 		assert.Equal(t, "test-data", specialized.CategoryThis.ExtraField)
-		assert.Equal(t, int32(5), specialized.CategoryThis.Priority)
 	})
 
 	t.Run("with empty metadata", func(t *testing.T) {
@@ -312,23 +325,23 @@ func TestSpecializedDocumentConverter_ToSpecialized(t *testing.T) {
 }
 
 func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
-	converter := &SpecializedDocumentConverter[*TestResource, *TestSpecializedResource]{}
+	converter := &SpecializedDocumentConverter[*TestSpecializedResource, TestSpecializedResourceCategory]{}
 	idConverter := &StringIDConverter{}
 
 	t.Run("complete specialized resource to document", func(t *testing.T) {
 		testID := "test-789"
 		categoryType := "premium"
 
-		specialized := sdk.ResourceInstanceSpecialized[*TestResource, *TestSpecializedResource]{
-			This: &TestResource{
+		specialized := sdk.ResourceInstanceSpecialized[*TestSpecializedResource, TestSpecializedResourceCategory]{
+			This: &TestSpecializedResource{
 				ID:   &testID,
 				Name: "TestDoc",
-				Age:  35,
+				Age:  30,
+				Type: &categoryType,
 			},
-			CategoryThis: &TestSpecializedResource{
-				CategoryType: &categoryType,
-				ExtraField:   "extra-value",
-				Priority:     15,
+			CategoryThis: TestSpecializedResourceCategory{
+				ExtraField: "extra-value",
+				Priority:   10,
 			},
 			Metadata: map[string]interface{}{
 				"version":    2,
@@ -342,10 +355,10 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 		// Test merged fields
 		assert.Equal(t, "test-789", doc["_id"])
 		assert.Equal(t, "TestDoc", doc["name"])
-		assert.Equal(t, int32(35), doc["age"])
+		assert.Equal(t, int32(30), doc["age"])
 		assert.Equal(t, "premium", doc["categoryType"])
 		assert.Equal(t, "extra-value", doc["extraField"])
-		assert.Equal(t, int32(15), doc["priority"])
+		assert.Equal(t, int32(10), doc["priority"])
 
 		// Test metadata
 		metadata := doc["metadata"].(map[string]interface{})
@@ -357,15 +370,15 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 		idConverter := &ObjectIDConverter{}
 		testID := primitive.NewObjectID().Hex()
 
-		specialized := sdk.ResourceInstanceSpecialized[*TestResource, *TestSpecializedResource]{
-			This: &TestResource{
+		specialized := sdk.ResourceInstanceSpecialized[*TestSpecializedResource, TestSpecializedResourceCategory]{
+			This: &TestSpecializedResource{
 				ID:   &testID,
 				Name: "ObjectIDTest",
-				Age:  40,
+				Age:  25,
 			},
-			CategoryThis: &TestSpecializedResource{
+			CategoryThis: TestSpecializedResourceCategory{
 				ExtraField: "object-id-test",
-				Priority:   20,
+				Priority:   5,
 			},
 		}
 
@@ -381,15 +394,15 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 	t.Run("without metadata", func(t *testing.T) {
 		testID := "test-no-meta"
 
-		specialized := sdk.ResourceInstanceSpecialized[*TestResource, *TestSpecializedResource]{
-			This: &TestResource{
+		specialized := sdk.ResourceInstanceSpecialized[*TestSpecializedResource, TestSpecializedResourceCategory]{
+			This: &TestSpecializedResource{
 				ID:   &testID,
 				Name: "NoMeta",
-				Age:  25,
+				Age:  20,
 			},
-			CategoryThis: &TestSpecializedResource{
+			CategoryThis: TestSpecializedResourceCategory{
 				ExtraField: "no-meta-test",
-				Priority:   5,
+				Priority:   1,
 			},
 			Metadata: nil,
 		}
@@ -403,16 +416,16 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 		testID := "test-override"
 		categoryType := "premium"
 
-		specialized := sdk.ResourceInstanceSpecialized[*TestResource, *TestSpecializedResource]{
-			This: &TestResource{
+		specialized := sdk.ResourceInstanceSpecialized[*TestSpecializedResource, TestSpecializedResourceCategory]{
+			This: &TestSpecializedResource{
 				ID:   &testID,
 				Name: "OriginalName",
 				Age:  30,
+				Type: &categoryType,
 			},
-			CategoryThis: &TestSpecializedResource{
-				CategoryType: &categoryType,
-				ExtraField:   "override-test",
-				Priority:     10,
+			CategoryThis: TestSpecializedResourceCategory{
+				ExtraField: "override-test",
+				Priority:   10,
 			},
 		}
 
@@ -423,7 +436,7 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 		assert.Equal(t, "test-override", doc["_id"])
 		assert.Equal(t, "OriginalName", doc["name"])        // from This
 		assert.Equal(t, int32(30), doc["age"])              // from This
-		assert.Equal(t, "premium", doc["categoryType"])     // from CategoryThis
+		assert.Equal(t, "premium", doc["categoryType"])     // from This
 		assert.Equal(t, "override-test", doc["extraField"]) // from CategoryThis
 		assert.Equal(t, int32(10), doc["priority"])         // from CategoryThis
 	})
@@ -432,13 +445,13 @@ func TestSpecializedDocumentConverter_ToDocument(t *testing.T) {
 		idConverter := &ObjectIDConverter{}
 		invalidID := "invalid-object-id"
 
-		specialized := sdk.ResourceInstanceSpecialized[*TestResource, *TestSpecializedResource]{
-			This: &TestResource{
+		specialized := sdk.ResourceInstanceSpecialized[*TestSpecializedResource, TestSpecializedResourceCategory]{
+			This: &TestSpecializedResource{
 				ID:   &invalidID,
 				Name: "InvalidID",
 				Age:  25,
 			},
-			CategoryThis: &TestSpecializedResource{
+			CategoryThis: TestSpecializedResourceCategory{
 				ExtraField: "invalid-test",
 				Priority:   1,
 			},

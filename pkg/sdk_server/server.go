@@ -16,9 +16,8 @@ import (
 )
 
 type Endor struct {
-	internalEndorServices  *[]sdk.EndorService
-	internalHybridServices *[]sdk.EndorHybridService
-	postInitFunc           func()
+	endorServices *[]sdk.EndorServiceInterface
+	postInitFunc  func()
 }
 
 type EndorInitializer struct {
@@ -31,13 +30,8 @@ func NewEndorInitializer() *EndorInitializer {
 	}
 }
 
-func (b *EndorInitializer) WithEndorServices(services *[]sdk.EndorService) *EndorInitializer {
-	b.endor.internalEndorServices = services
-	return b
-}
-
-func (b *EndorInitializer) WithHybridServices(services *[]sdk.EndorHybridService) *EndorInitializer {
-	b.endor.internalHybridServices = services
+func (b *EndorInitializer) WithEndorServices(services *[]sdk.EndorServiceInterface) *EndorInitializer {
+	b.endor.endorServices = services
 	return b
 }
 
@@ -71,21 +65,21 @@ func (h *Endor) Init(microserviceId string) {
 
 	// Check if an EndorService with resource == "resource" is already defined
 	resourceServiceExists := false
-	if h.internalEndorServices != nil {
-		for _, svc := range *h.internalEndorServices {
-			if svc.Resource == "resource" {
+	if h.endorServices != nil {
+		for _, svc := range *h.endorServices {
+			if svc.GetResource() == "resource" {
 				resourceServiceExists = true
 				break
 			}
 		}
 	}
 	if !resourceServiceExists {
-		*h.internalEndorServices = append(*h.internalEndorServices, *sdk_resource.NewResourceService(microserviceId, h.internalEndorServices, h.internalHybridServices))
-		*h.internalEndorServices = append(*h.internalEndorServices, *sdk_resource.NewResourceActionService(microserviceId, h.internalEndorServices, h.internalHybridServices))
+		*h.endorServices = append(*h.endorServices, *sdk_resource.NewResourceService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, *sdk_resource.NewResourceActionService(microserviceId, h.endorServices))
 	}
 
 	// get all resources
-	EndorServiceRepository := sdk_resource.NewEndorServiceRepository(microserviceId, h.internalEndorServices, h.internalHybridServices)
+	EndorServiceRepository := sdk_resource.NewEndorServiceRepository(microserviceId, h.endorServices)
 	resources, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
