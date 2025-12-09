@@ -304,10 +304,10 @@ func (h *EndorServiceRepository) ActionInstance(dto sdk.ReadInstanceDTO) (*Endor
 	}
 }
 
-func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.Resource]) error {
-	dto.Data.Service = h.microServiceId
+func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.ResourceInterface]) error {
+	dto.Data.SetService(h.microServiceId)
 	_, err := h.Instance(sdk.ReadInstanceDTO{
-		Id: dto.Data.ID,
+		Id: dto.Data.GetID(),
 	})
 	var endorError *sdk.EndorError
 	if errors.As(err, &endorError) && endorError.StatusCode == 404 {
@@ -322,8 +322,8 @@ func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.Resource]) error {
 	}
 }
 
-func (h *EndorServiceRepository) UpdateOne(dto sdk.UpdateByIdDTO[sdk.Resource]) (*sdk.Resource, error) {
-	var instance *sdk.Resource
+func (h *EndorServiceRepository) UpdateOne(dto sdk.UpdateByIdDTO[sdk.ResourceInterface]) (*sdk.ResourceInterface, error) {
+	var instance *sdk.ResourceInterface
 	_, err := h.Instance(sdk.ReadInstanceDTO{
 		Id: dto.Id,
 	})

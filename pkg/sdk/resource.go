@@ -26,9 +26,11 @@ func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 type ResourceInterface interface {
 	GetID() string
 	GetType() ResourceType
+	SetType(resourceType ResourceType)
 	AsBase() (*Resource, bool)
 	AsSpecialized() (*ResourceSpecialized, bool)
 	UnmarshalAdditionalAttributes() (*RootSchema, error)
+	SetService(service string)
 }
 
 type ResourceType string
@@ -54,6 +56,10 @@ func (h *Resource) GetType() ResourceType {
 	return ResourceTypeBase
 }
 
+func (r *Resource) SetType(t ResourceType) {
+	r.Type = t
+}
+
 func (r *Resource) AsBase() (*Resource, bool) {
 	return r, true
 }
@@ -71,6 +77,10 @@ func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	return &schema, nil
 }
 
+func (r *Resource) SetService(service string) {
+	r.Service = service
+}
+
 type ResourceSpecialized struct {
 	Resource   `json:",inline" bson:",inline"`
 	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
@@ -82,6 +92,10 @@ func (h *ResourceSpecialized) GetID() string {
 
 func (h *ResourceSpecialized) GetType() ResourceType {
 	return ResourceTypeSpecialized
+}
+
+func (r *ResourceSpecialized) SetType(t ResourceType) {
+	r.Type = t
 }
 
 func (r *ResourceSpecialized) AsBase() (*Resource, bool) {
@@ -99,6 +113,10 @@ func (h *ResourceSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, erro
 		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
 	}
 	return &schema, nil
+}
+
+func (r *ResourceSpecialized) SetService(service string) {
+	r.Service = service
 }
 
 // GetCategoryByID trova una categoria per ID

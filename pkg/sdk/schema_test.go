@@ -192,3 +192,108 @@ func TestExpandedSchema(t *testing.T) {
 	addressProps := *addressProp.Properties
 	assert.Len(t, addressProps, 2, "Expected 2 address properties")
 }
+
+// Test structs for embedded struct testing
+type BaseEntity struct {
+	ID          string `json:"id" schema:"title=Entity ID"`
+	Description string `json:"description" schema:"title=Entity Description"`
+	CreatedAt   string `json:"createdAt" schema:"format=date-time"`
+}
+
+type ExtendedEntity struct {
+	BaseEntity `json:",inline" bson:",inline"`
+	Name       string `json:"name" schema:"title=Name"`
+	Value      int    `json:"value" schema:"title=Value"`
+}
+
+type DeepEmbeddedEntity struct {
+	ExtendedEntity `json:",inline"`
+	ExtraField     string `json:"extraField" schema:"title=Extra Field"`
+}
+
+func TestEmbeddedStructInline(t *testing.T) {
+	schema := sdk.NewSchema(&ExtendedEntity{})
+
+	// With expanded schema, no definitions and no root reference
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
+
+	// Root should be object type with properties
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
+
+	props := *schema.Properties
+
+	// Should have all properties from both BaseEntity and ExtendedEntity inlined
+	// BaseEntity has: id, description, createdAt (3)
+	// ExtendedEntity has: name, value (2)
+	// Total: 5 properties
+	assert.Len(t, props, 5, "Expected 5 properties (3 from BaseEntity + 2 from ExtendedEntity)")
+
+	// Check BaseEntity properties are inlined
+	assert.Contains(t, props, "id", "Expected 'id' property from BaseEntity")
+	assert.Contains(t, props, "description", "Expected 'description' property from BaseEntity")
+	assert.Contains(t, props, "createdAt", "Expected 'createdAt' property from BaseEntity")
+
+	// Check ExtendedEntity properties
+	assert.Contains(t, props, "name", "Expected 'name' property from ExtendedEntity")
+	assert.Contains(t, props, "value", "Expected 'value' property from ExtendedEntity")
+
+	// Verify types
+	assert.Equal(t, sdk.SchemaTypeString, props["id"].Type, "Expected id to be string type")
+	assert.Equal(t, sdk.SchemaTypeString, props["description"].Type, "Expected description to be string type")
+	assert.Equal(t, sdk.SchemaTypeString, props["createdAt"].Type, "Expected createdAt to be string type")
+	assert.Equal(t, sdk.SchemaTypeString, props["name"].Type, "Expected name to be string type")
+	assert.Equal(t, sdk.SchemaTypeInteger, props["value"].Type, "Expected value to be integer type")
+
+	// Verify schema decorators from embedded struct
+	assert.Equal(t, "Entity ID", *props["id"].Title, "Expected id title from schema decorator")
+	assert.Equal(t, sdk.SchemaFormatDateTime, *props["createdAt"].Format, "Expected createdAt format from schema decorator")
+
+	// Verify UISchema order includes all fields in correct order
+	assert.NotNil(t, schema.UISchema, "Expected UISchema to be present")
+	assert.NotNil(t, schema.UISchema.Order, "Expected UISchema.Order to be present")
+	order := *schema.UISchema.Order
+	assert.Len(t, order, 5, "Expected 5 ordered fields")
+
+	// BaseEntity fields should come first (from the embedded struct), then ExtendedEntity fields
+	assert.Equal(t, "id", order[0], "Expected first field to be 'id' from BaseEntity")
+	assert.Equal(t, "description", order[1], "Expected second field to be 'description' from BaseEntity")
+	assert.Equal(t, "createdAt", order[2], "Expected third field to be 'createdAt' from BaseEntity")
+	assert.Equal(t, "name", order[3], "Expected fourth field to be 'name' from ExtendedEntity")
+	assert.Equal(t, "value", order[4], "Expected fifth field to be 'value' from ExtendedEntity")
+}
+
+func TestDeepEmbeddedStructInline(t *testing.T) {
+	schema := sdk.NewSchema(&DeepEmbeddedEntity{})
+
+	// With expanded schema, no definitions and no root reference
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
+
+	// Root should be object type with properties
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
+
+	props := *schema.Properties
+
+	// Should have all properties from BaseEntity, ExtendedEntity, and DeepEmbeddedEntity inlined
+	// BaseEntity: id, description, createdAt (3)
+	// ExtendedEntity: name, value (2)
+	// DeepEmbeddedEntity: extraField (1)
+	// Total: 6 properties
+	assert.Len(t, props, 6, "Expected 6 properties (3 from BaseEntity + 2 from ExtendedEntity + 1 from DeepEmbeddedEntity)")
+
+	// Check all properties are present
+	assert.Contains(t, props, "id", "Expected 'id' property")
+	assert.Contains(t, props, "description", "Expected 'description' property")
+	assert.Contains(t, props, "createdAt", "Expected 'createdAt' property")
+	assert.Contains(t, props, "name", "Expected 'name' property")
+	assert.Contains(t, props, "value", "Expected 'value' property")
+	assert.Contains(t, props, "extraField", "Expected 'extraField' property")
+
+	// Verify UISchema order
+	order := *schema.UISchema.Order
+	assert.Len(t, order, 6, "Expected 6 ordered fields")
+	assert.Equal(t, "extraField", order[5], "Expected last field to be 'extraField' from DeepEmbeddedEntity")
+}

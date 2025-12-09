@@ -24,35 +24,9 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	_, listExists := endorService.Methods["list"]
 	assert.True(t, listExists, "method 'list' not found in endorService methods map")
 	_, createExists := endorService.Methods["create"]
-	assert.True(t, createExists, "method 'create' not found in endorService methods map")
-	if dataSchema, ok := (*endorService.Methods["create"].GetOptions().InputSchema.Properties)["data"]; ok {
-		_, idExists := (*dataSchema.Properties)["id"]
-		assert.True(t, idExists, "input schema for method 'create' missing 'id'")
-		_, typeExists := (*dataSchema.Properties)["type"]
-		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
-		_, attributeExists := (*dataSchema.Properties)["attribute"]
-		assert.True(t, attributeExists, "input schema for method 'create' missing 'attribute'")
-		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
-		assert.True(t, additionalAttributeExists, "input schema for method 'create' missing 'additionalAttribute'")
-	} else {
-		assert.Fail(t, "'data' property not found in input schema for method 'create'")
-	}
+	assert.False(t, createExists, "method 'create' defined in endorService methods map")
 	_, updateExists := endorService.Methods["update"]
-	assert.True(t, updateExists, "method 'update' not found in endorService methods map")
-	if dataSchema, ok := (*endorService.Methods["update"].GetOptions().InputSchema.Properties)["data"]; ok {
-		_, idExists := (*dataSchema.Properties)["id"]
-		assert.True(t, idExists, "input schema for method 'update' missing 'id'")
-		_, typeExists := (*dataSchema.Properties)["type"]
-		assert.True(t, typeExists, "input schema for method 'create' missing 'type'")
-		_, attributeExists := (*dataSchema.Properties)["attribute"]
-		assert.True(t, attributeExists, "input schema for method 'update' missing 'attribute'")
-		_, additionalAttributeExists := (*dataSchema.Properties)["additionalAttribute"]
-		assert.True(t, additionalAttributeExists, "input schema for method 'update' missing 'additionalAttribute'")
-	} else {
-		assert.Fail(t, "'data' property not found in input schema for method 'update'")
-	}
-	_, updateIdExists := (*endorService.Methods["update"].GetOptions().InputSchema.Properties)["id"]
-	assert.True(t, updateIdExists, "'id' property not found in input schema for method 'update'")
+	assert.False(t, updateExists, "method 'update' defined in endorService methods map")
 	_, action1Exists := endorService.Methods["action-1"]
 	assert.True(t, action1Exists, "method 'action-1' not found in endorService methods map")
 	// categories

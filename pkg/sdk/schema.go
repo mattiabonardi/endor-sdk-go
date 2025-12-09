@@ -153,7 +153,33 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 		}
 
 		jsonTag := field.Tag.Get("json")
-		name := strings.Split(jsonTag, ",")[0]
+		jsonTagParts := strings.Split(jsonTag, ",")
+		name := jsonTagParts[0]
+
+		// Check if this is an embedded (anonymous) field with inline tag
+		isInline := field.Anonymous && hasInlineTag(jsonTagParts)
+
+		if isInline {
+			// Inline the embedded struct's properties
+			fieldType := field.Type
+			if fieldType.Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+			if fieldType.Kind() == reflect.Struct {
+				embeddedSchema := buildExpandedSchema(fieldType, visited)
+				if embeddedSchema.Properties != nil {
+					for k, v := range *embeddedSchema.Properties {
+						(*schema.Properties)[k] = v
+					}
+				}
+				// Add embedded struct's field order
+				if embeddedSchema.UISchema != nil && embeddedSchema.UISchema.Order != nil {
+					*schema.UISchema.Order = append(*schema.UISchema.Order, *embeddedSchema.UISchema.Order...)
+				}
+			}
+			continue
+		}
+
 		if name == "" {
 			name = field.Name
 		}
@@ -250,6 +276,16 @@ func getTypeName(t reflect.Type) string {
 		return nameBefore + "_" + nameInside
 	}
 	return originalName
+}
+
+// hasInlineTag checks if the json tag parts contain "inline" option
+func hasInlineTag(tagParts []string) bool {
+	for _, part := range tagParts[1:] { // Skip the first part (field name)
+		if strings.TrimSpace(part) == "inline" {
+			return true
+		}
+	}
+	return false
 }
 
 func parseSchemaTag(tag string) map[string]string {

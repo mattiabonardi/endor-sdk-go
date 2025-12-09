@@ -82,6 +82,9 @@ func (h EndorHybridSpecilizedService[T]) ToEndorService(metadataSchema sdk.Schem
 
 	// add default CRUD methods
 	methods = getDefaultActions[T](h.Resource, *rootSchemWithMetadata, h.ResourceDescription)
+	// remove delete and update
+	delete(methods, "create")
+	delete(methods, "update")
 	// add custom methods
 	if h.methodsFn != nil {
 		for methodName, method := range h.methodsFn(getSchemaCallback) {
