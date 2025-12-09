@@ -15,10 +15,12 @@ properties:
     type: string
   surname:
     type: string`
-	resource := sdk.Resource{
-		ID:                   "customer",
-		Description:          "Customers",
-		Service:              "",
+	resource := sdk.ResourceHybrid{
+		Resource: sdk.Resource{
+			ID:          "customer",
+			Description: "Customers",
+			Service:     "",
+		},
 		AdditionalAttributes: yamlInput,
 	}
 	def, err := resource.UnmarshalAdditionalAttributes()

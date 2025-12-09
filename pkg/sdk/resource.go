@@ -28,24 +28,24 @@ type ResourceInterface interface {
 	GetType() ResourceType
 	SetType(resourceType ResourceType)
 	AsBase() (*Resource, bool)
-	AsSpecialized() (*ResourceSpecialized, bool)
-	UnmarshalAdditionalAttributes() (*RootSchema, error)
+	AsHybrid() (*ResourceHybrid, bool)
+	AsHybridSpecialized() (*ResourceHybridSpecialized, bool)
 	SetService(service string)
 }
 
 type ResourceType string
 
 const (
-	ResourceTypeBase        ResourceType = "base"
-	ResourceTypeSpecialized ResourceType = "specialized"
+	ResourceTypeBase              ResourceType = "base"
+	ResourceTypeHybrid            ResourceType = "hybrid"
+	ResourceTypeHybridSpecialized ResourceType = "hybrid-specialized"
 )
 
 type Resource struct {
-	ID                   string       `json:"id" bson:"_id" schema:"title=Id"`
-	Description          string       `json:"description" schema:"title=Description"`
-	Type                 ResourceType `json:"type" schema:"title=Type"`
-	Service              string       `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
-	AdditionalAttributes string       `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
+	ID          string       `json:"id" bson:"_id" schema:"title=Id"`
+	Description string       `json:"description" schema:"title=Description"`
+	Type        ResourceType `json:"type" schema:"title=Type"`
+	Service     string       `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
 }
 
 func (h *Resource) GetID() string {
@@ -53,7 +53,7 @@ func (h *Resource) GetID() string {
 }
 
 func (h *Resource) GetType() ResourceType {
-	return ResourceTypeBase
+	return h.Type
 }
 
 func (r *Resource) SetType(t ResourceType) {
@@ -64,49 +64,48 @@ func (r *Resource) AsBase() (*Resource, bool) {
 	return r, true
 }
 
-func (r *Resource) AsSpecialized() (*ResourceSpecialized, bool) {
+func (r *Resource) AsHybrid() (*ResourceHybrid, bool) {
 	return nil, false
 }
 
-func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var schema RootSchema
-	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
-	}
-	return &schema, nil
+func (r *Resource) AsHybridSpecialized() (*ResourceHybridSpecialized, bool) {
+	return nil, false
 }
 
 func (r *Resource) SetService(service string) {
 	r.Service = service
 }
 
-type ResourceSpecialized struct {
-	Resource   `json:",inline" bson:",inline"`
-	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+type ResourceHybrid struct {
+	Resource             `json:",inline" bson:",inline"`
+	AdditionalAttributes string `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
 }
 
-func (h *ResourceSpecialized) GetID() string {
+func (h *ResourceHybrid) GetID() string {
 	return h.ID
 }
 
-func (h *ResourceSpecialized) GetType() ResourceType {
-	return ResourceTypeSpecialized
+func (h *ResourceHybrid) GetType() ResourceType {
+	return ResourceTypeHybrid
 }
 
-func (r *ResourceSpecialized) SetType(t ResourceType) {
+func (r *ResourceHybrid) SetType(t ResourceType) {
 	r.Type = t
 }
 
-func (r *ResourceSpecialized) AsBase() (*Resource, bool) {
-	return &r.Resource, true
+func (r *ResourceHybrid) AsBase() (*Resource, bool) {
+	return nil, false
 }
 
-func (r *ResourceSpecialized) AsSpecialized() (*ResourceSpecialized, bool) {
+func (r *ResourceHybrid) AsHybrid() (*ResourceHybrid, bool) {
 	return r, true
 }
 
-func (h *ResourceSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+func (r *ResourceHybrid) AsHybridSpecialized() (*ResourceHybridSpecialized, bool) {
+	return nil, true
+}
+
+func (h *ResourceHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	var schema RootSchema
 	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
 	if err != nil {
@@ -115,12 +114,54 @@ func (h *ResourceSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, erro
 	return &schema, nil
 }
 
-func (r *ResourceSpecialized) SetService(service string) {
+func (r *ResourceHybrid) SetService(service string) {
+	r.Service = service
+}
+
+type ResourceHybridSpecialized struct {
+	ResourceHybrid `json:",inline" bson:",inline"`
+	Categories     []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+}
+
+func (h *ResourceHybridSpecialized) GetID() string {
+	return h.ID
+}
+
+func (h *ResourceHybridSpecialized) GetType() ResourceType {
+	return ResourceTypeHybridSpecialized
+}
+
+func (r *ResourceHybridSpecialized) SetType(t ResourceType) {
+	r.Type = t
+}
+
+func (r *ResourceHybridSpecialized) AsBase() (*Resource, bool) {
+	return &r.Resource, true
+}
+
+func (r *ResourceHybridSpecialized) AsHybrid() (*ResourceHybrid, bool) {
+	return nil, false
+}
+
+func (r *ResourceHybridSpecialized) AsHybridSpecialized() (*ResourceHybridSpecialized, bool) {
+	return r, true
+}
+
+func (h *ResourceHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
+	}
+	return &schema, nil
+}
+
+func (r *ResourceHybridSpecialized) SetService(service string) {
 	r.Service = service
 }
 
 // GetCategoryByID trova una categoria per ID
-func (h *ResourceSpecialized) GetCategoryByID(categoryID string) (*Category, bool) {
+func (h *ResourceHybridSpecialized) GetCategoryByID(categoryID string) (*Category, bool) {
 	for i, category := range h.Categories {
 		if category.ID == categoryID {
 			return &h.Categories[i], true
@@ -130,7 +171,7 @@ func (h *ResourceSpecialized) GetCategoryByID(categoryID string) (*Category, boo
 }
 
 // GetCategorySchema restituisce lo schema combinato di base e categoria specifica
-func (h *ResourceSpecialized) GetCategorySchema(categoryID string) (*RootSchema, error) {
+func (h *ResourceHybridSpecialized) GetCategorySchema(categoryID string) (*RootSchema, error) {
 	// Schema di base della risorsa
 	baseSchema, err := h.UnmarshalAdditionalAttributes()
 	if err != nil {

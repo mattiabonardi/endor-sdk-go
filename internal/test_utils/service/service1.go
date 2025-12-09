@@ -27,7 +27,7 @@ func NewService1() sdk.EndorService {
 	service := Service1{}
 	return sdk.EndorService{
 		Resource:    "resource-1",
-		Description: "Resource 1 (EndorService with categories)",
+		Description: "Resource 1 (Simple EndorService)",
 		Methods: map[string]sdk.EndorServiceAction{
 			"action1": sdk.NewAction(
 				service.action1,
