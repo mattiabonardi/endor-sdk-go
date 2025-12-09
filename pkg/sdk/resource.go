@@ -23,12 +23,43 @@ func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	return &schema, nil
 }
 
+type ResourceInterface interface {
+	GetID() string
+	GetType() ResourceType
+	AsBase() (*Resource, bool)
+	AsSpecialized() (*ResourceSpecialized, bool)
+	UnmarshalAdditionalAttributes() (*RootSchema, error)
+}
+
+type ResourceType string
+
+const (
+	ResourceTypeBase        ResourceType = "base"
+	ResourceTypeSpecialized ResourceType = "specialized"
+)
+
 type Resource struct {
-	ID                   string     `json:"id" bson:"_id" schema:"title=Id"`
-	Description          string     `json:"description" schema:"title=Description"`
-	Service              string     `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
-	AdditionalAttributes string     `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
-	Categories           []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+	ID                   string       `json:"id" bson:"_id" schema:"title=Id"`
+	Description          string       `json:"description" schema:"title=Description"`
+	Type                 ResourceType `json:"type" schema:"title=Type"`
+	Service              string       `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
+	AdditionalAttributes string       `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
+}
+
+func (h *Resource) GetID() string {
+	return h.ID
+}
+
+func (h *Resource) GetType() ResourceType {
+	return ResourceTypeBase
+}
+
+func (r *Resource) AsBase() (*Resource, bool) {
+	return r, true
+}
+
+func (r *Resource) AsSpecialized() (*ResourceSpecialized, bool) {
+	return nil, false
 }
 
 func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -40,8 +71,38 @@ func (h *Resource) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	return &schema, nil
 }
 
+type ResourceSpecialized struct {
+	Resource   `json:",inline" bson:",inline"`
+	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+}
+
+func (h *ResourceSpecialized) GetID() string {
+	return h.ID
+}
+
+func (h *ResourceSpecialized) GetType() ResourceType {
+	return ResourceTypeSpecialized
+}
+
+func (r *ResourceSpecialized) AsBase() (*Resource, bool) {
+	return &r.Resource, true
+}
+
+func (r *ResourceSpecialized) AsSpecialized() (*ResourceSpecialized, bool) {
+	return r, true
+}
+
+func (h *ResourceSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ResourceDefinition YAML: %w", err)
+	}
+	return &schema, nil
+}
+
 // GetCategoryByID trova una categoria per ID
-func (h *Resource) GetCategoryByID(categoryID string) (*Category, bool) {
+func (h *ResourceSpecialized) GetCategoryByID(categoryID string) (*Category, bool) {
 	for i, category := range h.Categories {
 		if category.ID == categoryID {
 			return &h.Categories[i], true
@@ -51,7 +112,7 @@ func (h *Resource) GetCategoryByID(categoryID string) (*Category, bool) {
 }
 
 // GetCategorySchema restituisce lo schema combinato di base e categoria specifica
-func (h *Resource) GetCategorySchema(categoryID string) (*RootSchema, error) {
+func (h *ResourceSpecialized) GetCategorySchema(categoryID string) (*RootSchema, error) {
 	// Schema di base della risorsa
 	baseSchema, err := h.UnmarshalAdditionalAttributes()
 	if err != nil {

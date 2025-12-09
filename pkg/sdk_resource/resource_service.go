@@ -20,9 +20,25 @@ func NewResourceService(microServiceId string, services *[]sdk.EndorServiceInter
 				resourceService.schema,
 				"Get the schema of the resource",
 			),
+			string(sdk.ResourceTypeBase) + "/schema": sdk.NewAction(
+				resourceService.schema,
+				"Get the schema of the resource of type base",
+			),
+			string(sdk.ResourceTypeSpecialized) + "/schema": sdk.NewAction(
+				resourceService.resourceSpecializedSchema,
+				"Get the schema of the resource of type specialized",
+			),
 			"list": sdk.NewAction(
 				resourceService.list,
 				"Search for available resources",
+			),
+			string(sdk.ResourceTypeBase) + "/list": sdk.NewAction(
+				resourceService.resourceBaseList,
+				"Search for available resources of type base",
+			),
+			string(sdk.ResourceTypeSpecialized) + "/list": sdk.NewAction(
+				resourceService.resourceSpecializedList,
+				"Search for available resources of type specialized",
 			),
 			"instance": sdk.NewAction(
 				resourceService.instance,
@@ -45,31 +61,65 @@ type ResourceService struct {
 	services       *[]sdk.EndorServiceInterface
 }
 
+func (h *ResourceService) resourceSpecializedSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.ResourceSpecialized{})).Build(), nil
+}
+
 func (h *ResourceService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
 }
 
-func (h *ResourceService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.Resource], error) {
+func (h *ResourceService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.ResourceInterface], error) {
 	resources, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceList()
 	if err != nil {
 		return nil, err
 	}
-	filtered := make([]sdk.Resource, 0, len(resources))
+	filtered := make([]sdk.ResourceInterface, 0, len(resources))
 	for _, r := range resources {
-		if r.ID != "resource" && r.ID != "resource-action" {
+		if r.GetID() != "resource" && r.GetID() != "resource-action" {
 			filtered = append(filtered, r)
 		}
 	}
 	resources = filtered
-	return sdk.NewResponseBuilder[[]sdk.Resource]().AddData(&resources).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.ResourceInterface]().AddData(&resources).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
 }
 
-func (h *ResourceService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
+func (h *ResourceService) resourceBaseList(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.ResourceInterface], error) {
+	resources, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceList()
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]sdk.ResourceInterface, 0, len(resources))
+	for _, r := range resources {
+		if r.GetID() != "resource" && r.GetID() != "resource-action" && r.GetType() == sdk.ResourceTypeBase {
+			filtered = append(filtered, r)
+		}
+	}
+	resources = filtered
+	return sdk.NewResponseBuilder[[]sdk.ResourceInterface]().AddData(&resources).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+}
+
+func (h *ResourceService) resourceSpecializedList(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.ResourceInterface], error) {
+	resources, err := NewEndorServiceRepository(h.microServiceId, h.services).ResourceList()
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]sdk.ResourceInterface, 0, len(resources))
+	for _, r := range resources {
+		if r.GetID() != "resource" && r.GetID() != "resource-action" && r.GetType() == sdk.ResourceTypeSpecialized {
+			filtered = append(filtered, r)
+		}
+	}
+	resources = filtered
+	return sdk.NewResponseBuilder[[]sdk.ResourceInterface]().AddData(&resources).AddSchema(sdk.NewSchema(&sdk.ResourceSpecialized{})).Build(), nil
+}
+
+func (h *ResourceService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.ResourceInterface], error) {
 	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Instance(c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.Resource]().AddData(&resource.resource).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
+	return sdk.NewResponseBuilder[sdk.ResourceInterface]().AddData(&resource.resource).AddSchema(sdk.NewSchema(&sdk.Resource{})).Build(), nil
 }
 
 func (h *ResourceService) create(c *sdk.EndorContext[sdk.CreateDTO[sdk.Resource]]) (*sdk.Response[sdk.Resource], error) {
