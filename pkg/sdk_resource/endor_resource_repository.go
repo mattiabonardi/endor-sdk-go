@@ -260,10 +260,17 @@ func (h *EndorServiceRepository) DynamicResourceList() ([]sdk.ResourceInterface,
 		case sdk.ResourceTypeBase:
 			resources = append(resources, &discr)
 
+		case sdk.ResourceTypeHybrid:
+			var r sdk.ResourceHybrid
+			if err := bson.Unmarshal(raw, &r); err != nil {
+				return nil, fmt.Errorf("failed to decode hybrid resource: %w", err)
+			}
+			resources = append(resources, &r)
+
 		case sdk.ResourceTypeHybridSpecialized:
 			var r sdk.ResourceHybridSpecialized
 			if err := bson.Unmarshal(raw, &r); err != nil {
-				return nil, fmt.Errorf("failed to decode specialized resource: %w", err)
+				return nil, fmt.Errorf("failed to decode hybrid-specialized resource: %w", err)
 			}
 			resources = append(resources, &r)
 
