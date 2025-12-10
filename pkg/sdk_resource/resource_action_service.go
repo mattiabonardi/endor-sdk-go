@@ -10,9 +10,9 @@ func NewResourceActionService(microServiceId string, services *[]sdk.EndorServic
 		services:       services,
 	}
 	return &sdk.EndorService{
-		Resource:    "resource-action",
-		Description: "Resource Action",
-		Methods: map[string]sdk.EndorServiceAction{
+		Resource:            "resource-action",
+		ResourceDescription: "Resource Action",
+		Actions: map[string]sdk.EndorServiceActionInterface{
 			"schema": sdk.NewAction(
 				resourceMethodService.schema,
 				"Get the schema of the resource method",

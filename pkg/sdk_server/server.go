@@ -98,7 +98,7 @@ func (h *Endor) Init(microserviceId string) {
 				Id: resource,
 			})
 			if err == nil {
-				if method, ok := endorRepositoryDictionary.EndorService.Methods[action]; ok {
+				if method, ok := endorRepositoryDictionary.EndorService.Actions[action]; ok {
 					category := ""
 					if strings.Contains(action, "/") {
 						parts := strings.SplitN(action, "/", 2)

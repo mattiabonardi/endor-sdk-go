@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
-	test_utils_service "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/service"
+	test_utils_services "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/services"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"gopkg.in/yaml.v3"
 )
@@ -18,9 +18,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	microServiceId := "test-service"
 	microServiceAddress := "http://localhost:8080"
 
-	// Use Service1 as test EndorService
-	service1 := test_utils_service.NewService1()
-	services := []sdk.EndorService{service1}
+	// Use BaseService as test EndorService
+	baseService := test_utils_services.NewBaseServiceService()
+	services := []sdk.EndorService{baseService.ToEndorService()}
 
 	// Test the function
 	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
@@ -149,9 +149,10 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 	microServiceAddress := "http://localhost:8081"
 
 	// Create a service with custom version
-	service1 := test_utils_service.NewService1()
-	service1.Version = "v2"
-	services := []sdk.EndorService{service1}
+	baseService := test_utils_services.NewBaseServiceService()
+	endorService := baseService.ToEndorService()
+	endorService.Version = "v2"
+	services := []sdk.EndorService{endorService}
 
 	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
 	if err != nil {
@@ -195,10 +196,11 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	microServiceId := "test-service-priority"
 	microServiceAddress := "http://localhost:8082"
 
-	service1 := test_utils_service.NewService1()
+	baseService := test_utils_services.NewBaseServiceService()
+	endorService := baseService.ToEndorService()
 	priority := 100
-	service1.Priority = &priority
-	services := []sdk.EndorService{service1}
+	endorService.Priority = &priority
+	services := []sdk.EndorService{endorService}
 
 	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
 	if err != nil {

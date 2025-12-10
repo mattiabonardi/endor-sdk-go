@@ -6,15 +6,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Category rappresenta una categoria con attributi dinamici specifici
 type Category struct {
+	ID          string `json:"id" bson:"id" schema:"title=Category ID"`
+	Description string `json:"description" bson:"description" schema:"title=Category Description"`
+}
+
+type HybridCategory struct {
 	ID                   string `json:"id" bson:"id" schema:"title=Category ID"`
 	Description          string `json:"description" bson:"description" schema:"title=Category Description"`
 	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
 }
 
-// UnmarshalAdditionalAttributes deserializza gli attributi aggiuntivi della categoria
-func (c *Category) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+func (c *HybridCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 	var schema RootSchema
 	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &schema)
 	if err != nil {
@@ -36,9 +39,12 @@ type ResourceInterface interface {
 type ResourceType string
 
 const (
-	ResourceTypeBase              ResourceType = "base"
-	ResourceTypeHybrid            ResourceType = "hybrid"
-	ResourceTypeHybridSpecialized ResourceType = "hybrid-specialized"
+	ResourceTypeBase               ResourceType = "base"
+	ResourceTypeBaseSpecialized    ResourceType = "base-specialized"
+	ResourceTypeHybrid             ResourceType = "hybrid"
+	ResourceTypeHybridSpecialized  ResourceType = "hybrid-specialized"
+	ResourceTypeDynamic            ResourceType = "dynamic"
+	ResourceTypeDynamicSpecialized ResourceType = "dynamic-specialized"
 )
 
 type Resource struct {
@@ -120,7 +126,7 @@ func (r *ResourceHybrid) SetService(service string) {
 
 type ResourceHybridSpecialized struct {
 	ResourceHybrid `json:",inline" bson:",inline"`
-	Categories     []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+	Categories     []HybridCategory `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
 }
 
 func (h *ResourceHybridSpecialized) GetID() string {
@@ -161,7 +167,7 @@ func (r *ResourceHybridSpecialized) SetService(service string) {
 }
 
 // GetCategoryByID trova una categoria per ID
-func (h *ResourceHybridSpecialized) GetCategoryByID(categoryID string) (*Category, bool) {
+func (h *ResourceHybridSpecialized) GetCategoryByID(categoryID string) (*HybridCategory, bool) {
 	for i, category := range h.Categories {
 		if category.ID == categoryID {
 			return &h.Categories[i], true

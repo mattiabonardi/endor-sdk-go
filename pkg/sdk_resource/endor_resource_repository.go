@@ -47,7 +47,7 @@ type EndorServiceDictionary struct {
 }
 
 type EndorServiceActionDictionary struct {
-	EndorServiceAction sdk.EndorServiceAction
+	EndorServiceAction sdk.EndorServiceActionInterface
 	resourceAction     sdk.ResourceAction
 }
 
@@ -82,23 +82,33 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				Type:        sdk.ResourceTypeBase,
 			}
 
-			// hybrid
-			if _, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
-				resource.Type = sdk.ResourceTypeHybrid
-			}
+			var endorService sdk.EndorService
 
 			// hybrid specialized
-			if _, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
+			if hybridSpecializedService, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
 				resource.Type = sdk.ResourceTypeHybridSpecialized
-			}
-
-			if resource.GetType() != sdk.ResourceTypeBase {
 				h.ensureResourceDocumentOfInternalService(&resource)
+				endorService = hybridSpecializedService.ToEndorService(sdk.Schema{})
+			} else {
+				// hybrid
+				if hybridService, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
+					resource.Type = sdk.ResourceTypeHybrid
+					h.ensureResourceDocumentOfInternalService(&resource)
+					endorService = hybridService.ToEndorService(sdk.Schema{})
+				} else {
+					// base specialized
+					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
+						resource.Type = sdk.ResourceTypeBase
+						endorService = baseSpecializedService.ToEndorService()
+					} else {
+						endorService = internalEndorService.(sdk.EndorService)
+					}
+				}
 			}
 
 			resources[internalEndorService.GetResource()] = EndorServiceDictionary{
 				OriginalInstance: &internalEndorService,
-				EndorService:     internalEndorService.ToEndorService(sdk.Schema{}),
+				EndorService:     endorService,
 				resource:         &resource,
 			}
 		}
@@ -155,7 +165,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						// TODO: log
 					}
 					// create a new hybrid service
-					hybridService := NewHybridService[*sdk.DynamicResource](resourceHybrid.ID, resourceHybrid.Description)
+					hybridService := NewEndorHybridService[*sdk.DynamicResource](resourceHybrid.ID, resourceHybrid.Description)
 					resources[resourceHybrid.ID] = EndorServiceDictionary{
 						EndorService: hybridService.ToEndorService(defintion.Schema),
 						resource:     resourceHybrid,
@@ -192,7 +202,7 @@ func (h *EndorServiceRepository) ActionMap() (map[string]EndorServiceActionDicti
 		return actions, err
 	}
 	for resourceName, resource := range resources {
-		for actionName, EndorServiceAction := range resource.EndorService.Methods {
+		for actionName, EndorServiceAction := range resource.EndorService.Actions {
 			action, err := h.createAction(resourceName, actionName, EndorServiceAction)
 			if err == nil {
 				actions[action.resourceAction.ID] = *action
@@ -307,7 +317,7 @@ func (h *EndorServiceRepository) ActionInstance(dto sdk.ReadInstanceDTO) (*Endor
 		if err != nil {
 			return nil, err
 		}
-		if resourceAction, ok := resourceInstance.EndorService.Methods[idSegments[1]]; ok {
+		if resourceAction, ok := resourceInstance.EndorService.Actions[idSegments[1]]; ok {
 			return h.createAction(idSegments[0], idSegments[1], resourceAction)
 		} else {
 			return nil, sdk.NewNotFoundError(fmt.Errorf("resource action not found"))
@@ -389,7 +399,7 @@ func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string)
 	return nil
 }
 
-func (h *EndorServiceRepository) createAction(resourceName string, actionName string, endorServiceAction sdk.EndorServiceAction) (*EndorServiceActionDictionary, error) {
+func (h *EndorServiceRepository) createAction(resourceName string, actionName string, endorServiceAction sdk.EndorServiceActionInterface) (*EndorServiceActionDictionary, error) {
 	actionId := path.Join(resourceName, actionName)
 	action := sdk.ResourceAction{
 		ID:          actionId,

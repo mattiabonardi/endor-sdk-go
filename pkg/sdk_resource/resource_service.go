@@ -13,9 +13,9 @@ func NewResourceService(microServiceId string, services *[]sdk.EndorServiceInter
 		services:       services,
 	}
 	service := &sdk.EndorService{
-		Resource:    "resource",
-		Description: "Resource",
-		Methods: map[string]sdk.EndorServiceAction{
+		Resource:            "resource",
+		ResourceDescription: "Resource",
+		Actions: map[string]sdk.EndorServiceActionInterface{
 			"schema": sdk.NewAction(
 				resourceService.schema,
 				"Get the schema of the resource",
@@ -67,15 +67,15 @@ func NewResourceService(microServiceId string, services *[]sdk.EndorServiceInter
 		},
 	}
 	if configuration.GetConfig().HybridResourcesEnabled || configuration.GetConfig().DynamicResourcesEnabled {
-		service.Methods[string(sdk.ResourceTypeBase)+"/update"] = sdk.NewAction(resourceService.resourceBaseUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeBase))
-		service.Methods[string(sdk.ResourceTypeHybrid)+"/update"] = sdk.NewAction(resourceService.resourceHybridUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeHybrid))
-		service.Methods[string(sdk.ResourceTypeHybridSpecialized)+"/update"] = sdk.NewAction(resourceService.resourceHybridSpecializedUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeHybridSpecialized))
+		service.Actions[string(sdk.ResourceTypeBase)+"/update"] = sdk.NewAction(resourceService.resourceBaseUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeBase))
+		service.Actions[string(sdk.ResourceTypeHybrid)+"/update"] = sdk.NewAction(resourceService.resourceHybridUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeHybrid))
+		service.Actions[string(sdk.ResourceTypeHybridSpecialized)+"/update"] = sdk.NewAction(resourceService.resourceHybridSpecializedUpdate, "Update an existing resource of type "+string(sdk.ResourceTypeHybridSpecialized))
 	}
 	if configuration.GetConfig().DynamicResourcesEnabled {
-		service.Methods[string(sdk.ResourceTypeBase)+"/create"] = sdk.NewAction(resourceService.resourceBaseCreate, "Create a new resource "+string(sdk.ResourceTypeBase))
-		service.Methods[string(sdk.ResourceTypeHybrid)+"/create"] = sdk.NewAction(resourceService.resourceHybridCreate, "Create a new resource "+string(sdk.ResourceTypeHybrid))
-		service.Methods[string(sdk.ResourceTypeHybridSpecialized)+"/create"] = sdk.NewAction(resourceService.resourceHybridSpecializedCreate, "Create a new resource "+string(sdk.ResourceTypeHybridSpecialized))
-		service.Methods["delete"] = sdk.NewAction(resourceService.delete, "Delete an existing resource")
+		service.Actions[string(sdk.ResourceTypeBase)+"/create"] = sdk.NewAction(resourceService.resourceBaseCreate, "Create a new resource "+string(sdk.ResourceTypeBase))
+		service.Actions[string(sdk.ResourceTypeHybrid)+"/create"] = sdk.NewAction(resourceService.resourceHybridCreate, "Create a new resource "+string(sdk.ResourceTypeHybrid))
+		service.Actions[string(sdk.ResourceTypeHybridSpecialized)+"/create"] = sdk.NewAction(resourceService.resourceHybridSpecializedCreate, "Create a new resource "+string(sdk.ResourceTypeHybridSpecialized))
+		service.Actions["delete"] = sdk.NewAction(resourceService.delete, "Delete an existing resource")
 	}
 	return service
 }

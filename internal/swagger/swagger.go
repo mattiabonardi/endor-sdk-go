@@ -171,7 +171,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 
 	paths := make(map[string]map[string]OpenAPIOperation)
 	for _, service := range services {
-		for methodKey, method := range service.Methods {
+		for methodKey, method := range service.Actions {
 			parameters := []OpenAPIParameter{}
 			if !method.GetOptions().Public {
 				parameters = append(parameters, []OpenAPIParameter{
@@ -285,7 +285,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 		}
 		tag := OpenAPITag{
 			Name:        service.Resource,
-			Description: service.Description,
+			Description: service.ResourceDescription,
 		}
 		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}

@@ -12,7 +12,7 @@ type EndorHybridService[T sdk.ResourceInstanceInterface] struct {
 	Resource            string
 	ResourceDescription string
 	Priority            *int
-	methodsFn           func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction
+	methodsFn           func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface
 }
 
 func (h EndorHybridService[T]) GetResource() string {
@@ -27,7 +27,7 @@ func (h EndorHybridService[T]) GetPriority() *int {
 	return h.Priority
 }
 
-func NewHybridService[T sdk.ResourceInstanceInterface](resource, resourceDescription string) sdk.EndorHybridServiceInterface {
+func NewEndorHybridService[T sdk.ResourceInstanceInterface](resource, resourceDescription string) sdk.EndorHybridServiceInterface {
 	return EndorHybridService[T]{
 		Resource:            resource,
 		ResourceDescription: resourceDescription,
@@ -36,7 +36,7 @@ func NewHybridService[T sdk.ResourceInstanceInterface](resource, resourceDescrip
 
 // define methods. The params getSchema allow to inject the dynamic schema
 func (h EndorHybridService[T]) WithActions(
-	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceAction,
+	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface,
 ) sdk.EndorHybridServiceInterface {
 	h.methodsFn = fn
 	return h
@@ -44,7 +44,7 @@ func (h EndorHybridService[T]) WithActions(
 
 // create endor service instance
 func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.Schema) sdk.EndorService {
-	var methods = make(map[string]sdk.EndorServiceAction)
+	var methods = make(map[string]sdk.EndorServiceActionInterface)
 
 	// schema
 	rootSchemWithMetadata := getRootSchemaWithMetadata[T](metadataSchema)
@@ -60,10 +60,11 @@ func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.Schema) sdk.End
 	}
 
 	return sdk.EndorService{
-		Resource:    h.Resource,
-		Description: h.ResourceDescription,
-		Priority:    h.Priority,
-		Methods:     methods,
+		Resource:            h.Resource,
+		ResourceDescription: h.ResourceDescription,
+		Priority:            h.Priority,
+		Actions:             methods,
+		ResourceSchema:      *rootSchemWithMetadata,
 	}
 }
 
@@ -78,14 +79,14 @@ func getRootSchemaWithMetadata[T sdk.ResourceInstanceInterface](metadataSchema s
 	return rootSchema
 }
 
-func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema sdk.RootSchema, resourceDescription string) map[string]sdk.EndorServiceAction {
+func getDefaultActions[T sdk.ResourceInstanceInterface](resource string, schema sdk.RootSchema, resourceDescription string) map[string]sdk.EndorServiceActionInterface {
 	// Crea repository usando DynamicResource come default (per ora)
 	autogenerateID := true
 	repository := repository.NewResourceInstanceRepository[T](resource, repository.ResourceInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
 
-	return map[string]sdk.EndorServiceAction{
+	return map[string]sdk.EndorServiceActionInterface{
 		"schema": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)

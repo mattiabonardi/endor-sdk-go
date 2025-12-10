@@ -11,7 +11,7 @@ import (
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
-type EndorServiceAction interface {
+type EndorServiceActionInterface interface {
 	CreateHTTPCallback(microserviceId string, resource string, action string, category string) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
 }
@@ -24,11 +24,11 @@ type EndorServiceActionOptions struct {
 }
 
 type EndorService struct {
-	Resource         string
-	Description      string
-	Methods          map[string]EndorServiceAction
-	Priority         *int
-	ResourceMetadata bool
+	Resource            string
+	ResourceDescription string
+	Actions             map[string]EndorServiceActionInterface
+	Priority            *int
+	ResourceSchema      RootSchema
 
 	// optionals
 	Version string
@@ -39,18 +39,14 @@ func (h EndorService) GetResource() string {
 }
 
 func (h EndorService) GetResourceDescription() string {
-	return h.Description
+	return h.ResourceDescription
 }
 
 func (h EndorService) GetPriority() *int {
 	return h.Priority
 }
 
-func (h EndorService) ToEndorService(schema Schema) EndorService {
-	return h
-}
-
-func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceAction {
+func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceActionInterface {
 	options := EndorServiceActionOptions{
 		Description:     description,
 		Public:          false,
@@ -62,7 +58,7 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 	return NewConfigurableAction(options, handler)
 }
 
-func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceAction {
+func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceActionInterface {
 	if options.InputSchema == nil {
 		options.InputSchema = ResolveGenericSchema[T]()
 	}
@@ -138,27 +134,48 @@ func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 	return m.options
 }
 
+// generic
 type EndorServiceInterface interface {
 	GetResource() string
 	GetResourceDescription() string
 	GetPriority() *int
-	ToEndorService(metadataSchema Schema) EndorService
 }
 
+// base
+type EndorBaseServiceInterface interface {
+	EndorServiceInterface
+	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseServiceInterface
+	ToEndorService() EndorService
+}
+
+// base specialized
+type EndorBaseSpecializedServiceInterface interface {
+	EndorServiceInterface
+	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceInterface
+	WithCategories(categories []EndorBaseSpecializedServiceCategoryInterface) EndorBaseSpecializedServiceInterface
+	ToEndorService() EndorService
+}
+
+type EndorBaseSpecializedServiceCategoryInterface interface {
+	GetID() string
+}
+
+// hybrid
 type EndorHybridServiceInterface interface {
 	EndorServiceInterface
-	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridServiceInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridServiceInterface
 	ToEndorService(metadataSchema Schema) EndorService
 }
 
+// hybrid specialized
 type EndorHybridSpecializedServiceInterface interface {
 	EndorServiceInterface
-	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceAction) EndorHybridSpecializedServiceInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceInterface
 	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
 	ToEndorService(metadataSchema Schema) EndorService
 }
 
 type EndorHybridSpecializedServiceCategoryInterface interface {
-	GetID() string
-	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceAction
+	EndorBaseSpecializedServiceCategoryInterface
+	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceActionInterface
 }

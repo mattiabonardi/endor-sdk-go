@@ -55,7 +55,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 		basePath += service.Resource
 
 		// methods
-		for methodKey, method := range service.Methods {
+		for methodKey, method := range service.Actions {
 			// create router
 			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Resource, methodKey)
 			router := ApiGatewayConfigurationRouter{
