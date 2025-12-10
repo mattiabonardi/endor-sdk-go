@@ -1,7 +1,7 @@
 package main
 
 import (
-	test_utils_service "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/service"
+	test_utils_services "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/services"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_server"
 )
@@ -14,8 +14,8 @@ type Payload struct {
 
 func main() {
 	sdk_server.NewEndorInitializer().WithEndorServices(&[]sdk.EndorServiceInterface{
-		test_utils_service.NewService1(),
-		test_utils_service.NewService2(),
-		test_utils_service.NewService3(),
+		test_utils_services.NewBaseServiceService(),
+		test_utils_services.NewHybridService(),
+		test_utils_services.NewHybridSpecializedService(),
 	}).Build().Init("endor-sdk-service")
 }

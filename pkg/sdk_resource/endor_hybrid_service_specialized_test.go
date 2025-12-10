@@ -3,13 +3,13 @@ package sdk_resource_test
 import (
 	"testing"
 
-	test_utils_service "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/service"
+	test_utils_services "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/services"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEndorHybridSpecializedService(t *testing.T) {
-	hybridService := test_utils_service.NewService3()
+	hybridService := test_utils_services.NewHybridSpecializedService()
 	endorService := hybridService.ToEndorService(
 		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
 	)

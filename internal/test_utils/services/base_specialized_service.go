@@ -1,10 +1,5 @@
 package test_utils_services
 
-import (
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
-)
-
 type BaseSpecializedModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Type      string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
@@ -44,7 +39,7 @@ type BaseSpecializedAction1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type BaseSpecializedService struct {
+/*type BaseSpecializedService struct {
 }
 
 func (h *BaseSpecializedService) action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
@@ -82,3 +77,4 @@ func NewBaseSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
 			}
 		})
 }
+*/
