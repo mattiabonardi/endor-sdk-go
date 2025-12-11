@@ -139,7 +139,7 @@ func (h *ResourceHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 
 // #endregion
 
-// #region Hybrid specialized
+// #region Resource hybrid specialized
 
 type ResourceHybridSpecialized struct {
 	ResourceHybrid `json:",inline" bson:",inline"`
