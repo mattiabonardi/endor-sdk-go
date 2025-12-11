@@ -4,27 +4,27 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-type EndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any] struct {
+type EndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface] struct {
 	ID          string
 	Description string
 	Actions     map[string]sdk.EndorServiceActionInterface
 }
 
-func (h *EndorBaseSpecializedServiceCategory[T, C]) GetID() string {
+func (h *EndorBaseSpecializedServiceCategory[T]) GetID() string {
 	return h.ID
 }
 
-func (h *EndorBaseSpecializedServiceCategory[T, C]) GetActions() map[string]sdk.EndorServiceActionInterface {
+func (h *EndorBaseSpecializedServiceCategory[T]) GetActions() map[string]sdk.EndorServiceActionInterface {
 	return h.Actions
 }
 
-func (h *EndorBaseSpecializedServiceCategory[T, C]) WithActions(actions map[string]sdk.EndorServiceActionInterface) sdk.EndorBaseSpecializedServiceCategoryInterface {
+func (h *EndorBaseSpecializedServiceCategory[T]) WithActions(actions map[string]sdk.EndorServiceActionInterface) sdk.EndorBaseSpecializedServiceCategoryInterface {
 	h.Actions = actions
 	return h
 }
 
-func NewEndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any](categoryID string, categoryDescription string) sdk.EndorBaseSpecializedServiceCategoryInterface {
-	return &EndorBaseSpecializedServiceCategory[T, C]{
+func NewEndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorBaseSpecializedServiceCategoryInterface {
+	return &EndorBaseSpecializedServiceCategory[T]{
 		ID:          categoryID,
 		Description: categoryDescription,
 	}

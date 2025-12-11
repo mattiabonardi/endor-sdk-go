@@ -79,29 +79,34 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				ID:          internalEndorService.GetResource(),
 				Description: internalEndorService.GetResourceDescription(),
 				Service:     h.microServiceId,
-				Type:        sdk.ResourceTypeBase,
+				Type:        string(sdk.ResourceTypeBase),
 			}
 
 			var endorService sdk.EndorService
 
 			// hybrid specialized
 			if hybridSpecializedService, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
-				resource.Type = sdk.ResourceTypeHybridSpecialized
+				resource.Type = string(sdk.ResourceTypeHybridSpecialized)
 				h.ensureResourceDocumentOfInternalService(&resource)
 				endorService = hybridSpecializedService.ToEndorService(sdk.Schema{}, map[string]sdk.Schema{})
 			} else {
 				// hybrid
 				if hybridService, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
-					resource.Type = sdk.ResourceTypeHybrid
+					resource.Type = string(sdk.ResourceTypeHybrid)
 					h.ensureResourceDocumentOfInternalService(&resource)
 					endorService = hybridService.ToEndorService(sdk.Schema{})
 				} else {
 					// base specialized
 					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
-						resource.Type = sdk.ResourceTypeBase
+						resource.Type = string(sdk.ResourceTypeBase)
 						endorService = baseSpecializedService.ToEndorService()
 					} else {
-						endorService = internalEndorService.(sdk.EndorService)
+						// base
+						if baseService, ok := internalEndorService.(sdk.EndorBaseServiceInterface); ok {
+							endorService = baseService.ToEndorService()
+						} else {
+							// TODO: log
+						}
 					}
 				}
 			}
@@ -124,7 +129,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 		for _, resource := range dynamicResources {
 			// check if service is already defined
 			// search service
-			if v, ok := resources[resource.GetID()]; ok {
+			if v, ok := resources[*resource.GetID()]; ok {
 				// check resource hybrid
 				if resourceHybrid, ok := resource.AsHybrid(); ok {
 					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
@@ -134,7 +139,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						}
 						// inject dynamic schema
 						v.EndorService = hybridInstance.ToEndorService(defintion.Schema)
-						resources[resource.GetID()] = v
+						resources[*resource.GetID()] = v
 					} else {
 						//TODO: log that only hybrid service supports additional attributes
 					}
@@ -149,11 +154,17 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						}
 						// inject categories and schema
 						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
+						categoriesAdditionalSchema := map[string]sdk.Schema{}
 						for _, c := range resourceSpecialized.Categories {
 							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
+							categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
+							if err != nil {
+								// TODO: log
+							}
+							categoriesAdditionalSchema[c.ID] = categoryAdditionalSchema.Schema
 						}
-						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(defintion.Schema, map[string]sdk.Schema{})
-						resources[resource.GetID()] = v
+						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(defintion.Schema, categoriesAdditionalSchema)
+						resources[*resource.GetID()] = v
 					} else {
 						//TODO: log that only hybrid service supports additional attributes
 					}
@@ -178,13 +189,19 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					}
 					// create categories
 					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
+					categoriesAdditionalSchema := map[string]sdk.Schema{}
 					for _, c := range resourceSpecialized.Categories {
 						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
+						categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
+						if err != nil {
+							// TODO: log
+						}
+						categoriesAdditionalSchema[c.ID] = categoryAdditionalSchema.Schema
 					}
 					// create a new specilized service
 					hybridService := NewHybridSpecializedService[*sdk.DynamicResourceSpecialized](resourceSpecialized.ID, resourceSpecialized.Description).WithCategories(categories)
 					resources[resourceSpecialized.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema, map[string]sdk.Schema{}),
+						EndorService: hybridService.ToEndorService(defintion.Schema, categoriesAdditionalSchema),
 						resource:     resourceSpecialized,
 					}
 				}
@@ -266,18 +283,25 @@ func (h *EndorServiceRepository) DynamicResourceList() ([]sdk.ResourceInterface,
 			return nil, fmt.Errorf("failed to read resource type: %w", err)
 		}
 
-		switch discr.GetType() {
-		case sdk.ResourceTypeBase:
+		switch *discr.GetCategoryType() {
+		case string(sdk.ResourceTypeBase):
 			resources = append(resources, &discr)
 
-		case sdk.ResourceTypeHybrid:
+		case string(sdk.ResourceTypeBaseSpecialized):
+			var r sdk.ResourceSpecialized
+			if err := bson.Unmarshal(raw, &r); err != nil {
+				return nil, fmt.Errorf("failed to decode base specialized resource: %w", err)
+			}
+			resources = append(resources, &r)
+
+		case string(sdk.ResourceTypeHybrid):
 			var r sdk.ResourceHybrid
 			if err := bson.Unmarshal(raw, &r); err != nil {
 				return nil, fmt.Errorf("failed to decode hybrid resource: %w", err)
 			}
 			resources = append(resources, &r)
 
-		case sdk.ResourceTypeHybridSpecialized:
+		case string(sdk.ResourceTypeHybridSpecialized):
 			var r sdk.ResourceHybridSpecialized
 			if err := bson.Unmarshal(raw, &r); err != nil {
 				return nil, fmt.Errorf("failed to decode hybrid-specialized resource: %w", err)
@@ -330,7 +354,7 @@ func (h *EndorServiceRepository) ActionInstance(dto sdk.ReadInstanceDTO) (*Endor
 func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.ResourceInterface]) error {
 	dto.Data.SetService(h.microServiceId)
 	_, err := h.Instance(sdk.ReadInstanceDTO{
-		Id: dto.Data.GetID(),
+		Id: *dto.Data.GetID(),
 	})
 	var endorError *sdk.EndorError
 	if errors.As(err, &endorError) && endorError.StatusCode == 404 {

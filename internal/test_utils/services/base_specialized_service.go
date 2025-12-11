@@ -11,7 +11,7 @@ type BaseSpecializedModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h BaseSpecializedModel) GetID() *string {
+func (h *BaseSpecializedModel) GetID() *string {
 	return &h.ID
 }
 
@@ -27,12 +27,14 @@ func (h *BaseSpecializedModel) SetCategoryType(categoryType string) {
 	h.Type = categoryType
 }
 
-type Category1Schema struct {
-	AttributeCat1 string `json:"attributeCat1"`
+type BaseSpecializedModelCategory1 struct {
+	BaseSpecializedModel `json:",inline"`
+	AttributeCat1        string `json:"attributeCat1"`
 }
 
-type Category2Schema struct {
-	AttributeCat2 string `json:"attributeCat2"`
+type BaseSpecializedModelCategory2 struct {
+	BaseSpecializedModel `json:",inline"`
+	AttributeCat2        string `json:"attributeCat2"`
 }
 
 type BaseSpecializedAction1Payload struct {
@@ -67,14 +69,14 @@ func NewBaseSpecializedService() sdk.EndorBaseSpecializedServiceInterface {
 	return sdk_resource.NewEndorBaseSpecializedService[*BaseSpecializedModel]("base-specialized-service", "Base Specialized Service (EndorBaseSpecializedService)").
 		WithCategories(
 			[]sdk.EndorBaseSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModel, *Category1Schema]("cat-1", "Category 1").
+				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
 					WithActions(map[string]sdk.EndorServiceActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedService.category1Action1,
 							"Action 1",
 						),
 					}),
-				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModel, *Category2Schema]("cat-2", "Category 2").
+				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory2]("cat-2", "Category 2").
 					WithActions(map[string]sdk.EndorServiceActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedService.category2Action1,

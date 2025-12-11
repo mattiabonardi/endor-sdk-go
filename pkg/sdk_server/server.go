@@ -74,8 +74,8 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !resourceServiceExists {
-		*h.endorServices = append(*h.endorServices, *sdk_resource.NewResourceService(microserviceId, h.endorServices))
-		*h.endorServices = append(*h.endorServices, *sdk_resource.NewResourceActionService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, sdk_resource.NewResourceService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, sdk_resource.NewResourceActionService(microserviceId, h.endorServices))
 	}
 
 	// get all resources

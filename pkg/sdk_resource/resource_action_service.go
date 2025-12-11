@@ -4,15 +4,13 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewResourceActionService(microServiceId string, services *[]sdk.EndorServiceInterface) *sdk.EndorService {
+func NewResourceActionService(microServiceId string, services *[]sdk.EndorServiceInterface) sdk.EndorServiceInterface {
 	resourceMethodService := ResourceActionService{
 		microServiceId: microServiceId,
 		services:       services,
 	}
-	return &sdk.EndorService{
-		Resource:            "resource-action",
-		ResourceDescription: "Resource Action",
-		Actions: map[string]sdk.EndorServiceActionInterface{
+	return NewEndorBaseService[*sdk.ResourceAction]("resource-action", "Resource action").
+		WithActions(map[string]sdk.EndorServiceActionInterface{
 			"schema": sdk.NewAction(
 				resourceMethodService.schema,
 				"Get the schema of the resource method",
@@ -24,9 +22,7 @@ func NewResourceActionService(microServiceId string, services *[]sdk.EndorServic
 			"instance": sdk.NewAction(
 				resourceMethodService.instance,
 				"Get the specified instance of resources",
-			),
-		},
-	}
+			)})
 }
 
 type ResourceActionService struct {
