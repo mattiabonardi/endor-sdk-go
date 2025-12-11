@@ -8,10 +8,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type HybridCategory1AdditionalSchema struct {
+	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
+}
+
+type HybridCategory2AdditionalSchema struct {
+	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
+}
+
 func TestEndorHybridSpecializedService(t *testing.T) {
+	category1AdditionalSchema := sdk.NewSchema(HybridCategory1AdditionalSchema{})
+	category2AdditionalSchema := sdk.NewSchema(HybridCategory2AdditionalSchema{})
+
 	hybridService := test_utils_services.NewHybridSpecializedService()
 	endorService := hybridService.ToEndorService(
 		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
+		map[string]sdk.Schema{
+			"cat-1": category1AdditionalSchema.Schema,
+			"cat-2": category2AdditionalSchema.Schema,
+		},
 	)
 
 	// check default methods

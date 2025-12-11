@@ -88,7 +88,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			if hybridSpecializedService, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
 				resource.Type = sdk.ResourceTypeHybridSpecialized
 				h.ensureResourceDocumentOfInternalService(&resource)
-				endorService = hybridSpecializedService.ToEndorService(sdk.Schema{})
+				endorService = hybridSpecializedService.ToEndorService(sdk.Schema{}, map[string]sdk.Schema{})
 			} else {
 				// hybrid
 				if hybridService, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
@@ -150,9 +150,9 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						// inject categories and schema
 						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
 						for _, c := range resourceSpecialized.Categories {
-							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c))
+							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
 						}
-						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(defintion.Schema)
+						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(defintion.Schema, map[string]sdk.Schema{})
 						resources[resource.GetID()] = v
 					} else {
 						//TODO: log that only hybrid service supports additional attributes
@@ -179,12 +179,12 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					// create categories
 					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
 					for _, c := range resourceSpecialized.Categories {
-						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c))
+						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
 					}
 					// create a new specilized service
 					hybridService := NewHybridSpecializedService[*sdk.DynamicResourceSpecialized](resourceSpecialized.ID, resourceSpecialized.Description).WithCategories(categories)
 					resources[resourceSpecialized.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema),
+						EndorService: hybridService.ToEndorService(defintion.Schema, map[string]sdk.Schema{}),
 						resource:     resourceSpecialized,
 					}
 				}

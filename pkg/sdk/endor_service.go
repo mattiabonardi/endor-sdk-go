@@ -158,6 +158,8 @@ type EndorBaseSpecializedServiceInterface interface {
 
 type EndorBaseSpecializedServiceCategoryInterface interface {
 	GetID() string
+	GetActions() map[string]EndorServiceActionInterface
+	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceCategoryInterface
 }
 
 // hybrid
@@ -172,10 +174,11 @@ type EndorHybridSpecializedServiceInterface interface {
 	EndorServiceInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceInterface
 	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
-	ToEndorService(metadataSchema Schema) EndorService
+	ToEndorService(metadataSchema Schema, categoryMetadataSchemas map[string]Schema) EndorService
 }
 
 type EndorHybridSpecializedServiceCategoryInterface interface {
-	EndorBaseSpecializedServiceCategoryInterface
-	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema) map[string]EndorServiceActionInterface
+	GetID() string
+	GetActions() func(getSchema func() RootSchema) map[string]EndorServiceActionInterface
+	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema, categoryMetadataSchema Schema) map[string]EndorServiceActionInterface
 }

@@ -4,21 +4,33 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-type EndorSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any] struct {
-	Category sdk.Category
+type EndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any] struct {
+	ID          string
+	Description string
+	Actions     map[string]sdk.EndorServiceActionInterface
 }
 
-func (h *EndorSpecializedServiceCategory[T, C]) GetID() string {
-	return h.Category.ID
+func (h *EndorBaseSpecializedServiceCategory[T, C]) GetID() string {
+	return h.ID
 }
 
-func NewEndorSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any](category sdk.Category) sdk.EndorBaseSpecializedServiceCategoryInterface {
-	return &EndorSpecializedServiceCategory[T, C]{
-		Category: category,
+func (h *EndorBaseSpecializedServiceCategory[T, C]) GetActions() map[string]sdk.EndorServiceActionInterface {
+	return h.Actions
+}
+
+func (h *EndorBaseSpecializedServiceCategory[T, C]) WithActions(actions map[string]sdk.EndorServiceActionInterface) sdk.EndorBaseSpecializedServiceCategoryInterface {
+	h.Actions = actions
+	return h
+}
+
+func NewEndorBaseSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any](categoryID string, categoryDescription string) sdk.EndorBaseSpecializedServiceCategoryInterface {
+	return &EndorBaseSpecializedServiceCategory[T, C]{
+		ID:          categoryID,
+		Description: categoryDescription,
 	}
 }
 
-type EndorbaseSpecializedService[T sdk.ResourceInstanceSpecializedInterface] struct {
+type EndorBaseSpecializedService[T sdk.ResourceInstanceSpecializedInterface] struct {
 	Resource            string
 	ResourceDescription string
 	Priority            *int
@@ -26,33 +38,33 @@ type EndorbaseSpecializedService[T sdk.ResourceInstanceSpecializedInterface] str
 	categories          map[string]sdk.EndorBaseSpecializedServiceCategoryInterface
 }
 
-func (h EndorbaseSpecializedService[T]) GetResource() string {
+func (h EndorBaseSpecializedService[T]) GetResource() string {
 	return h.Resource
 }
 
-func (h EndorbaseSpecializedService[T]) GetResourceDescription() string {
+func (h EndorBaseSpecializedService[T]) GetResourceDescription() string {
 	return h.ResourceDescription
 }
 
-func (h EndorbaseSpecializedService[T]) GetPriority() *int {
+func (h EndorBaseSpecializedService[T]) GetPriority() *int {
 	return h.Priority
 }
 
 func NewEndorBaseSpecializedService[T sdk.ResourceInstanceSpecializedInterface](resource, resourceDescription string) sdk.EndorBaseSpecializedServiceInterface {
-	return EndorbaseSpecializedService[T]{
+	return EndorBaseSpecializedService[T]{
 		Resource:            resource,
 		ResourceDescription: resourceDescription,
 	}
 }
 
-func (h EndorbaseSpecializedService[T]) WithActions(
+func (h EndorBaseSpecializedService[T]) WithActions(
 	actions map[string]sdk.EndorServiceActionInterface,
 ) sdk.EndorBaseSpecializedServiceInterface {
 	h.actions = actions
 	return h
 }
 
-func (h EndorbaseSpecializedService[T]) WithCategories(categories []sdk.EndorBaseSpecializedServiceCategoryInterface) sdk.EndorBaseSpecializedServiceInterface {
+func (h EndorBaseSpecializedService[T]) WithCategories(categories []sdk.EndorBaseSpecializedServiceCategoryInterface) sdk.EndorBaseSpecializedServiceInterface {
 	if h.categories == nil {
 		h.categories = make(map[string]sdk.EndorBaseSpecializedServiceCategoryInterface)
 	}
@@ -62,19 +74,28 @@ func (h EndorbaseSpecializedService[T]) WithCategories(categories []sdk.EndorBas
 	return h
 }
 
-func (h EndorbaseSpecializedService[T]) ToEndorService() sdk.EndorService {
+func (h EndorBaseSpecializedService[T]) ToEndorService() sdk.EndorService {
 	// check if categories are defined
 	if len(h.categories) > 0 {
 		// iterate over categories
-		/*for _, category := range h.categories {
-			//TODO: add methods
-		}*/
+		for _, category := range h.categories {
+			// iterate over category actions
+			if len(category.GetActions()) > 0 {
+				for actionName, action := range category.GetActions() {
+					h.actions[category.GetID()+"/"+actionName] = action
+				}
+			}
+		}
 	}
+
+	var baseModel T
+	rootSchema := sdk.NewSchema(baseModel)
 
 	return sdk.EndorService{
 		Resource:            h.Resource,
 		ResourceDescription: h.ResourceDescription,
 		Priority:            h.Priority,
 		Actions:             h.actions,
+		ResourceSchema:      *rootSchema,
 	}
 }

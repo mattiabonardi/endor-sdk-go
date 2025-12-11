@@ -27,16 +27,12 @@ func (h *HybridSpecializedModel) SetCategoryType(categoryType string) {
 	h.Type = categoryType
 }
 
-type HybridCategory1AdditionalSchema struct {
-	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
+type HybridCategory1Schema struct {
+	AttributeCat1 string `json:"attributeCat1"`
 }
 
 type HybridCategory2Schema struct {
 	AttributeCat2 string `json:"attributeCat2"`
-}
-
-type HybridCategory2AdditionalSchema struct {
-	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
 type HybridSpecializedAction1Payload struct {
@@ -49,28 +45,18 @@ type HybridSpecializedService struct {
 
 func (h *HybridSpecializedService) action1(c *sdk.EndorContext[HybridSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Service")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Specialized Service")).
 		Build(), nil
 }
 
 func NewHybridSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
 	hybridSpecializedService := HybridSpecializedService{}
-	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
-	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
 
-	return sdk_resource.NewHybridSpecializedService[*HybridSpecializedModel]("resource-3", "Resource 3 (EndorHybridSpecializedService with static categories)").
+	return sdk_resource.NewHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
 		WithCategories(
 			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *Category1AdditionalSchema](sdk.HybridCategory{
-					ID:                   "cat-1",
-					Description:          "Category 1",
-					AdditionalAttributes: category1AdditionalSchema,
-				}),
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *Category2Schema](sdk.HybridCategory{
-					ID:                   "cat-2",
-					Description:          "Category 2",
-					AdditionalAttributes: category2AdditionalSchema,
-				}),
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *HybridCategory1Schema]("cat-1", "Category 1"),
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *HybridCategory2Schema]("cat-2", "Category 2"),
 			},
 		).
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {

@@ -1,5 +1,10 @@
 package test_utils_services
 
+import (
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+)
+
 type BaseSpecializedModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Type      string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
@@ -22,16 +27,12 @@ func (h *BaseSpecializedModel) SetCategoryType(categoryType string) {
 	h.Type = categoryType
 }
 
-type Category1AdditionalSchema struct {
-	AdditionalAttributeCat1 string `json:"additionalAttributeCat1"`
+type Category1Schema struct {
+	AttributeCat1 string `json:"attributeCat1"`
 }
 
 type Category2Schema struct {
 	AttributeCat2 string `json:"attributeCat2"`
-}
-
-type Category2AdditionalSchema struct {
-	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
 type BaseSpecializedAction1Payload struct {
@@ -39,7 +40,7 @@ type BaseSpecializedAction1Payload struct {
 	Age  int    `json:"age"`
 }
 
-/*type BaseSpecializedService struct {
+type BaseSpecializedService struct {
 }
 
 func (h *BaseSpecializedService) action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
@@ -48,33 +49,45 @@ func (h *BaseSpecializedService) action1(c *sdk.EndorContext[BaseSpecializedActi
 		Build(), nil
 }
 
-func NewBaseSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
-	baseSpecializedService := BaseSpecializedService{}
-	category1AdditionalSchema, _ := sdk.NewSchema(Category1AdditionalSchema{}).ToYAML()
-	category2AdditionalSchema, _ := sdk.NewSchema(Category2AdditionalSchema{}).ToYAML()
+func (h *BaseSpecializedService) category1Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from category 1 action 1")).
+		Build(), nil
+}
 
-	return sdk_resource.NewHybridSpecializedService[*BaseSpecializedModel]("resource-3", "Resource 3 (EndorHybridSpecializedService with static categories)").
+func (h *BaseSpecializedService) category2Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from category 2 action 1")).
+		Build(), nil
+}
+
+func NewBaseSpecializedService() sdk.EndorBaseSpecializedServiceInterface {
+	baseSpecializedService := BaseSpecializedService{}
+
+	return sdk_resource.NewEndorBaseSpecializedService[*BaseSpecializedModel]("base-specialized-service", "Base Specialized Service (EndorBaseSpecializedService)").
 		WithCategories(
-			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*BaseSpecializedModel, *Category1AdditionalSchema](sdk.HybridCategory{
-					ID:                   "cat-1",
-					Description:          "Category 1",
-					AdditionalAttributes: category1AdditionalSchema,
-				}),
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*BaseSpecializedModel, *Category2Schema](sdk.HybridCategory{
-					ID:                   "cat-2",
-					Description:          "Category 2",
-					AdditionalAttributes: category2AdditionalSchema,
-				}),
+			[]sdk.EndorBaseSpecializedServiceCategoryInterface{
+				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModel, *Category1Schema]("cat-1", "Category 1").
+					WithActions(map[string]sdk.EndorServiceActionInterface{
+						"action-1": sdk.NewAction(
+							baseSpecializedService.category1Action1,
+							"Action 1",
+						),
+					}),
+				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModel, *Category2Schema]("cat-2", "Category 2").
+					WithActions(map[string]sdk.EndorServiceActionInterface{
+						"action-1": sdk.NewAction(
+							baseSpecializedService.category2Action1,
+							"Action 1",
+						),
+					}),
 			},
 		).
-		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {
-			return map[string]sdk.EndorServiceActionInterface{
-				"action-1": sdk.NewAction(
-					baseSpecializedService.action1,
-					"Test hybrid action",
-				),
-			}
-		})
+		WithActions(map[string]sdk.EndorServiceActionInterface{
+			"action-1": sdk.NewAction(
+				baseSpecializedService.action1,
+				"Action 1",
+			),
+		},
+		)
 }
-*/
