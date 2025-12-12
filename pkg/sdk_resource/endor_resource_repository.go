@@ -98,7 +98,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				} else {
 					// base specialized
 					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
-						resource.Type = string(sdk.ResourceTypeBase)
+						resource.Type = string(sdk.ResourceTypeBaseSpecialized)
 						endorService = baseSpecializedService.ToEndorService()
 					} else {
 						// base
@@ -131,7 +131,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 			// search service
 			if v, ok := resources[*resource.GetID()]; ok {
 				// check resource hybrid
-				if resourceHybrid, ok := resource.AsHybrid(); ok {
+				if resourceHybrid, ok := resource.(*sdk.ResourceHybrid); ok {
 					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
 						defintion, err := resourceHybrid.UnmarshalAdditionalAttributes()
 						if err != nil {
@@ -146,7 +146,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 				}
 
 				// check resource specialized
-				if resourceSpecialized, ok := resource.AsHybridSpecialized(); ok {
+				if resourceSpecialized, ok := resource.(*sdk.ResourceHybridSpecialized); ok {
 					if specializedInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridSpecializedServiceInterface); ok {
 						defintion, err := resourceSpecialized.UnmarshalAdditionalAttributes()
 						if err != nil {
@@ -170,7 +170,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					}
 				}
 			} else {
-				if resourceHybrid, ok := resource.AsHybrid(); ok {
+				if resourceHybrid, ok := resource.(*sdk.ResourceHybrid); ok {
 					defintion, err := resourceHybrid.UnmarshalAdditionalAttributes()
 					if err != nil {
 						// TODO: log
@@ -182,7 +182,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						resource:     resourceHybrid,
 					}
 				}
-				if resourceSpecialized, ok := resource.AsHybridSpecialized(); ok {
+				if resourceSpecialized, ok := resource.(*sdk.ResourceHybridSpecialized); ok {
 					defintion, err := resourceSpecialized.UnmarshalAdditionalAttributes()
 					if err != nil {
 						// TODO: log
@@ -369,20 +369,20 @@ func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.ResourceInterface]
 	}
 }
 
-func (h *EndorServiceRepository) UpdateOne(dto sdk.UpdateByIdDTO[sdk.ResourceInterface]) (*sdk.ResourceInterface, error) {
+func (h *EndorServiceRepository) Update(id string, data sdk.ResourceInterface) (*sdk.ResourceInterface, error) {
 	var instance *sdk.ResourceInterface
 	_, err := h.Instance(sdk.ReadInstanceDTO{
-		Id: dto.Id,
+		Id: id,
 	})
 	if err != nil {
 		return instance, err
 	}
-	updateBson, err := bson.Marshal(dto.Data)
+	updateBson, err := bson.Marshal(data)
 	if err != nil {
-		return &dto.Data, err
+		return &data, err
 	}
 	update := bson.M{"$set": bson.Raw(updateBson)}
-	filter := bson.M{"_id": dto.Id}
+	filter := bson.M{"_id": id}
 	_, err = h.collection.UpdateOne(h.context, filter, update)
 	if err != nil {
 		return nil, err
@@ -390,10 +390,10 @@ func (h *EndorServiceRepository) UpdateOne(dto sdk.UpdateByIdDTO[sdk.ResourceInt
 
 	h.reloadRouteConfiguration(h.microServiceId)
 
-	return &dto.Data, nil
+	return &data, nil
 }
 
-func (h *EndorServiceRepository) DeleteOne(dto sdk.ReadInstanceDTO) error {
+func (h *EndorServiceRepository) Delete(dto sdk.ReadInstanceDTO) error {
 	// check if resources already exist
 	_, err := h.Instance(dto)
 	if err != nil {

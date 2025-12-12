@@ -32,10 +32,6 @@ type ResourceInterface interface {
 	GetCategoryType() *string
 	SetCategoryType(resourceType string)
 	SetService(service string)
-	AsBase() (*Resource, bool)
-	AsBaseSpecialized() (*ResourceSpecialized, bool)
-	AsHybrid() (*ResourceHybrid, bool)
-	AsHybridSpecialized() (*ResourceHybridSpecialized, bool)
 }
 
 type ResourceType string
@@ -54,7 +50,7 @@ const (
 type Resource struct {
 	ID          string `json:"id" bson:"_id" schema:"title=Id"`
 	Description string `json:"description" schema:"title=Description"`
-	Type        string `json:"type" schema:"title=Type"`
+	Type        string `json:"type" schema:"title=Type,readOnly=true"`
 	Service     string `json:"service" schema:"title=Service" ui-schema:"resource=microservice"`
 }
 
@@ -78,37 +74,13 @@ func (r *Resource) SetService(service string) {
 	r.Service = service
 }
 
-func (r *Resource) AsBase() (*Resource, bool) {
-	return r, true
-}
-
-func (r *Resource) AsBaseSpecialized() (*ResourceSpecialized, bool) {
-	return nil, false
-}
-
-func (r *Resource) AsHybrid() (*ResourceHybrid, bool) {
-	return nil, false
-}
-
-func (r *Resource) AsHybridSpecialized() (*ResourceHybridSpecialized, bool) {
-	return nil, false
-}
-
 // #endregion
 
 // #region Resource specialized
 
 type ResourceSpecialized struct {
 	Resource   `json:",inline" bson:",inline"`
-	Categories []HybridCategory `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
-}
-
-func (r *ResourceSpecialized) AsBase() (*Resource, bool) {
-	return nil, false
-}
-
-func (r *ResourceSpecialized) AsBaseSpecialized() (*ResourceSpecialized, bool) {
-	return r, true
+	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
 }
 
 // #endregion
@@ -118,14 +90,6 @@ func (r *ResourceSpecialized) AsBaseSpecialized() (*ResourceSpecialized, bool) {
 type ResourceHybrid struct {
 	Resource             `json:",inline" bson:",inline"`
 	AdditionalAttributes string `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
-}
-
-func (r *ResourceHybrid) AsBase() (*Resource, bool) {
-	return nil, false
-}
-
-func (r *ResourceHybrid) AsHybrid() (*ResourceHybrid, bool) {
-	return r, true
 }
 
 func (h *ResourceHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -144,14 +108,6 @@ func (h *ResourceHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 type ResourceHybridSpecialized struct {
 	ResourceHybrid `json:",inline" bson:",inline"`
 	Categories     []HybridCategory `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
-}
-
-func (r *ResourceHybridSpecialized) AsBase() (*Resource, bool) {
-	return &r.Resource, true
-}
-
-func (r *ResourceHybridSpecialized) AsHybridSpecialized() (*ResourceHybridSpecialized, bool) {
-	return r, true
 }
 
 func (h *ResourceHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {

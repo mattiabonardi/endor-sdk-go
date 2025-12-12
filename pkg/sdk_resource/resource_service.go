@@ -295,7 +295,7 @@ func (h *ResourceService) resourceBaseSpecializedInstance(c *sdk.EndorContext[sd
 	if err != nil {
 		return nil, err
 	}
-	if *resource.resource.GetCategoryType() != string(sdk.ResourceTypeBase) {
+	if *resource.resource.GetCategoryType() != string(sdk.ResourceTypeBaseSpecialized) {
 		return nil, sdk.NewNotFoundError(fmt.Errorf("resource %s of type %s not found", *resource.resource.GetID(), sdk.ResourceTypeBaseSpecialized))
 	}
 	return sdk.NewResponseBuilder[sdk.ResourceInterface]().AddData(&resource.resource).AddSchema(sdk.NewSchema(&sdk.ResourceSpecialized{})).Build(), nil
@@ -365,16 +365,16 @@ func (h *ResourceService) resourceDynamicSpecializedCreate(c *sdk.EndorContext[s
 	return sdk.NewResponseBuilder[sdk.ResourceInterface]().AddData(&c.Payload.Data).AddSchema(sdk.NewSchema(&sdk.ResourceHybridSpecialized{})).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("resource %s created", *c.Payload.Data.GetID()))).Build(), nil
 }
 
-func (h *ResourceService) resourceHybridUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInterface]]) (*sdk.Response[sdk.ResourceInterface], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
+func (h *ResourceService) resourceHybridUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceHybrid]]) (*sdk.Response[sdk.ResourceInterface], error) {
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Update(c.Payload.Id, &c.Payload.Data)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[sdk.ResourceInterface]().AddData(resource).AddSchema(sdk.NewSchema(&sdk.ResourceHybrid{})).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "resource updated")).Build(), nil
 }
 
-func (h *ResourceService) resourceHybridSpecializedUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInterface]]) (*sdk.Response[sdk.ResourceInterface], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
+func (h *ResourceService) resourceHybridSpecializedUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceHybridSpecialized]]) (*sdk.Response[sdk.ResourceInterface], error) {
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Update(c.Payload.Id, &c.Payload.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +382,7 @@ func (h *ResourceService) resourceHybridSpecializedUpdate(c *sdk.EndorContext[sd
 }
 
 func (h *ResourceService) resourceDynamicUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInterface]]) (*sdk.Response[sdk.ResourceInterface], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Update(c.Payload.Id, c.Payload.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +390,7 @@ func (h *ResourceService) resourceDynamicUpdate(c *sdk.EndorContext[sdk.UpdateBy
 }
 
 func (h *ResourceService) resourceDynamicSpecializedUpdate(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInterface]]) (*sdk.Response[sdk.ResourceInterface], error) {
-	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).UpdateOne(c.Payload)
+	resource, err := NewEndorServiceRepository(h.microServiceId, h.services).Update(c.Payload.Id, c.Payload.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (h *ResourceService) resourceDynamicSpecializedUpdate(c *sdk.EndorContext[s
 }
 
 func (h *ResourceService) resourceDynamicDelete(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Resource], error) {
-	err := NewEndorServiceRepository(h.microServiceId, h.services).DeleteOne(c.Payload)
+	err := NewEndorServiceRepository(h.microServiceId, h.services).Delete(c.Payload)
 	if err != nil {
 		return nil, err
 	}
