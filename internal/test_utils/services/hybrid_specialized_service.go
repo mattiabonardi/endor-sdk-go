@@ -8,7 +8,7 @@ import (
 type HybridSpecializedModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Type      string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
-	Attribute string `json:"attribute"`
+	Attribute string `json:"attribute" bson:"attribute"`
 }
 
 func (h HybridSpecializedModel) GetID() *string {
@@ -29,12 +29,12 @@ func (h *HybridSpecializedModel) SetCategoryType(categoryType string) {
 
 type HybridCategory1Schema struct {
 	HybridSpecializedModel `json:",inline" bson:",inline"`
-	AttributeCat1          string `json:"attributeCat1"`
+	AttributeCat1          string `json:"attributeCat1" bson:"attributeCat1"`
 }
 
 type HybridCategory2Schema struct {
 	HybridSpecializedModel `json:",inline" bson:",inline"`
-	AttributeCat2          string `json:"attributeCat2"`
+	AttributeCat2          string `json:"attributeCat2" bson:"attributeCat2"`
 }
 
 type HybridSpecializedAction1Payload struct {

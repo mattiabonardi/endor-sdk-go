@@ -76,6 +76,33 @@ func (c *StringIDConverter) GenerateNewID() string {
 }
 
 // DocumentConverter handles BSON <-> Model conversions
+//
+// This converter properly supports embedded structs (struct composition) when using
+// the bson:",inline" tag. Fields from embedded structs are automatically flattened
+// to the top level of the BSON document during both marshaling and unmarshaling.
+//
+// Example:
+//
+//	type BaseModel struct {
+//	    ID string `bson:"_id"`
+//	    Name string `bson:"name"`
+//	}
+//
+//	type ExtendedModel struct {
+//	    BaseModel `bson:",inline"`  // Fields will be flattened
+//	    Email string `bson:"email"`
+//	}
+//
+// The BSON document for ExtendedModel will have fields: _id, name, email (not nested).
+//
+// Important notes:
+//   - The _id field is preserved during ToModel conversion to support embedded structs
+//     that have bson:"_id" tags, ensuring all fields in the embedded struct are properly
+//     unmarshaled
+//   - The ID is then explicitly set via SetID() to ensure consistency regardless of
+//     the struct's BSON tags
+//   - All other fields from embedded structs (with bson:",inline") are correctly
+//     preserved during the conversion process
 type DocumentConverter[T sdk.ResourceInstanceInterface] struct{}
 
 func (c *DocumentConverter[T]) ExtractMetadata(raw bson.M) (map[string]interface{}, error) {
@@ -93,11 +120,13 @@ func (c *DocumentConverter[T]) ExtractMetadata(raw bson.M) (map[string]interface
 func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, error) {
 	var model T
 
-	// Remove metadata and _id before converting
+	// Create a clean copy excluding metadata for unmarshaling
+	// We keep _id in the copy so it can be unmarshaled into embedded structs if needed,
+	// but we'll explicitly set it afterwards via SetID() to ensure consistency
 	docCopy := cloneBsonM(raw)
 	delete(docCopy, "metadata")
-	delete(docCopy, "_id")
 
+	// First, unmarshal with _id present (for embedded structs that might have bson:"_id")
 	resourceBytes, err := bson.Marshal(docCopy)
 	if err != nil {
 		return model, fmt.Errorf("failed to marshal raw resource: %w", err)
@@ -107,7 +136,8 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 		return model, fmt.Errorf("failed to unmarshal to model: %w", err)
 	}
 
-	// Set ID
+	// Always explicitly set ID via SetID() to ensure it's properly set
+	// regardless of whether the model struct has bson:"_id" tag or not
 	if rawID, ok := raw["_id"]; ok {
 		idStr, err := idConverter.FromStorageID(rawID)
 		if err != nil {

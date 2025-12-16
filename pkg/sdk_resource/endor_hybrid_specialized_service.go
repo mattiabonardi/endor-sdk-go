@@ -228,16 +228,13 @@ func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.E
 
 func defaultCreateSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	if resourceInstance, ok := any(c.Payload.Data).(sdk.ResourceInstance[T]); ok {
-		created, err := repository.Create(context.TODO(), sdk.CreateDTO[sdk.ResourceInstance[T]]{
-			Data: resourceInstance,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", resource, *created.GetID()))).Build(), nil
+	created, err := repository.Create(context.TODO(), sdk.CreateDTO[sdk.ResourceInstance[T]]{
+		Data: c.Payload.Data.ResourceInstance,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("invalid type assertion")
+	return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", resource, *created.GetID()))).Build(), nil
 }
 
 func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T]) (*sdk.Response[*sdk.ResourceInstance[T]], error) {
@@ -250,15 +247,12 @@ func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *s
 
 func defaultUpdateSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	if resourceInstance, ok := any(c.Payload.Data).(sdk.ResourceInstance[T]); ok {
-		updated, err := repository.Update(context.TODO(), sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]{
-			Id:   c.Payload.Id,
-			Data: resourceInstance,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
+	updated, err := repository.Update(context.TODO(), sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]{
+		Id:   c.Payload.Id,
+		Data: c.Payload.Data.ResourceInstance,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("invalid type assertion")
+	return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
 }

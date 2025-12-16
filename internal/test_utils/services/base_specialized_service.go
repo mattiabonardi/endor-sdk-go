@@ -8,7 +8,7 @@ import (
 type BaseSpecializedModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Type      string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
-	Attribute string `json:"attribute"`
+	Attribute string `json:"attribute" bson:"attribute"`
 }
 
 func (h *BaseSpecializedModel) GetID() *string {
@@ -28,13 +28,13 @@ func (h *BaseSpecializedModel) SetCategoryType(categoryType string) {
 }
 
 type BaseSpecializedModelCategory1 struct {
-	BaseSpecializedModel `json:",inline"`
-	AttributeCat1        string `json:"attributeCat1"`
+	BaseSpecializedModel `json:",inline" bson:",inline"`
+	AttributeCat1        string `json:"attributeCat1" bson:"attributeCat1"`
 }
 
 type BaseSpecializedModelCategory2 struct {
-	BaseSpecializedModel `json:",inline"`
-	AttributeCat2        string `json:"attributeCat2"`
+	BaseSpecializedModel `json:",inline" bson:",inline"`
+	AttributeCat2        string `json:"attributeCat2" bson:"attributeCat2"`
 }
 
 type BaseSpecializedAction1Payload struct {

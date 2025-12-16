@@ -54,13 +54,44 @@ func (d *ResourceInstance[T]) UnmarshalJSON(data []byte) error {
 	}
 
 	known := map[string]struct{}{}
-	for i := 0; i < t.NumField(); i++ {
-		tag := t.Field(i).Tag.Get("json")
-		if tag == "" {
-			tag = t.Field(i).Name
+	// Recursively collect field names, including those from embedded structs
+	var collectFields func(reflect.Type)
+	collectFields = func(t reflect.Type) {
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+
+			// Check if this is an embedded/anonymous field with "inline" tag
+			jsonTag := field.Tag.Get("json")
+			isInline := field.Anonymous || jsonTag == ",inline" ||
+				(len(jsonTag) >= 7 && jsonTag[len(jsonTag)-7:] == ",inline")
+
+			if isInline && field.Type.Kind() == reflect.Struct {
+				// Recursively collect fields from embedded struct
+				collectFields(field.Type)
+			} else if isInline && field.Type.Kind() == reflect.Pointer && field.Type.Elem().Kind() == reflect.Struct {
+				// Handle pointer to embedded struct
+				collectFields(field.Type.Elem())
+			} else {
+				// Regular field: extract JSON tag name
+				tag := field.Tag.Get("json")
+				if tag == "" {
+					tag = field.Name
+				} else {
+					// Remove options like ",omitempty", ",inline" from tag
+					for commaIdx := 0; commaIdx < len(tag); commaIdx++ {
+						if tag[commaIdx] == ',' {
+							tag = tag[:commaIdx]
+							break
+						}
+					}
+				}
+				if tag != "" && tag != "-" {
+					known[tag] = struct{}{}
+				}
+			}
 		}
-		known[tag] = struct{}{}
 	}
+	collectFields(t)
 
 	baseMap := make(map[string]any)
 	metaMap := make(map[string]any)
