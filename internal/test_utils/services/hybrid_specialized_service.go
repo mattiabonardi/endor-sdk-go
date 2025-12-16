@@ -28,11 +28,13 @@ func (h *HybridSpecializedModel) SetCategoryType(categoryType string) {
 }
 
 type HybridCategory1Schema struct {
-	AttributeCat1 string `json:"attributeCat1"`
+	HybridSpecializedModel `json:",inline" bson:",inline"`
+	AttributeCat1          string `json:"attributeCat1"`
 }
 
 type HybridCategory2Schema struct {
-	AttributeCat2 string `json:"attributeCat2"`
+	HybridSpecializedModel `json:",inline" bson:",inline"`
+	AttributeCat2          string `json:"attributeCat2"`
 }
 
 type HybridSpecializedAction1Payload struct {
@@ -55,8 +57,8 @@ func NewHybridSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
 	return sdk_resource.NewHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
 		WithCategories(
 			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *HybridCategory1Schema]("cat-1", "Category 1"),
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridSpecializedModel, *HybridCategory2Schema]("cat-2", "Category 2"),
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
+				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
 			},
 		).
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {

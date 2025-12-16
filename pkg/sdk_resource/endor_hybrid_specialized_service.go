@@ -3,6 +3,7 @@ package sdk_resource
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -33,8 +34,8 @@ func (h *EndorHybridSpecializedServiceCategory[T]) CreateDefaultActions(resource
 	return getDefaultActionsForCategory[T](resource, *rootSchemWithCategory, resourceDescription, h.ID)
 }
 
-func NewEndorHybridSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface, C any](categoryID string, categoryDescription string) sdk.EndorHybridSpecializedServiceCategoryInterface {
-	return &EndorHybridSpecializedServiceCategory[T, C]{
+func NewEndorHybridSpecializedServiceCategory[T sdk.ResourceInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorHybridSpecializedServiceCategoryInterface {
+	return &EndorHybridSpecializedServiceCategory[T]{
 		ID:          categoryID,
 		Description: categoryDescription,
 	}
@@ -100,9 +101,7 @@ func (h EndorHybridSpecializedService[T]) ToEndorService(metadataSchema sdk.Sche
 	delete(methods, "update")
 	// add custom methods
 	if h.methodsFn != nil {
-		for methodName, method := range h.methodsFn(getSchemaCallback) {
-			methods[methodName] = method
-		}
+		maps.Copy(methods, h.methodsFn(getSchemaCallback))
 	}
 
 	// check if categories are defined
@@ -111,9 +110,7 @@ func (h EndorHybridSpecializedService[T]) ToEndorService(metadataSchema sdk.Sche
 		for categoryID, category := range h.categories {
 			// add default CRUD methods specified for category
 			categoryMethods := category.CreateDefaultActions(h.Resource, h.ResourceDescription, metadataSchema, categoriesMetadataShema[categoryID])
-			for methodName, method := range categoryMethods {
-				methods[methodName] = method
-			}
+			maps.Copy(methods, categoryMethods)
 		}
 	}
 
@@ -130,25 +127,21 @@ func getCategorySchemaWithMetadata[T sdk.ResourceInstanceSpecializedInterface](m
 	var baseModel T
 	rootSchema := sdk.NewSchema(baseModel)
 	if metadataSchema.Properties != nil {
-		for k, v := range *metadataSchema.Properties {
-			(*rootSchema.Properties)[k] = v
-		}
+		maps.Copy((*rootSchema.Properties), *metadataSchema.Properties)
 	}
 
 	// add category metadata schema (dynamic)
 	if categoryMetadataSchema.Properties != nil {
-		for k, v := range *categoryMetadataSchema.Properties {
-			(*rootSchema.Properties)[k] = v
-		}
+		maps.Copy((*rootSchema.Properties), *categoryMetadataSchema.Properties)
 	}
 
 	return rootSchema
 }
 
-func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface, C any](resource string, schema sdk.RootSchema, resourceDescription string, categoryID string) map[string]sdk.EndorServiceActionInterface {
+func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface](resource string, schema sdk.RootSchema, resourceDescription string, categoryID string) map[string]sdk.EndorServiceActionInterface {
 	autogenerateID := true
 
-	repository := repository.NewResourceInstanceSpecializedRepository[T, C](
+	repository := repository.NewResourceInstanceRepository[T](
 		resource,
 		repository.ResourceInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
 	)
@@ -161,7 +154,7 @@ func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface, C 
 			fmt.Sprintf("Get the schema of the %s (%s) for category %s", resource, resourceDescription, categoryID),
 		),
 		categoryID + "/list": sdk.NewAction(
-			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.ResourceInstance[T]], error) {
 				return defaultListSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Search for available list of %s (%s) for category %s", resource, resourceDescription, categoryID),
@@ -180,12 +173,12 @@ func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface, C 
 					},
 				},
 			},
-			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]]) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T]]]) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 				return defaultCreateSpecialized(c, schema, repository, resource)
 			},
 		),
 		categoryID + "/instance": sdk.NewAction(
-			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.ResourceInstance[T]], error) {
 				return defaultInstanceSpecialized(c, schema, repository)
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", resource, resourceDescription, categoryID),
@@ -207,14 +200,14 @@ func getDefaultActionsForCategory[T sdk.ResourceInstanceSpecializedInterface, C 
 					},
 				},
 			},
-			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]]) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T]]]) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 				return defaultUpdateSpecialized(c, schema, repository, resource)
 			},
 		),
 	}
 }
 
-func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[[]sdk.ResourceInstanceSpecialized[T, C]], error) {
+func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T]) (*sdk.Response[[]sdk.ResourceInstance[T]], error) {
 	categoryFilter := map[string]interface{}{"type": c.CategoryType}
 	if len(c.Payload.Filter) > 0 {
 		c.Payload.Filter = map[string]interface{}{
@@ -230,31 +223,42 @@ func defaultListSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[[]sdk.ResourceInstanceSpecialized[T, C]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.ResourceInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreateSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
+func defaultCreateSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.ResourceInstanceSpecialized[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	created, err := repository.Create(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
+	if resourceInstance, ok := any(c.Payload.Data).(sdk.ResourceInstance[T]); ok {
+		created, err := repository.Create(context.TODO(), sdk.CreateDTO[sdk.ResourceInstance[T]]{
+			Data: resourceInstance,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", resource, *created.GetID()))).Build(), nil
 	}
-	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", resource, *created.GetID()))).Build(), nil
+	return nil, fmt.Errorf("invalid type assertion")
 }
 
-func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C]) (*sdk.Response[*sdk.ResourceInstanceSpecialized[T, C]], error) {
+func defaultInstanceSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T]) (*sdk.Response[*sdk.ResourceInstance[T]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[*sdk.ResourceInstanceSpecialized[T, C]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.ResourceInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized[T sdk.ResourceInstanceSpecializedInterface, C any](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T, C]]], schema sdk.RootSchema, repository *repository.ResourceInstanceSpecializedRepository[T, C], resource string) (*sdk.Response[sdk.ResourceInstanceSpecialized[T, C]], error) {
+func defaultUpdateSpecialized[T sdk.ResourceInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.ResourceInstanceSpecialized[T]]], schema sdk.RootSchema, repository *repository.ResourceInstanceRepository[T], resource string) (*sdk.Response[sdk.ResourceInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	updated, err := repository.Update(context.TODO(), c.Payload)
-	if err != nil {
-		return nil, err
+	if resourceInstance, ok := any(c.Payload.Data).(sdk.ResourceInstance[T]); ok {
+		updated, err := repository.Update(context.TODO(), sdk.UpdateByIdDTO[sdk.ResourceInstance[T]]{
+			Id:   c.Payload.Id,
+			Data: resourceInstance,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return sdk.NewResponseBuilder[sdk.ResourceInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
 	}
-	return sdk.NewResponseBuilder[sdk.ResourceInstanceSpecialized[T, C]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", resource))).Build(), nil
+	return nil, fmt.Errorf("invalid type assertion")
 }

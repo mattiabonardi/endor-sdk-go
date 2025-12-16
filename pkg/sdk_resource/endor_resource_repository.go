@@ -156,7 +156,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
 						categoriesAdditionalSchema := map[string]sdk.Schema{}
 						for _, c := range resourceSpecialized.Categories {
-							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
+							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized](c.ID, c.Description))
 							categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 							if err != nil {
 								// TODO: log
@@ -191,7 +191,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
 					categoriesAdditionalSchema := map[string]sdk.Schema{}
 					for _, c := range resourceSpecialized.Categories {
-						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized, any](c.ID, c.Description))
+						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicResourceSpecialized](c.ID, c.Description))
 						categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 						if err != nil {
 							// TODO: log

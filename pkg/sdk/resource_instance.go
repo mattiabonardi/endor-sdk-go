@@ -11,8 +11,7 @@ type ResourceInstanceInterface interface {
 }
 
 type ResourceInstanceSpecializedInterface interface {
-	GetID() *string
-	SetID(id string)
+	ResourceInstanceInterface
 	GetCategoryType() *string
 	SetCategoryType(categoryType string)
 }
@@ -90,102 +89,19 @@ func (d *ResourceInstance[T]) GetID() *string {
 	return d.This.GetID()
 }
 
+func (d *ResourceInstance[T]) SetID(id string) {
+	d.This.SetID(id)
+}
+
 // ResourceInstanceSpecialized define the abstract model of a specialized instance
-type ResourceInstanceSpecialized[T ResourceInstanceSpecializedInterface, C any] struct {
-	This         T                      `json:",inline" bson:"this"`
-	CategoryThis C                      `json:",inline" bson:"categoryThis"`
-	Metadata     map[string]interface{} `json:",inline" bson:"metadata,omitempty"`
+type ResourceInstanceSpecialized[T ResourceInstanceSpecializedInterface] struct {
+	ResourceInstance[T]
 }
 
-func (r *ResourceInstanceSpecialized[T, C]) GetID() *string {
-	return r.This.GetID()
-}
-
-func (r *ResourceInstanceSpecialized[T, C]) SetID(id string) {
-	r.This.SetID(id)
-}
-
-func (r *ResourceInstanceSpecialized[T, C]) GetCategoryType() *string {
+func (r *ResourceInstanceSpecialized[T]) GetCategoryType() *string {
 	return r.This.GetCategoryType()
 }
 
-func (r *ResourceInstanceSpecialized[T, C]) SetCategoryType(categoryType string) {
+func (r *ResourceInstanceSpecialized[T]) SetCategoryType(categoryType string) {
 	r.This.SetCategoryType(categoryType)
-}
-
-func (r *ResourceInstanceSpecialized[T, C]) UnmarshalJSON(data []byte) error {
-	// Tutto in una map grezza
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	// estrai This
-	var t T
-	tBytes, _ := json.Marshal(t)
-	var tFields map[string]json.RawMessage
-	json.Unmarshal(tBytes, &tFields)
-
-	// prova ad applicare i campi di T
-	_ = json.Unmarshal(data, &t)
-	marshalledT, _ := json.Marshal(t)
-
-	// trova i campi effettivamente valorizzati in t
-	var tMap map[string]json.RawMessage
-	json.Unmarshal(marshalledT, &tMap)
-
-	for k := range tMap {
-		delete(raw, k)
-	}
-	r.This = t
-
-	// estrai CategoryThis
-	var c C
-	_ = json.Unmarshal(data, &c)
-	marshalledC, _ := json.Marshal(c)
-
-	var cMap map[string]json.RawMessage
-	json.Unmarshal(marshalledC, &cMap)
-
-	for k := range cMap {
-		delete(raw, k)
-	}
-	r.CategoryThis = c
-
-	// il resto dei campi → metadata
-	r.Metadata = make(map[string]interface{})
-	for k, v := range raw {
-		var val any
-		json.Unmarshal(v, &val)
-		r.Metadata[k] = val
-	}
-
-	return nil
-}
-
-func (r ResourceInstanceSpecialized[T, C]) MarshalJSON() ([]byte, error) {
-	result := map[string]interface{}{}
-
-	// merge This
-	tBytes, _ := json.Marshal(r.This)
-	var tMap map[string]interface{}
-	json.Unmarshal(tBytes, &tMap)
-	for k, v := range tMap {
-		result[k] = v
-	}
-
-	// merge CategoryThis
-	cBytes, _ := json.Marshal(r.CategoryThis)
-	var cMap map[string]interface{}
-	json.Unmarshal(cBytes, &cMap)
-	for k, v := range cMap {
-		result[k] = v
-	}
-
-	// merge Metadata
-	for k, v := range r.Metadata {
-		result[k] = v
-	}
-
-	return json.Marshal(result)
 }
