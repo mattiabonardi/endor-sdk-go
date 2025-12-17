@@ -32,7 +32,7 @@ const (
 type LogContext struct {
 	UserID      string `json:"user_id"`
 	UserSession string `json:"user_session"`
-	Resource    string `json:"resource"`
+	Entity      string `json:"entity"`
 	Action      string `json:"action"`
 }
 
@@ -55,7 +55,7 @@ type LogEntry struct {
 	Message     string                 `json:"message"`
 	UserID      string                 `json:"user_id,omitempty"`
 	UserSession string                 `json:"user_session,omitempty"`
-	Request     string                 `json:"resource"`
+	Request     string                 `json:"entity"`
 	Action      string                 `json:"action"`
 	Extra       map[string]interface{} `json:"extra,omitempty"`
 }
@@ -101,7 +101,7 @@ func (l *Logger) logJSON(timestamp string, level LogLevel, msg string, extra map
 		Message:     msg,
 		UserID:      l.context.UserID,
 		UserSession: l.context.UserSession,
-		Request:     l.context.Resource,
+		Request:     l.context.Entity,
 		Action:      l.context.Action,
 		Extra:       extra,
 	}
@@ -127,8 +127,8 @@ func (l *Logger) logString(timestamp string, level LogLevel, msg string, extra m
 		output += fmt.Sprintf(" | user_session=%s", l.context.UserSession)
 	}
 
-	if l.context.Resource != "" {
-		output += fmt.Sprintf(" | resource=%s", l.context.Resource)
+	if l.context.Entity != "" {
+		output += fmt.Sprintf(" | entity=%s", l.context.Entity)
 	}
 
 	if l.context.Action != "" {

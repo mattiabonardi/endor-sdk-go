@@ -2,7 +2,7 @@ package test_utils_services
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
 
 type BaseServiceModel struct {
@@ -10,8 +10,8 @@ type BaseServiceModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h BaseServiceModel) GetID() *string {
-	return &h.ID
+func (h BaseServiceModel) GetID() string {
+	return h.ID
 }
 
 func (h *BaseServiceModel) SetID(id string) {
@@ -32,12 +32,31 @@ func (h *BaseService) action1(c *sdk.EndorContext[BaseServiceAction1Payload]) (*
 		Build(), nil
 }
 
+func (h *BaseService) publicAction(c *sdk.EndorContext[BaseServiceAction1Payload]) (*sdk.Response[any], error) {
+	return sdk.NewResponseBuilder[any]().
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from public action")).
+		Build(), nil
+}
+
 func NewBaseServiceService() sdk.EndorBaseServiceInterface {
 	baseService := BaseService{}
-	return sdk_resource.NewEndorBaseService[*BaseServiceModel]("base-service", "Base Service (EndorBaseService)").
+	return sdk_entity.NewEndorBaseService[*BaseServiceModel]("base-service", "Base Service (EndorBaseService)").
 		WithActions(map[string]sdk.EndorServiceActionInterface{
-			"action-1": sdk.NewAction(
+			"action1": sdk.NewAction(
 				baseService.action1,
 				"Action 1",
-			)})
+			),
+			"cat_1/action1": sdk.NewAction(
+				baseService.action1,
+				"Category 1 Action 1",
+			),
+			"public-action": sdk.NewConfigurableAction(
+				sdk.EndorServiceActionOptions{
+					Description:     "Public Action",
+					Public:          true,
+					ValidatePayload: true,
+				},
+				baseService.publicAction,
+			),
+		})
 }

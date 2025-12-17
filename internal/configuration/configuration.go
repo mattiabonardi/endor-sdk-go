@@ -9,12 +9,12 @@ import (
 )
 
 type ServerConfig struct {
-	ServerPort                    string
-	DocumentDBUri                 string
-	HybridResourcesEnabled        bool
-	DynamicResourcesEnabled       bool
-	DynamicResourceDocumentDBName string
-	LogType                       string
+	ServerPort                  string
+	DocumentDBUri               string
+	HybridEntitiesEnabled       bool
+	DynamicEntitiesEnabled      bool
+	DynamicEntityDocumentDBName string
+	LogType                     string
 }
 
 // Variabili globali per il singleton
@@ -41,16 +41,16 @@ func loadConfiguration() *ServerConfig {
 	port := getEnv("PORT", "8080")
 	dbUri := getEnv("DOCUMENT_DB_URI", "mongodb://localhost:27017")
 
-	hybridResourcesEnabled := getEnvAsBool("HYBRID_RESOURCES_ENABLED", false)
-	dynamicResourcesEnabled := getEnvAsBool("DYNAMIC_RESOURCES_ENABLED", false)
+	hybridEntitiesEnabled := getEnvAsBool("HYBRID_ENTITIES_ENABLED", false)
+	dynamicEntitiesEnabled := getEnvAsBool("DYNAMIC_ENTITIES_ENABLED", false)
 	logType := getEnv("LOG_TYPE", "JSON")
 
 	return &ServerConfig{
-		ServerPort:              port,
-		DocumentDBUri:           dbUri,
-		HybridResourcesEnabled:  hybridResourcesEnabled,
-		DynamicResourcesEnabled: dynamicResourcesEnabled,
-		LogType:                 logType,
+		ServerPort:             port,
+		DocumentDBUri:          dbUri,
+		HybridEntitiesEnabled:  hybridEntitiesEnabled,
+		DynamicEntitiesEnabled: dynamicEntitiesEnabled,
+		LogType:                logType,
 	}
 }
 

@@ -51,13 +51,13 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 		} else {
 			basePath += "v1/"
 		}
-		// resource
-		basePath += service.Resource
+		// entity
+		basePath += service.Entity
 
 		// methods
 		for methodKey, method := range service.Actions {
 			// create router
-			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Resource, methodKey)
+			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Entity, methodKey)
 			router := ApiGatewayConfigurationRouter{
 				Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
 				Service:     microServiceId,

@@ -11,7 +11,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -49,7 +49,7 @@ func (h *Endor) Init(microserviceId string) {
 	config := configuration.GetConfig()
 
 	// define runtime configuration
-	config.DynamicResourceDocumentDBName = microserviceId
+	config.DynamicEntityDocumentDBName = microserviceId
 
 	// create router
 	router := gin.New()
@@ -63,39 +63,39 @@ func (h *Endor) Init(microserviceId string) {
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	// Check if an EndorService with resource == "resource" is already defined
-	resourceServiceExists := false
+	// Check if an EndorService with entity == "entity" is already defined
+	entityServiceExists := false
 	if h.endorServices != nil {
 		for _, svc := range *h.endorServices {
-			if svc.GetResource() == "resource" {
-				resourceServiceExists = true
+			if svc.GetEntity() == "entity" {
+				entityServiceExists = true
 				break
 			}
 		}
 	}
-	if !resourceServiceExists {
-		*h.endorServices = append(*h.endorServices, sdk_resource.NewResourceService(microserviceId, h.endorServices))
-		*h.endorServices = append(*h.endorServices, sdk_resource.NewResourceActionService(microserviceId, h.endorServices))
+	if !entityServiceExists {
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionService(microserviceId, h.endorServices))
 	}
 
-	// get all resources
-	EndorServiceRepository := sdk_resource.NewEndorServiceRepository(microserviceId, h.endorServices)
-	resources, err := EndorServiceRepository.EndorServiceList()
+	// get all entities
+	EndorServiceRepository := sdk_entity.NewEndorServiceRepository(microserviceId, h.endorServices)
+	entities, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		// find the resource in path /api/{version}/{resource}/{method}
+		// find the entity in path /api/{version}/{entity}/{method}
 		pathSegments := strings.Split(c.Request.URL.Path, "/")
 		if len(pathSegments) > 4 {
-			resource := pathSegments[3]
+			entity := pathSegments[3]
 			action := pathSegments[4]
 			if len(pathSegments) == 6 {
 				action = pathSegments[4] + "/" + pathSegments[5]
 			}
 			endorRepositoryDictionary, err := EndorServiceRepository.Instance(sdk.ReadInstanceDTO{
-				Id: resource,
+				Id: entity,
 			})
 			if err == nil {
 				if method, ok := endorRepositoryDictionary.EndorService.Actions[action]; ok {
@@ -104,7 +104,7 @@ func (h *Endor) Init(microserviceId string) {
 						parts := strings.SplitN(action, "/", 2)
 						category = parts[0]
 					}
-					method.CreateHTTPCallback(microserviceId, resource, action, category)(c)
+					method.CreateHTTPCallback(microserviceId, entity, action, category)(c)
 					return
 				}
 			}
@@ -114,11 +114,11 @@ func (h *Endor) Init(microserviceId string) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err = api_gateway.InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), resources)
+	err = api_gateway.InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), entities)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := swagger.CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), resources, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -103,7 +103,7 @@ func (c *StringIDConverter) GenerateNewID() string {
 //     the struct's BSON tags
 //   - All other fields from embedded structs (with bson:",inline") are correctly
 //     preserved during the conversion process
-type DocumentConverter[T sdk.ResourceInstanceInterface] struct{}
+type DocumentConverter[T sdk.EntityInstanceInterface] struct{}
 
 func (c *DocumentConverter[T]) ExtractMetadata(raw bson.M) (map[string]interface{}, error) {
 	metadata := make(map[string]interface{})
@@ -127,12 +127,12 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 	delete(docCopy, "metadata")
 
 	// First, unmarshal with _id present (for embedded structs that might have bson:"_id")
-	resourceBytes, err := bson.Marshal(docCopy)
+	entityBytes, err := bson.Marshal(docCopy)
 	if err != nil {
-		return model, fmt.Errorf("failed to marshal raw resource: %w", err)
+		return model, fmt.Errorf("failed to marshal raw entity: %w", err)
 	}
 
-	if err := bson.Unmarshal(resourceBytes, &model); err != nil {
+	if err := bson.Unmarshal(entityBytes, &model); err != nil {
 		return model, fmt.Errorf("failed to unmarshal to model: %w", err)
 	}
 
@@ -150,28 +150,28 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 }
 
 func (c *DocumentConverter[T]) ToDocument(model T, metadata map[string]interface{}, idConverter IDConverter) (bson.M, error) {
-	resourceBytes, err := bson.Marshal(model)
+	entityBytes, err := bson.Marshal(model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal resource: %w", err)
+		return nil, fmt.Errorf("failed to marshal entity: %w", err)
 	}
 
-	var resourceMap bson.M
-	if err := bson.Unmarshal(resourceBytes, &resourceMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resource: %w", err)
+	var entityMap bson.M
+	if err := bson.Unmarshal(entityBytes, &entityMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal entity: %w", err)
 	}
 
 	// Set _id
 	idPtr := model.GetID()
-	if idPtr != nil && *idPtr != "" {
-		storageID, err := idConverter.ToStorageID(*idPtr)
+	if idPtr != "" {
+		storageID, err := idConverter.ToStorageID(idPtr)
 		if err != nil {
 			return nil, err
 		}
-		resourceMap["_id"] = storageID
+		entityMap["_id"] = storageID
 	}
 
 	// Add metadata
-	resourceMap["metadata"] = metadata
+	entityMap["metadata"] = metadata
 
-	return resourceMap, nil
+	return entityMap, nil
 }

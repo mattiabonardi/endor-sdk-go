@@ -56,9 +56,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	// Verify the configuration content
 	t.Run("VerifyRouters", func(t *testing.T) {
 		expectedRouters := []string{
-			"test-service-router-resource-1-action1",
-			"test-service-router-resource-1-cat_1/action1",
-			"test-service-router-resource-1-public-action",
+			"test-service-router-base-service-action1",
+			"test-service-router-base-service-cat_1/action1",
+			"test-service-router-base-service-public-action",
 		}
 
 		for _, routerName := range expectedRouters {
@@ -78,7 +78,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 			}
 
 			// Check middleware assignment based on action type
-			if routerName == "test-service-router-resource-1-public-action" {
+			if routerName == "test-service-router-base-service-public-action" {
 				// Public action should not have auth middleware
 				if router.Middlewares != nil {
 					t.Errorf("Public router %s should not have middlewares, but has: %v", routerName, *router.Middlewares)
@@ -117,9 +117,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRulePaths", func(t *testing.T) {
 		// Verify that rules have correct path patterns
 		expectedPaths := map[string]string{
-			"test-service-router-resource-1-action1":       "PathPrefix(`/api/v1/resource-1/action1`)",
-			"test-service-router-resource-1-cat_1/action1": "PathPrefix(`/api/v1/resource-1/cat_1/action1`)",
-			"test-service-router-resource-1-public-action": "PathPrefix(`/api/v1/resource-1/public-action`)",
+			"test-service-router-base-service-action1":       "PathPrefix(`/api/v1/base-service/action1`)",
+			"test-service-router-base-service-cat_1/action1": "PathPrefix(`/api/v1/base-service/cat_1/action1`)",
+			"test-service-router-base-service-public-action": "PathPrefix(`/api/v1/base-service/public-action`)",
 		}
 
 		for routerName, expectedRule := range expectedPaths {
@@ -179,7 +179,7 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 
 	// Verify that the version is correctly included in the path
 	for routerName, router := range config.HTTP.Routers {
-		if !strings.Contains(router.Rule, "/api/v2/resource-1/") {
+		if !strings.Contains(router.Rule, "/api/v2/base-service/") {
 			t.Errorf("Router %s should contain v2 version in rule: %s", routerName, router.Rule)
 		}
 	}

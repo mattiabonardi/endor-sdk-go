@@ -2,7 +2,7 @@ package test_utils_services
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
 
 type HybridSpecializedModel struct {
@@ -11,16 +11,16 @@ type HybridSpecializedModel struct {
 	Attribute string `json:"attribute" bson:"attribute"`
 }
 
-func (h HybridSpecializedModel) GetID() *string {
-	return &h.ID
+func (h HybridSpecializedModel) GetID() string {
+	return h.ID
 }
 
 func (h *HybridSpecializedModel) SetID(id string) {
 	h.ID = id
 }
 
-func (h HybridSpecializedModel) GetCategoryType() *string {
-	return &h.Type
+func (h HybridSpecializedModel) GetCategoryType() string {
+	return h.Type
 }
 
 func (h *HybridSpecializedModel) SetCategoryType(categoryType string) {
@@ -54,11 +54,11 @@ func (h *HybridSpecializedService) action1(c *sdk.EndorContext[HybridSpecialized
 func NewHybridSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
 	hybridSpecializedService := HybridSpecializedService{}
 
-	return sdk_resource.NewHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
+	return sdk_entity.NewHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
 		WithCategories(
 			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
-				sdk_resource.NewEndorHybridSpecializedServiceCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
+				sdk_entity.NewEndorHybridSpecializedServiceCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
+				sdk_entity.NewEndorHybridSpecializedServiceCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
 			},
 		).
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {

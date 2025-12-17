@@ -67,9 +67,9 @@ type Schema struct {
 }
 
 type UISchema struct {
-	Resource *string   `json:"resource,omitempty" yaml:"resource,omitempty"` // define the reference resource
-	Order    *[]string `json:"order,omitempty" yaml:"order,omitempty"`       // define the order of the attributes
-	Hidden   *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"`     // define if the property is displayable
+	Entity *string   `json:"entity,omitempty" yaml:"entity,omitempty"` // define the reference entity
+	Order  *[]string `json:"order,omitempty" yaml:"order,omitempty"`   // define the order of the attributes
+	Hidden *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"` // define if the property is displayable
 }
 
 type RootSchema struct {
@@ -346,8 +346,8 @@ func applyUISchemaDecorators(s *Schema, props map[string]string) {
 	for key, val := range props {
 		v := val
 		switch key {
-		case "resource":
-			s.UISchema.Resource = &v
+		case "entity":
+			s.UISchema.Entity = &v
 		case "hidden":
 			if v == "true" {
 				trueValue := true

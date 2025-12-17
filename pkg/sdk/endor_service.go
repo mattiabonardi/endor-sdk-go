@@ -12,7 +12,7 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorServiceActionInterface interface {
-	CreateHTTPCallback(microserviceId string, resource string, action string, category string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, entity string, action string, category string) func(c *gin.Context)
 	GetOptions() EndorServiceActionOptions
 }
 
@@ -24,22 +24,22 @@ type EndorServiceActionOptions struct {
 }
 
 type EndorService struct {
-	Resource            string
-	ResourceDescription string
-	Actions             map[string]EndorServiceActionInterface
-	Priority            *int
-	ResourceSchema      RootSchema
+	Entity            string
+	EntityDescription string
+	Actions           map[string]EndorServiceActionInterface
+	Priority          *int
+	EntitySchema      RootSchema
 
 	// optionals
 	Version string
 }
 
-func (h EndorService) GetResource() string {
-	return h.Resource
+func (h EndorService) GetEntity() string {
+	return h.Entity
 }
 
-func (h EndorService) GetResourceDescription() string {
-	return h.ResourceDescription
+func (h EndorService) GetEntityDescription() string {
+	return h.EntityDescription
 }
 
 func (h EndorService) GetPriority() *int {
@@ -70,7 +70,7 @@ type endorServiceActionImpl[T any, R any] struct {
 	options EndorServiceActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, resource string, action string, categoryType string) func(c *gin.Context) {
+func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -89,7 +89,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		}, LogContext{
 			UserSession: session.Id,
 			UserID:      session.Username,
-			Resource:    resource,
+			Entity:      entity,
 			Action:      action,
 		})
 
@@ -136,8 +136,8 @@ func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
 
 // generic
 type EndorServiceInterface interface {
-	GetResource() string
-	GetResourceDescription() string
+	GetEntity() string
+	GetEntityDescription() string
 	GetPriority() *int
 }
 
@@ -180,5 +180,5 @@ type EndorHybridSpecializedServiceInterface interface {
 type EndorHybridSpecializedServiceCategoryInterface interface {
 	GetID() string
 	GetActions() func(getSchema func() RootSchema) map[string]EndorServiceActionInterface
-	CreateDefaultActions(resource string, resourceDescription string, metadataSchema Schema, categoryMetadataSchema Schema) map[string]EndorServiceActionInterface
+	CreateDefaultActions(entity string, entityDescription string, metadataSchema Schema, categoryMetadataSchema Schema) map[string]EndorServiceActionInterface
 }

@@ -2,7 +2,7 @@ package test_utils_services
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
 
 type BaseSpecializedModel struct {
@@ -11,16 +11,16 @@ type BaseSpecializedModel struct {
 	Attribute string `json:"attribute" bson:"attribute"`
 }
 
-func (h *BaseSpecializedModel) GetID() *string {
-	return &h.ID
+func (h *BaseSpecializedModel) GetID() string {
+	return h.ID
 }
 
 func (h *BaseSpecializedModel) SetID(id string) {
 	h.ID = id
 }
 
-func (h BaseSpecializedModel) GetCategoryType() *string {
-	return &h.Type
+func (h BaseSpecializedModel) GetCategoryType() string {
+	return h.Type
 }
 
 func (h *BaseSpecializedModel) SetCategoryType(categoryType string) {
@@ -66,17 +66,17 @@ func (h *BaseSpecializedService) category2Action1(c *sdk.EndorContext[BaseSpecia
 func NewBaseSpecializedService() sdk.EndorBaseSpecializedServiceInterface {
 	baseSpecializedService := BaseSpecializedService{}
 
-	return sdk_resource.NewEndorBaseSpecializedService[*BaseSpecializedModel]("base-specialized-service", "Base Specialized Service (EndorBaseSpecializedService)").
+	return sdk_entity.NewEndorBaseSpecializedService[*BaseSpecializedModel]("base-specialized-service", "Base Specialized Service (EndorBaseSpecializedService)").
 		WithCategories(
 			[]sdk.EndorBaseSpecializedServiceCategoryInterface{
-				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
+				sdk_entity.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
 					WithActions(map[string]sdk.EndorServiceActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedService.category1Action1,
 							"Action 1",
 						),
 					}),
-				sdk_resource.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory2]("cat-2", "Category 2").
+				sdk_entity.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory2]("cat-2", "Category 2").
 					WithActions(map[string]sdk.EndorServiceActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedService.category2Action1,

@@ -205,8 +205,8 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				}...)
 			}
 			operation := OpenAPIOperation{
-				OperationID: fmt.Sprintf("%s - %s", service.Resource, methodKey),
-				Tags:        []string{service.Resource},
+				OperationID: fmt.Sprintf("%s - %s", service.Entity, methodKey),
+				Tags:        []string{service.Entity},
 				Parameters:  parameters,
 				Summary:     method.GetOptions().Description,
 				Responses: OpenApiResponses{
@@ -281,11 +281,11 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 
 			path := map[string]OpenAPIOperation{}
 			path["post"] = operation
-			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Resource, methodKey)] = path
+			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Entity, methodKey)] = path
 		}
 		tag := OpenAPITag{
-			Name:        service.Resource,
-			Description: service.ResourceDescription,
+			Name:        service.Entity,
+			Description: service.EntityDescription,
 		}
 		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}

@@ -28,7 +28,7 @@ type User struct {
 	Cars       []Car              `json:"cars"`
 	CurrentCar Car                `json:"car"`
 	DateTime   primitive.DateTime `json:"dateTime"`
-	Date       string             `json:"date" schema:"description=The Date,format=date" ui-schema:"resource=xxx,hidden=true"`
+	Date       string             `json:"date" schema:"description=The Date,format=date" ui-schema:"entity=xxx,hidden=true"`
 }
 
 type CarTreeNode struct {
@@ -88,7 +88,7 @@ func TestSchemaTypes(t *testing.T) {
 	assert.Equal(t, sdk.SchemaFormatDate, *userSchemaProperties["date"].Format, "Expected date format to be date")
 
 	// ui schema
-	assert.Equal(t, "xxx", *userSchemaProperties["date"].UISchema.Resource, "Expected correct UI schema resource")
+	assert.Equal(t, "xxx", *userSchemaProperties["date"].UISchema.Entity, "Expected correct UI schema entity")
 	assert.True(t, *userSchemaProperties["date"].UISchema.Hidden, "Expected UI schema hidden to be true")
 
 	// Root UI schema order

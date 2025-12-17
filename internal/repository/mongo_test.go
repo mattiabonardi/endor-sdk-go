@@ -9,73 +9,73 @@ import (
 )
 
 // Test Model
-type TestResource struct {
-	ID   *string `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string  `bson:"name" json:"name"`
-	Age  int32   `bson:"age" json:"age"`
+type TestEntity struct {
+	ID   string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name string `bson:"name" json:"name"`
+	Age  int32  `bson:"age" json:"age"`
 }
 
-func (t *TestResource) GetID() *string {
+func (t *TestEntity) GetID() string {
 	return t.ID
 }
 
-func (t *TestResource) SetID(id string) {
-	t.ID = &id
+func (t *TestEntity) SetID(id string) {
+	t.ID = id
 }
 
 // Test Specialized Model for category-specific fields
-type TestSpecializedResource struct {
-	ID   *string `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string  `bson:"name" json:"name"`
-	Age  int32   `bson:"age" json:"age"`
-	Type *string `bson:"categoryType,omitempty" json:"categoryType,omitempty"`
+type TestSpecializedEntity struct {
+	ID   string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name string `bson:"name" json:"name"`
+	Age  int32  `bson:"age" json:"age"`
+	Type string `bson:"categoryType,omitempty" json:"categoryType,omitempty"`
 }
 
-func (t *TestSpecializedResource) GetID() *string {
+func (t *TestSpecializedEntity) GetID() string {
 	return t.ID
 }
 
-func (t *TestSpecializedResource) SetID(id string) {
-	t.ID = &id
+func (t *TestSpecializedEntity) SetID(id string) {
+	t.ID = id
 }
 
 // Test Model with embedded struct (inline)
 type TestBaseModel struct {
-	ID   *string `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string  `bson:"name" json:"name"`
+	ID   string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name string `bson:"name" json:"name"`
 }
 
-func (t *TestBaseModel) GetID() *string {
+func (t *TestBaseModel) GetID() string {
 	return t.ID
 }
 
 func (t *TestBaseModel) SetID(id string) {
-	t.ID = &id
+	t.ID = id
 }
 
-type TestEmbeddedResource struct {
+type TestEmbeddedEntity struct {
 	TestBaseModel `bson:",inline" json:",inline"`
 	Age           int32  `bson:"age" json:"age"`
 	Email         string `bson:"email" json:"email"`
 }
 
-func (t *TestEmbeddedResource) GetID() *string {
+func (t *TestEmbeddedEntity) GetID() string {
 	return t.TestBaseModel.ID
 }
 
-func (t *TestEmbeddedResource) SetID(id string) {
-	t.TestBaseModel.ID = &id
+func (t *TestEmbeddedEntity) SetID(id string) {
+	t.TestBaseModel.ID = id
 }
 
-func (t *TestSpecializedResource) GetCategoryType() *string {
+func (t *TestSpecializedEntity) GetCategoryType() string {
 	return t.Type
 }
 
-func (t *TestSpecializedResource) SetCategoryType(categoryType string) {
-	t.Type = &categoryType
+func (t *TestSpecializedEntity) SetCategoryType(categoryType string) {
+	t.Type = categoryType
 }
 
-type TestSpecializedResourceCategory struct {
+type TestSpecializedEntityCategory struct {
 	ExtraField string `bson:"extraField" json:"extraField"`
 	Priority   int32  `bson:"priority" json:"priority"`
 }
@@ -131,7 +131,7 @@ func TestStringIDConverter_FromStorageID(t *testing.T) {
 
 // Tests for DocumentConverter
 func TestDocumentConverter_ExtractMetadata(t *testing.T) {
-	converter := &DocumentConverter[*TestResource]{}
+	converter := &DocumentConverter[*TestEntity]{}
 
 	t.Run("with metadata", func(t *testing.T) {
 		raw := bson.M{
@@ -162,7 +162,7 @@ func TestDocumentConverter_ExtractMetadata(t *testing.T) {
 }
 
 func TestDocumentConverter_ToModel(t *testing.T) {
-	converter := &DocumentConverter[*TestResource]{}
+	converter := &DocumentConverter[*TestEntity]{}
 	idConverter := &ObjectIDConverter{}
 	testID := primitive.NewObjectID()
 
@@ -179,16 +179,16 @@ func TestDocumentConverter_ToModel(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "TestModel", model.Name)
 	assert.Equal(t, int32(25), model.Age)
-	assert.Equal(t, testID.Hex(), *model.ID)
+	assert.Equal(t, testID.Hex(), model.ID)
 }
 
 func TestDocumentConverter_ToDocument(t *testing.T) {
-	converter := &DocumentConverter[*TestResource]{}
+	converter := &DocumentConverter[*TestEntity]{}
 	idConverter := &StringIDConverter{}
 
 	testID := "test-123"
-	model := &TestResource{
-		ID:   &testID,
+	model := &TestEntity{
+		ID:   testID,
 		Name: "TestDoc",
 		Age:  30,
 	}
@@ -206,7 +206,7 @@ func TestDocumentConverter_ToDocument(t *testing.T) {
 }
 
 func TestDocumentConverter_WithEmbeddedStruct_ToModel(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedResource]{}
+	converter := &DocumentConverter[*TestEmbeddedEntity]{}
 	idConverter := &ObjectIDConverter{}
 	testID := primitive.NewObjectID()
 
@@ -225,17 +225,17 @@ func TestDocumentConverter_WithEmbeddedStruct_ToModel(t *testing.T) {
 	assert.Equal(t, "TestEmbedded", model.Name)
 	assert.Equal(t, int32(35), model.Age)
 	assert.Equal(t, "test@example.com", model.Email)
-	assert.Equal(t, testID.Hex(), *model.GetID())
+	assert.Equal(t, testID.Hex(), model.GetID())
 }
 
 func TestDocumentConverter_WithEmbeddedStruct_ToDocument(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedResource]{}
+	converter := &DocumentConverter[*TestEmbeddedEntity]{}
 	idConverter := &StringIDConverter{}
 
 	testID := "test-embedded-123"
-	model := &TestEmbeddedResource{
+	model := &TestEmbeddedEntity{
 		TestBaseModel: TestBaseModel{
-			ID:   &testID,
+			ID:   testID,
 			Name: "TestEmbedded",
 		},
 		Age:   35,
@@ -260,13 +260,13 @@ func TestDocumentConverter_WithEmbeddedStruct_ToDocument(t *testing.T) {
 }
 
 func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedResource]{}
+	converter := &DocumentConverter[*TestEmbeddedEntity]{}
 	idConverter := &StringIDConverter{}
 
 	testID := "round-trip-123"
-	originalModel := &TestEmbeddedResource{
+	originalModel := &TestEmbeddedEntity{
 		TestBaseModel: TestBaseModel{
-			ID:   &testID,
+			ID:   testID,
 			Name: "RoundTrip",
 		},
 		Age:   40,
@@ -286,7 +286,7 @@ func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify all fields match
-	assert.Equal(t, *originalModel.GetID(), *reconstructedModel.GetID())
+	assert.Equal(t, originalModel.GetID(), reconstructedModel.GetID())
 	assert.Equal(t, originalModel.Name, reconstructedModel.Name)
 	assert.Equal(t, originalModel.Age, reconstructedModel.Age)
 	assert.Equal(t, originalModel.Email, reconstructedModel.Email)
@@ -295,7 +295,7 @@ func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
 func TestDocumentConverter_EmbeddedStructWithNestedID(t *testing.T) {
 	// This test verifies that embedded structs where the ID is in the embedded struct
 	// are handled correctly through the full round-trip
-	converter := &DocumentConverter[*TestEmbeddedResource]{}
+	converter := &DocumentConverter[*TestEmbeddedEntity]{}
 	idConverter := &StringIDConverter{}
 
 	// Simulate a raw document from MongoDB
@@ -315,7 +315,7 @@ func TestDocumentConverter_EmbeddedStructWithNestedID(t *testing.T) {
 
 	// The ID should be set correctly even though it's in the embedded struct
 	assert.NotNil(t, model.GetID())
-	assert.Equal(t, "embedded-id-123", *model.GetID())
+	assert.Equal(t, "embedded-id-123", model.GetID())
 	assert.Equal(t, "EmbeddedTest", model.Name)
 	assert.Equal(t, int32(25), model.Age)
 	assert.Equal(t, "embedded@test.com", model.Email)
@@ -328,8 +328,8 @@ type TestBaseWithStringID struct {
 	Attribute string `bson:"attribute" json:"attribute"`
 }
 
-func (t *TestBaseWithStringID) GetID() *string {
-	return &t.ID
+func (t *TestBaseWithStringID) GetID() string {
+	return t.ID
 }
 
 func (t *TestBaseWithStringID) SetID(id string) {
@@ -360,7 +360,7 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToModel(t *testing.T) 
 	assert.NoError(t, err)
 
 	// All fields should be populated correctly
-	assert.Equal(t, "test-id-123", *model.GetID())
+	assert.Equal(t, "test-id-123", model.GetID())
 	assert.Equal(t, "test-type", model.Type)
 	assert.Equal(t, "base-attribute", model.Attribute, "Embedded struct attribute should be preserved")
 	assert.Equal(t, "extra-value", model.ExtraField)
@@ -418,7 +418,7 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T
 	reconstructed, err := converter.ToModel(doc, idConverter)
 	assert.NoError(t, err)
 
-	assert.Equal(t, *original.GetID(), *reconstructed.GetID())
+	assert.Equal(t, original.GetID(), reconstructed.GetID())
 	assert.Equal(t, original.Type, reconstructed.Type)
 	assert.Equal(t, original.Attribute, reconstructed.Attribute, "Embedded struct attribute should survive round trip")
 	assert.Equal(t, original.ExtraField, reconstructed.ExtraField)
@@ -458,7 +458,7 @@ func TestDocumentConverter_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
 	assert.NoError(t, err)
 
 	// All fields should be preserved through the round trip
-	assert.Equal(t, original.ID, *reconstructed.GetID())
+	assert.Equal(t, original.ID, reconstructed.GetID())
 	assert.Equal(t, original.Type, reconstructed.Type)
 	assert.Equal(t, original.Attribute, reconstructed.Attribute, "Attribute from embedded struct must be preserved")
 	assert.Equal(t, original.ExtraField, reconstructed.ExtraField)

@@ -2,7 +2,7 @@ package test_utils_services
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_resource"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
 
 type HybridServiceModel struct {
@@ -10,8 +10,8 @@ type HybridServiceModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h HybridServiceModel) GetID() *string {
-	return &h.ID
+func (h HybridServiceModel) GetID() string {
+	return h.ID
 }
 
 func (h *HybridServiceModel) SetID(id string) {
@@ -34,7 +34,7 @@ func (h *HybridService) action1(c *sdk.EndorContext[HybridServiceModelAction1Pay
 
 func NewHybridService() sdk.EndorHybridServiceInterface {
 	hybridService := HybridService{}
-	return sdk_resource.NewEndorHybridService[*HybridServiceModel]("hybrid-service", "Hybrid Service (EndorHybridService)").
+	return sdk_entity.NewEndorHybridService[*HybridServiceModel]("hybrid-service", "Hybrid Service (EndorHybridService)").
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {
 			return map[string]sdk.EndorServiceActionInterface{
 				"action-1": sdk.NewAction(
