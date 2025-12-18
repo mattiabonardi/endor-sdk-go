@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 )
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
@@ -83,7 +83,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		}
 
 		// logger
-		configuration := configuration.GetConfig()
+		configuration := sdk_configuration.GetConfig()
 		logger := NewLogger(Config{
 			LogType: LogType(configuration.LogType),
 		}, LogContext{

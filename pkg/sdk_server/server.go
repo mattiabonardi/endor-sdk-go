@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
-	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -46,7 +46,7 @@ func (b *EndorInitializer) Build() *Endor {
 
 func (h *Endor) Init(microserviceId string) {
 	// load configuration
-	config := configuration.GetConfig()
+	config := sdk_configuration.GetConfig()
 
 	// define runtime configuration
 	config.DynamicEntityDocumentDBName = microserviceId

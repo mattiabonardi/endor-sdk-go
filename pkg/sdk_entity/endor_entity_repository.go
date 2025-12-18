@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
-	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -24,9 +24,9 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]s
 		internalEndorServices: internalEndorServices,
 		context:               context.TODO(),
 	}
-	if configuration.GetConfig().HybridEntitiesEnabled || configuration.GetConfig().DynamicEntitiesEnabled {
+	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		client, _ := sdk.GetMongoClient()
-		database := client.Database(configuration.GetConfig().DynamicEntityDocumentDBName)
+		database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
 		serviceRepository.collection = database.Collection(COLLECTION_ENTITIES)
 	}
 
@@ -52,7 +52,7 @@ type EndorServiceActionDictionary struct {
 }
 
 func (h *EndorServiceRepository) ensureEntityDocumentOfInternalService(entity sdk.EntityInterface) {
-	if (configuration.GetConfig().HybridEntitiesEnabled || configuration.GetConfig().DynamicEntitiesEnabled) && h.collection != nil {
+	if (sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled) && h.collection != nil {
 		// Check if document exists in MongoDB
 		var existingDoc sdk.Entity
 		filter := bson.M{"_id": entity.GetID()}
@@ -120,7 +120,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 	}
 
 	// dynamic EndorServices
-	if configuration.GetConfig().HybridEntitiesEnabled || configuration.GetConfig().DynamicEntitiesEnabled {
+	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		dynamicEntities, err := h.DynamicEntityList()
 		if err != nil {
 			return map[string]EndorServiceDictionary{}, nil
@@ -407,7 +407,7 @@ func (h *EndorServiceRepository) Delete(dto sdk.ReadInstanceDTO) error {
 }
 
 func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string) error {
-	config := configuration.GetConfig()
+	config := sdk_configuration.GetConfig()
 	entities, err := h.EndorServiceList()
 	if err != nil {
 		return err

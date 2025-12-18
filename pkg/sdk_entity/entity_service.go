@@ -3,8 +3,8 @@ package sdk_entity
 import (
 	"fmt"
 
-	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 )
 
 func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface) sdk.EndorServiceInterface {
@@ -48,11 +48,11 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 	// dynamic specialized category actions
 	dynamicSpecializedCategoryActions := map[string]sdk.EndorServiceActionInterface{}
 
-	if configuration.GetConfig().HybridEntitiesEnabled || configuration.GetConfig().DynamicEntitiesEnabled {
+	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		hybridCategoryActions["update"] = sdk.NewAction(entityService.entityHybridUpdate, "Update an existing entity of type "+string(sdk.EntityTypeHybrid))
 		hybridSpecializedCategoryActions["update"] = sdk.NewAction(entityService.entityHybridSpecializedUpdate, "Update an existing entity of type "+string(sdk.EntityTypeHybridSpecialized))
 	}
-	if configuration.GetConfig().DynamicEntitiesEnabled {
+	if sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		dynamicCategoryActions["schema"] = sdk.NewAction(entityService.entityHybridSchema, "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicCategoryActions["instance"] = sdk.NewAction(entityService.entityDynamicInstance, "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicCategoryActions["list"] = sdk.NewAction(entityService.entityDynamicList, "Search for available entities of type "+string(sdk.EntityTypeDynamic))

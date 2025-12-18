@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mattiabonardi/endor-sdk-go/internal/configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -20,7 +20,7 @@ var (
 
 // GetMongoClient returns a singleton MongoDB client
 func GetMongoClient() (*mongo.Client, error) {
-	configuration := configuration.GetConfig()
+	configuration := sdk_configuration.GetConfig()
 	mongoOnce.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 		defer cancel()
