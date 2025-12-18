@@ -44,45 +44,25 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 		),
 	}
 	// dynamic category actions
-	dynamicCategoryActions := map[string]sdk.EndorServiceActionInterface{
-		"schema": sdk.NewAction(
-			entityService.entityHybridSchema,
-			"Get the schema of the entity of type "+string(sdk.EntityTypeDynamic),
-		),
-		"instance": sdk.NewAction(
-			entityService.entityDynamicInstance,
-			"Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic),
-		),
-		"list": sdk.NewAction(
-			entityService.entityDynamicList,
-			"Search for available entities of type "+string(sdk.EntityTypeDynamic),
-		),
-	}
+	dynamicCategoryActions := map[string]sdk.EndorServiceActionInterface{}
 	// dynamic specialized category actions
-	dynamicSpecializedCategoryActions := map[string]sdk.EndorServiceActionInterface{
-		"schema": sdk.NewAction(
-			entityService.entityHybridSpecializedSchema,
-			"Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized),
-		),
-		"instance": sdk.NewAction(
-			entityService.entityDynamicSpecializedInstance,
-			"Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized),
-		),
-		"list": sdk.NewAction(
-			entityService.entityDynamicSpecializedList,
-			"Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized),
-		),
-	}
+	dynamicSpecializedCategoryActions := map[string]sdk.EndorServiceActionInterface{}
 
 	if configuration.GetConfig().HybridEntitiesEnabled || configuration.GetConfig().DynamicEntitiesEnabled {
 		hybridCategoryActions["update"] = sdk.NewAction(entityService.entityHybridUpdate, "Update an existing entity of type "+string(sdk.EntityTypeHybrid))
 		hybridSpecializedCategoryActions["update"] = sdk.NewAction(entityService.entityHybridSpecializedUpdate, "Update an existing entity of type "+string(sdk.EntityTypeHybridSpecialized))
 	}
 	if configuration.GetConfig().DynamicEntitiesEnabled {
+		dynamicCategoryActions["schema"] = sdk.NewAction(entityService.entityHybridSchema, "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
+		dynamicCategoryActions["instance"] = sdk.NewAction(entityService.entityDynamicInstance, "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
+		dynamicCategoryActions["list"] = sdk.NewAction(entityService.entityDynamicList, "Search for available entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicCategoryActions["create"] = sdk.NewAction(entityService.entityDynamicCreate, "Create a new entity "+string(sdk.EntityTypeDynamic))
 		dynamicCategoryActions["update"] = sdk.NewAction(entityService.entityDynamicUpdate, "Update an existing entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicCategoryActions["delete"] = sdk.NewAction(entityService.entityDynamicDelete, "Delete an existing entity "+string(sdk.EntityTypeDynamic))
 
+		dynamicSpecializedCategoryActions["schema"] = sdk.NewAction(entityService.entityHybridSpecializedSchema, "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
+		dynamicSpecializedCategoryActions["instance"] = sdk.NewAction(entityService.entityDynamicSpecializedInstance, "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized))
+		dynamicSpecializedCategoryActions["list"] = sdk.NewAction(entityService.entityDynamicSpecializedList, "Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedCategoryActions["create"] = sdk.NewAction(entityService.entityDynamicSpecializedCreate, "Create a new entity "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedCategoryActions["update"] = sdk.NewAction(entityService.entityDynamicSpecializedUpdate, "Update an existing entity of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedCategoryActions["delete"] = sdk.NewAction(entityService.entityDynamicDelete, "Delete an existing entity "+string(sdk.EntityTypeDynamicSpecialized))

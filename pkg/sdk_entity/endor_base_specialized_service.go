@@ -57,6 +57,13 @@ func NewEndorBaseSpecializedService[T sdk.EntityInstanceSpecializedInterface](en
 	}
 }
 
+func (h EndorBaseSpecializedService[T]) WithPriority(
+	priority int,
+) sdk.EndorBaseSpecializedServiceInterface {
+	h.Priority = &priority
+	return h
+}
+
 func (h EndorBaseSpecializedService[T]) WithActions(
 	actions map[string]sdk.EndorServiceActionInterface,
 ) sdk.EndorBaseSpecializedServiceInterface {

@@ -30,6 +30,13 @@ func NewEndorBaseService[T sdk.EntityInstanceInterface](entity, entityDescriptio
 	}
 }
 
+func (h EndorBaseService[T]) WithPriority(
+	priority int,
+) sdk.EndorBaseServiceInterface {
+	h.priority = &priority
+	return h
+}
+
 func (h EndorBaseService[T]) WithActions(
 	actions map[string]sdk.EndorServiceActionInterface,
 ) sdk.EndorBaseServiceInterface {

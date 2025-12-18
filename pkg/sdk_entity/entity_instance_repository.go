@@ -1,40 +1,25 @@
-package repository
+package sdk_entity
 
 import (
 	"context"
 
+	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-// EntityInstanceRepositoryOptions defines configuration options for EntityInstanceRepository
-type EntityInstanceRepositoryOptions struct {
-	// AutoGenerateID determines whether IDs should be auto-generated or provided by the user
-	// When true (default): Empty IDs are auto-generated using primitive.ObjectID.Hex()
-	// When false: IDs must be provided by the user, empty IDs cause BadRequestError
-	AutoGenerateID *bool
-}
-
-type EntityInstanceRepositoryInterface[T sdk.EntityInstanceInterface] interface {
-	Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], error)
-	List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error)
-	Create(ctx context.Context, dto sdk.CreateDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error)
-	Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error
-	Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error)
-}
-
 type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	repository EntityInstanceRepositoryInterface[T]
+	repository sdk.EntityInstanceRepositoryInterface[T]
 }
 
 // NewEntityInstanceRepository creates a new repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options EntityInstanceRepositoryOptions) *EntityInstanceRepository[T] {
+func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.EntityInstanceRepositoryOptions) *EntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
 	return &EntityInstanceRepository[T]{
-		repository: NewMongoEntityInstanceRepository[T](entityId, options),
+		repository: repository.NewMongoEntityInstanceRepository[T](entityId, options),
 	}
 }
 

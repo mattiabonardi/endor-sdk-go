@@ -4,6 +4,22 @@ import (
 	"context"
 )
 
+// EntityInstanceRepositoryOptions defines configuration options for EntityInstanceRepository
+type EntityInstanceRepositoryOptions struct {
+	// AutoGenerateID determines whether IDs should be auto-generated or provided by the user
+	// When true (default): Empty IDs are auto-generated using primitive.ObjectID.Hex()
+	// When false: IDs must be provided by the user, empty IDs cause BadRequestError
+	AutoGenerateID *bool
+}
+
+type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
+	Instance(ctx context.Context, dto ReadInstanceDTO) (*EntityInstance[T], error)
+	List(ctx context.Context, dto ReadDTO) ([]EntityInstance[T], error)
+	Create(ctx context.Context, dto CreateDTO[EntityInstance[T]]) (*EntityInstance[T], error)
+	Delete(ctx context.Context, dto ReadInstanceDTO) error
+	Update(ctx context.Context, dto UpdateByIdDTO[EntityInstance[T]]) (*EntityInstance[T], error)
+}
+
 // StaticEntityInstanceRepositoryOptions defines configuration options for StaticEntityInstanceRepository
 // Mirrors EntityInstanceRepositoryOptions for consistency
 type StaticEntityInstanceRepositoryOptions struct {

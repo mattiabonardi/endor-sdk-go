@@ -144,6 +144,7 @@ type EndorServiceInterface interface {
 // base
 type EndorBaseServiceInterface interface {
 	EndorServiceInterface
+	WithPriority(priority int) EndorBaseServiceInterface
 	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseServiceInterface
 	ToEndorService() EndorService
 }
@@ -151,6 +152,7 @@ type EndorBaseServiceInterface interface {
 // base specialized
 type EndorBaseSpecializedServiceInterface interface {
 	EndorServiceInterface
+	WithPriority(priority int) EndorBaseSpecializedServiceInterface
 	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceInterface
 	WithCategories(categories []EndorBaseSpecializedServiceCategoryInterface) EndorBaseSpecializedServiceInterface
 	ToEndorService() EndorService
@@ -165,6 +167,7 @@ type EndorBaseSpecializedServiceCategoryInterface interface {
 // hybrid
 type EndorHybridServiceInterface interface {
 	EndorServiceInterface
+	WithPriority(priority int) EndorHybridServiceInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridServiceInterface
 	ToEndorService(metadataSchema Schema) EndorService
 }
@@ -172,6 +175,7 @@ type EndorHybridServiceInterface interface {
 // hybrid specialized
 type EndorHybridSpecializedServiceInterface interface {
 	EndorServiceInterface
+	WithPriority(priority int) EndorHybridSpecializedServiceInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceInterface
 	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
 	ToEndorService(metadataSchema Schema, categoryMetadataSchemas map[string]Schema) EndorService

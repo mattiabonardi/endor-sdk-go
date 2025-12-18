@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
@@ -32,6 +31,13 @@ func NewEndorHybridService[T sdk.EntityInstanceInterface](entity, entityDescript
 		Entity:            entity,
 		EntityDescription: entityDescription,
 	}
+}
+
+func (h EndorHybridService[T]) WithPriority(
+	priority int,
+) sdk.EndorHybridServiceInterface {
+	h.Priority = &priority
+	return h
 }
 
 // define methods. The params getSchema allow to inject the dynamic schema
@@ -82,7 +88,7 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorServiceActionInterface {
 	// Crea repository usando DynamicEntity come default (per ora)
 	autogenerateID := true
-	repository := repository.NewEntityInstanceRepository[T](entity, repository.EntityInstanceRepositoryOptions{
+	repository := NewEntityInstanceRepository[T](entity, sdk.EntityInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
 
@@ -157,7 +163,7 @@ func defaultSchema[T sdk.EntityInstanceInterface](_ *sdk.EndorContext[sdk.NoPayl
 	return sdk.NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
 }
 
-func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *repository.EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
+func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
 	instance, err := repository.Instance(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -165,7 +171,7 @@ func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Read
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *repository.EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
+func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 	list, err := repository.List(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -173,7 +179,7 @@ func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO]
 	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
 }
 
-func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *repository.EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	created, err := repository.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -181,7 +187,7 @@ func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Create
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created", entity))).Build(), nil
 }
 
-func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *repository.EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
@@ -189,7 +195,7 @@ func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Update
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated", entity))).Build(), nil
 }
 
-func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *repository.EntityInstanceRepository[T], entity string) (*sdk.Response[any], error) {
+func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *EntityInstanceRepository[T], entity string) (*sdk.Response[any], error) {
 	err := repository.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err

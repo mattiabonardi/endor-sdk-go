@@ -25,7 +25,7 @@ type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 // NewMongoEntityInstanceRepository creates repository with injected dependencies
 func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	collectionName string,
-	options EntityInstanceRepositoryOptions,
+	options sdk.EntityInstanceRepositoryOptions,
 ) *MongoEntityInstanceRepository[T] {
 	var idConverter IDConverter
 	if *options.AutoGenerateID {
