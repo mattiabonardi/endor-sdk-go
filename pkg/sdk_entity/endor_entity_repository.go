@@ -18,11 +18,12 @@ import (
 // COLLECTION_ENTITIES is the MongoDB collection name for entities
 const COLLECTION_ENTITIES = "entities"
 
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface) *EndorServiceRepository {
+func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
 	serviceRepository := &EndorServiceRepository{
 		microServiceId:        microServiceId,
 		internalEndorServices: internalEndorServices,
 		context:               context.TODO(),
+		logger:                logger,
 	}
 	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		client, _ := sdk.GetMongoClient()
@@ -38,6 +39,7 @@ type EndorServiceRepository struct {
 	internalEndorServices *[]sdk.EndorServiceInterface
 	collection            *mongo.Collection
 	context               context.Context
+	logger                *sdk.Logger
 }
 
 type EndorServiceDictionary struct {
@@ -51,25 +53,9 @@ type EndorServiceActionDictionary struct {
 	entityAction       sdk.EntityAction
 }
 
-func (h *EndorServiceRepository) ensureEntityDocumentOfInternalService(entity sdk.EntityInterface) {
-	if (sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled) && h.collection != nil {
-		// Check if document exists in MongoDB
-		var existingDoc sdk.Entity
-		filter := bson.M{"_id": entity.GetID()}
-		err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
+// #region Framework CRUD
 
-		// If document doesn't exist, create it
-		if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
-			_, insertErr := h.collection.InsertOne(h.context, entity)
-			if insertErr != nil {
-				// Log error but don't fail the initialization
-				// TODO: Add proper logging
-			}
-		}
-	}
-}
-
-func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error) {
+func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDictionary, error) {
 	entities := map[string]EndorServiceDictionary{}
 
 	// internal EndorServices
@@ -105,7 +91,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						if baseService, ok := internalEndorService.(sdk.EndorBaseServiceInterface); ok {
 							endorService = baseService.ToEndorService()
 						} else {
-							// TODO: log
+							h.logger.Warn(fmt.Sprintf("unable to create entity %s from service", internalEndorService.GetEntity()))
 						}
 					}
 				}
@@ -135,13 +121,11 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
 						defintion, err := entityHybrid.UnmarshalAdditionalAttributes()
 						if err != nil {
-							// TODO: log
+							h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for hybrid entity %s: %s", entityHybrid.ID, err.Error()))
 						}
 						// inject dynamic schema
-						v.EndorService = hybridInstance.ToEndorService(defintion.Schema)
+						v.EndorService = hybridInstance.ToEndorService(*defintion)
 						entities[entity.GetID()] = v
-					} else {
-						//TODO: log that only hybrid service supports additional attributes
 					}
 				}
 
@@ -150,7 +134,7 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 					if specializedInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridSpecializedServiceInterface); ok {
 						defintion, err := entitySpecialized.UnmarshalAdditionalAttributes()
 						if err != nil {
-							// TODO: log
+							h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for hybrid specialized entity %s: %s", entitySpecialized.ID, err.Error()))
 						}
 						// inject categories and schema
 						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
@@ -159,33 +143,31 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 							categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 							if err != nil {
-								// TODO: log
+								h.logger.Warn(fmt.Sprintf("unable to unmarshal category definition %s for hybrid entity %s: %s", c.ID, entitySpecialized.ID, err.Error()))
 							}
-							categoriesAdditionalSchema[c.ID] = categoryAdditionalSchema.Schema
+							categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 						}
-						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(defintion.Schema, categoriesAdditionalSchema)
+						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(*defintion, categoriesAdditionalSchema)
 						entities[entity.GetID()] = v
-					} else {
-						//TODO: log that only hybrid service supports additional attributes
 					}
 				}
 			} else {
 				if entityHybrid, ok := entity.(*sdk.EntityHybrid); ok {
 					defintion, err := entityHybrid.UnmarshalAdditionalAttributes()
 					if err != nil {
-						// TODO: log
+						h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for dynamic entity %s: %s", entityHybrid.ID, err.Error()))
 					}
 					// create a new hybrid service
 					hybridService := NewEndorHybridService[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
 					entities[entityHybrid.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema),
+						EndorService: hybridService.ToEndorService(*defintion),
 						entity:       entityHybrid,
 					}
 				}
 				if entitySpecialized, ok := entity.(*sdk.EntityHybridSpecialized); ok {
 					defintion, err := entitySpecialized.UnmarshalAdditionalAttributes()
 					if err != nil {
-						// TODO: log
+						h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for dynamic specialized entity %s: %s", entitySpecialized.ID, err.Error()))
 					}
 					// create categories
 					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
@@ -194,14 +176,14 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 						categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 						if err != nil {
-							// TODO: log
+							h.logger.Warn(fmt.Sprintf("unable to unmarshal category definition %s for dynamic specialized entity %s: %s", c.ID, entitySpecialized.ID, err.Error()))
 						}
-						categoriesAdditionalSchema[c.ID] = categoryAdditionalSchema.Schema
+						categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 					}
 					// create a new specilized service
 					hybridService := NewHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithCategories(categories)
 					entities[entitySpecialized.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(defintion.Schema, categoriesAdditionalSchema),
+						EndorService: hybridService.ToEndorService(*defintion, categoriesAdditionalSchema),
 						entity:       entitySpecialized,
 					}
 				}
@@ -212,9 +194,9 @@ func (h *EndorServiceRepository) Map() (map[string]EndorServiceDictionary, error
 	return entities, nil
 }
 
-func (h *EndorServiceRepository) ActionMap() (map[string]EndorServiceActionDictionary, error) {
+func (h *EndorServiceRepository) DictionaryActionMap() (map[string]EndorServiceActionDictionary, error) {
 	actions := map[string]EndorServiceActionDictionary{}
-	entities, err := h.Map()
+	entities, err := h.DictionaryMap()
 	if err != nil {
 		return actions, err
 	}
@@ -229,8 +211,39 @@ func (h *EndorServiceRepository) ActionMap() (map[string]EndorServiceActionDicti
 	return actions, nil
 }
 
+func (h *EndorServiceRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*EndorServiceDictionary, error) {
+	// get all service
+	entities, err := h.DictionaryMap()
+	if err != nil {
+		return nil, err
+	}
+	if entity, ok := entities[dto.Id]; ok {
+		return &entity, nil
+	}
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
+}
+
+func (h *EndorServiceRepository) DictionaryActionInstance(dto sdk.ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
+	idSegments := strings.Split(dto.Id, "/")
+	if len(idSegments) == 2 {
+		entityInstance, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
+			Id: idSegments[0],
+		})
+		if err != nil {
+			return nil, err
+		}
+		if entityAction, ok := entityInstance.EndorService.Actions[idSegments[1]]; ok {
+			return h.createAction(idSegments[0], idSegments[1], entityAction)
+		} else {
+			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found"))
+		}
+	} else {
+		return nil, sdk.NewBadRequestError(fmt.Errorf("invalid entity action id"))
+	}
+}
+
 func (h *EndorServiceRepository) EntityActionList() ([]sdk.EntityAction, error) {
-	actions, err := h.ActionMap()
+	actions, err := h.DictionaryActionMap()
 	if err != nil {
 		return []sdk.EntityAction{}, err
 	}
@@ -241,20 +254,8 @@ func (h *EndorServiceRepository) EntityActionList() ([]sdk.EntityAction, error) 
 	return actionList, nil
 }
 
-func (h *EndorServiceRepository) EntityList() ([]sdk.EntityInterface, error) {
-	entities, err := h.Map()
-	if err != nil {
-		return []sdk.EntityInterface{}, err
-	}
-	entityList := make([]sdk.EntityInterface, 0, len(entities))
-	for _, service := range entities {
-		entityList = append(entityList, service.entity)
-	}
-	return entityList, nil
-}
-
 func (h *EndorServiceRepository) EndorServiceList() ([]sdk.EndorService, error) {
-	entities, err := h.Map()
+	entities, err := h.DictionaryMap()
 	if err != nil {
 		return []sdk.EndorService{}, err
 	}
@@ -280,36 +281,41 @@ func (h *EndorServiceRepository) DynamicEntityList() ([]sdk.EntityInterface, err
 		// First decode to Entity base
 		var discr sdk.Entity
 		if err := bson.Unmarshal(raw, &discr); err != nil {
-			return nil, fmt.Errorf("failed to read entity type: %w", err)
+			h.logger.Warn(fmt.Sprintf("unable to decode generic entity details from datasource: %s", err.Error()))
 		}
 
 		switch discr.GetCategoryType() {
-		case string(sdk.EntityTypeBase):
-			entities = append(entities, &discr)
-
-		case string(sdk.EntityTypeBaseSpecialized):
-			var r sdk.EntitySpecialized
-			if err := bson.Unmarshal(raw, &r); err != nil {
-				return nil, fmt.Errorf("failed to decode base specialized entity: %w", err)
-			}
-			entities = append(entities, &r)
-
 		case string(sdk.EntityTypeHybrid):
 			var r sdk.EntityHybrid
 			if err := bson.Unmarshal(raw, &r); err != nil {
-				return nil, fmt.Errorf("failed to decode hybrid entity: %w", err)
+				h.logger.Warn(fmt.Sprintf("unable to decode hybrid entity %s details from datasource: %s", discr.ID, err.Error()))
+			} else {
+				entities = append(entities, &r)
 			}
-			entities = append(entities, &r)
 
 		case string(sdk.EntityTypeHybridSpecialized):
 			var r sdk.EntityHybridSpecialized
 			if err := bson.Unmarshal(raw, &r); err != nil {
-				return nil, fmt.Errorf("failed to decode hybrid-specialized entity: %w", err)
+				h.logger.Warn(fmt.Sprintf("unable to decode hybrid specialized entity %s details from datasource: %s", discr.ID, err.Error()))
+			} else {
+				entities = append(entities, &r)
 			}
-			entities = append(entities, &r)
 
-		default:
-			return nil, fmt.Errorf("unknown entity type: %s", discr.Type)
+		case string(sdk.EntityTypeDynamic):
+			var r sdk.EntityHybrid
+			if err := bson.Unmarshal(raw, &r); err != nil {
+				h.logger.Warn(fmt.Sprintf("unable to decode dynamic entity %s details from datasource: %s", discr.ID, err.Error()))
+			} else {
+				entities = append(entities, &r)
+			}
+
+		case string(sdk.EntityTypeDynamicSpecialized):
+			var r sdk.EntityHybridSpecialized
+			if err := bson.Unmarshal(raw, &r); err != nil {
+				h.logger.Warn(fmt.Sprintf("unable to decode dynamic specialized entity %s details from datasource: %s", discr.ID, err.Error()))
+			} else {
+				entities = append(entities, &r)
+			}
 		}
 	}
 
@@ -320,91 +326,121 @@ func (h *EndorServiceRepository) DynamicEntityList() ([]sdk.EntityInterface, err
 	return entities, nil
 }
 
-func (h *EndorServiceRepository) Instance(dto sdk.ReadInstanceDTO) (*EndorServiceDictionary, error) {
-	// get all service
-	entities, err := h.Map()
+// #endregion
+
+// #region Entity CRUD
+
+func (h *EndorServiceRepository) List(entityType *sdk.EntityType) ([]sdk.EntityInterface, error) {
+	entities, err := h.DictionaryMap()
+	if err != nil {
+		return []sdk.EntityInterface{}, err
+	}
+	entityList := make([]sdk.EntityInterface, 0, len(entities))
+	for _, service := range entities {
+		entityList = append(entityList, service.entity)
+	}
+	// filter by entity type
+	filtered := make([]sdk.EntityInterface, 0, len(entities))
+	for _, r := range entityList {
+		if r.GetID() != "entity" && r.GetID() != "entity-action" {
+			if r.GetCategoryType() == string(*entityType) {
+				filtered = append(filtered, r)
+			} else {
+				if entityType == nil || *entityType == "" {
+					filtered = append(filtered, r)
+				}
+			}
+		}
+	}
+	return filtered, nil
+}
+
+func (h *EndorServiceRepository) Instance(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) (*sdk.EntityInterface, error) {
+	entity, err := h.DictionaryInstance(dto)
 	if err != nil {
 		return nil, err
 	}
-	if entity, ok := entities[dto.Id]; ok {
-		return &entity, nil
+	if entityType == nil || *entityType == "" {
+		return &entity.entity, nil
+	}
+	if entity.entity.GetCategoryType() == string(*entityType) {
+		return &entity.entity, nil
 	}
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
 }
 
-func (h *EndorServiceRepository) ActionInstance(dto sdk.ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
-	idSegments := strings.Split(dto.Id, "/")
-	if len(idSegments) == 2 {
-		entityInstance, err := h.Instance(sdk.ReadInstanceDTO{
-			Id: idSegments[0],
+func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.CreateDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized {
+		dto.Data.SetCategoryType(string(*entityType))
+		dto.Data.SetService(h.microServiceId)
+		_, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
+			Id: dto.Data.GetID(),
 		})
+		var endorError *sdk.EndorError
+		if errors.As(err, &endorError) && endorError.StatusCode == 404 {
+			_, err := h.collection.InsertOne(h.context, dto.Data)
+			if err != nil {
+				return nil, err
+			}
+			h.reloadRouteConfiguration(h.microServiceId)
+			return &dto.Data, nil
+		} else {
+			return nil, sdk.NewConflictError(fmt.Errorf("entity already exist"))
+		}
+	} else {
+		return nil, sdk.NewForbiddenError(fmt.Errorf("create entity not permitted"))
+	}
+}
+
+func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
+		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
+		var instance *sdk.EntityInterface
+		_, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
+			Id: dto.Id,
+		})
+		if err != nil {
+			return instance, err
+		}
+		updateBson, err := bson.Marshal(dto.Data)
+		if err != nil {
+			return &dto.Data, err
+		}
+		update := bson.M{"$set": bson.Raw(updateBson)}
+		filter := bson.M{"_id": dto.Id}
+		_, err = h.collection.UpdateOne(h.context, filter, update)
 		if err != nil {
 			return nil, err
 		}
-		if entityAction, ok := entityInstance.EndorService.Actions[idSegments[1]]; ok {
-			return h.createAction(idSegments[0], idSegments[1], entityAction)
-		} else {
-			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found"))
-		}
+
+		h.reloadRouteConfiguration(h.microServiceId)
+
+		return &dto.Data, nil
 	} else {
-		return nil, sdk.NewBadRequestError(fmt.Errorf("invalid entity action id"))
+		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
 	}
 }
 
-func (h *EndorServiceRepository) Create(dto sdk.CreateDTO[sdk.EntityInterface]) error {
-	dto.Data.SetService(h.microServiceId)
-	_, err := h.Instance(sdk.ReadInstanceDTO{
-		Id: dto.Data.GetID(),
-	})
-	var endorError *sdk.EndorError
-	if errors.As(err, &endorError) && endorError.StatusCode == 404 {
-		_, err := h.collection.InsertOne(h.context, dto.Data)
+func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) error {
+	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized {
+		// check if entities already exist
+		_, err := h.DictionaryInstance(dto)
 		if err != nil {
 			return err
 		}
-		h.reloadRouteConfiguration(h.microServiceId)
-		return nil
-	} else {
-		return sdk.NewConflictError(fmt.Errorf("entity already exist"))
-	}
-}
-
-func (h *EndorServiceRepository) Update(id string, data sdk.EntityInterface) (*sdk.EntityInterface, error) {
-	var instance *sdk.EntityInterface
-	_, err := h.Instance(sdk.ReadInstanceDTO{
-		Id: id,
-	})
-	if err != nil {
-		return instance, err
-	}
-	updateBson, err := bson.Marshal(data)
-	if err != nil {
-		return &data, err
-	}
-	update := bson.M{"$set": bson.Raw(updateBson)}
-	filter := bson.M{"_id": id}
-	_, err = h.collection.UpdateOne(h.context, filter, update)
-	if err != nil {
-		return nil, err
-	}
-
-	h.reloadRouteConfiguration(h.microServiceId)
-
-	return &data, nil
-}
-
-func (h *EndorServiceRepository) Delete(dto sdk.ReadInstanceDTO) error {
-	// check if entities already exist
-	_, err := h.Instance(dto)
-	if err != nil {
+		_, err = h.collection.DeleteOne(h.context, bson.M{"_id": dto.Id})
+		if err != nil {
+			h.reloadRouteConfiguration(h.microServiceId)
+		}
 		return err
+	} else {
+		return sdk.NewForbiddenError(fmt.Errorf("delete entity not permitted"))
 	}
-	_, err = h.collection.DeleteOne(h.context, bson.M{"_id": dto.Id})
-	if err != nil {
-		h.reloadRouteConfiguration(h.microServiceId)
-	}
-	return err
 }
+
+// #endregion
+
+// #region Utility
 
 func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string) error {
 	config := sdk_configuration.GetConfig()
@@ -441,3 +477,22 @@ func (h *EndorServiceRepository) createAction(entityName string, actionName stri
 		entityAction:       action,
 	}, nil
 }
+
+func (h *EndorServiceRepository) ensureEntityDocumentOfInternalService(entity sdk.EntityInterface) {
+	if (sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled) && h.collection != nil {
+		// Check if document exists in MongoDB
+		var existingDoc sdk.Entity
+		filter := bson.M{"_id": entity.GetID()}
+		err := h.collection.FindOne(h.context, filter).Decode(&existingDoc)
+
+		// If document doesn't exist, create it
+		if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
+			_, insertErr := h.collection.InsertOne(h.context, entity)
+			if insertErr != nil {
+				h.logger.Warn(fmt.Sprintf("unable to create entity %s initilialization: %s", entity.GetID(), err.Error()))
+			}
+		}
+	}
+}
+
+// #endregion

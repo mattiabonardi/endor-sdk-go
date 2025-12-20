@@ -17,8 +17,8 @@ type HybridCategory struct {
 	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
 }
 
-func (c *HybridCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var schema RootSchema
+func (c *HybridCategory) UnmarshalAdditionalAttributes() (*Schema, error) {
+	var schema Schema
 	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
@@ -31,6 +31,7 @@ type EntityInterface interface {
 	SetID(id string)
 	GetCategoryType() string
 	SetCategoryType(entityType string)
+	GetService() string
 	SetService(service string)
 }
 
@@ -70,6 +71,10 @@ func (r *Entity) SetCategoryType(t string) {
 	r.Type = t
 }
 
+func (h *Entity) GetService() string {
+	return h.Service
+}
+
 func (r *Entity) SetService(service string) {
 	r.Service = service
 }
@@ -92,8 +97,8 @@ type EntityHybrid struct {
 	AdditionalAttributes string `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
 }
 
-func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var schema RootSchema
+func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*Schema, error) {
+	var schema Schema
 	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse EntityDefinition YAML: %w", err)
@@ -110,8 +115,8 @@ type EntityHybridSpecialized struct {
 	Categories   []HybridCategory `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
 }
 
-func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
-	var schema RootSchema = RootSchema{}
+func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*Schema, error) {
+	var schema Schema
 	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse EntityDefinition YAML: %w", err)
@@ -170,4 +175,12 @@ func (h *DynamicEntitySpecialized) GetCategoryType() string {
 
 func (h *DynamicEntitySpecialized) SetCategoryType(categoryType string) {
 	h.Type = categoryType
+}
+
+type EntityRepositoryInterface interface {
+	List(*EntityType) ([]EntityInterface, error)
+	Instance(*EntityType, ReadInstanceDTO) (*EntityInterface, error)
+	Create(*EntityType, CreateDTO[EntityInterface]) (*EntityInterface, error)
+	Update(*EntityType, UpdateByIdDTO[EntityInterface]) (*EntityInterface, error)
+	Delete(*EntityType, ReadInstanceDTO) error
 }

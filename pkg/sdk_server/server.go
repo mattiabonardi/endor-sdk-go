@@ -48,6 +48,11 @@ func (h *Endor) Init(microserviceId string) {
 	// load configuration
 	config := sdk_configuration.GetConfig()
 
+	// create initialization logger
+	logger := sdk.NewLogger(sdk.LogConfig{
+		LogType: sdk.LogType(config.LogType),
+	}, sdk.LogContext{})
+
 	// define runtime configuration
 	config.DynamicEntityDocumentDBName = microserviceId
 
@@ -74,12 +79,12 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices, nil, logger))
 		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionService(microserviceId, h.endorServices))
 	}
 
 	// get all entities
-	EndorServiceRepository := sdk_entity.NewEndorServiceRepository(microserviceId, h.endorServices)
+	EndorServiceRepository := sdk_entity.NewEndorServiceRepository(microserviceId, h.endorServices, logger)
 	entities, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)
@@ -94,7 +99,7 @@ func (h *Endor) Init(microserviceId string) {
 			if len(pathSegments) == 6 {
 				action = pathSegments[4] + "/" + pathSegments[5]
 			}
-			endorRepositoryDictionary, err := EndorServiceRepository.Instance(sdk.ReadInstanceDTO{
+			endorRepositoryDictionary, err := EndorServiceRepository.DictionaryInstance(sdk.ReadInstanceDTO{
 				Id: entity,
 			})
 			if err == nil {

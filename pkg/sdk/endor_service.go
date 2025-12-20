@@ -84,7 +84,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 
 		// logger
 		configuration := sdk_configuration.GetConfig()
-		logger := NewLogger(Config{
+		logger := NewLogger(LogConfig{
 			LogType: LogType(configuration.LogType),
 		}, LogContext{
 			UserSession: session.Id,

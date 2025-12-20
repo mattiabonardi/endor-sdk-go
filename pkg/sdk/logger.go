@@ -37,13 +37,13 @@ type LogContext struct {
 }
 
 // Config defines the logger configuration
-type Config struct {
+type LogConfig struct {
 	LogType LogType
 }
 
 // Logger is the main logger instance
 type Logger struct {
-	config    Config
+	config    LogConfig
 	context   LogContext
 	stdLogger *log.Logger
 }
@@ -61,7 +61,7 @@ type LogEntry struct {
 }
 
 // NewLogger creates a new logger instance with the given configuration and context
-func NewLogger(cfg Config, ctx LogContext) *Logger {
+func NewLogger(cfg LogConfig, ctx LogContext) *Logger {
 	return &Logger{
 		config:    cfg,
 		context:   ctx,

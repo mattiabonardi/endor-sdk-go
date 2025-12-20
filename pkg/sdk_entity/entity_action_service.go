@@ -35,7 +35,7 @@ func (h *EntityActionService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.R
 }
 
 func (h *EntityActionService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityAction], error) {
-	entityMethods, err := NewEndorServiceRepository(h.microServiceId, h.services).EntityActionList()
+	entityMethods, err := NewEndorServiceRepository(h.microServiceId, h.services, &c.Logger).EntityActionList()
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (h *EntityActionService) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Res
 }
 
 func (h *EntityActionService) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityAction], error) {
-	entityAction, err := NewEndorServiceRepository(h.microServiceId, h.services).ActionInstance(c.Payload)
+	entityAction, err := NewEndorServiceRepository(h.microServiceId, h.services, &c.Logger).DictionaryActionInstance(c.Payload)
 	if err != nil {
 		return nil, err
 	}

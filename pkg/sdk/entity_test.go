@@ -26,8 +26,8 @@ properties:
 	def, err := entity.UnmarshalAdditionalAttributes()
 	require.NoError(t, err, "Error parsing definition")
 
-	assert.Equal(t, sdk.SchemaTypeObject, def.Schema.Type, "Expected schema type 'object'")
+	assert.Equal(t, sdk.SchemaTypeObject, def.Type, "Expected schema type 'object'")
 
-	properties := *def.Schema.Properties
+	properties := *def.Properties
 	assert.Contains(t, properties, "name", "Schema properties missing 'name'")
 }
