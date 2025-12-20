@@ -7,7 +7,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 )
 
-func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger) sdk.EndorServiceInterface {
+func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorServiceInterface {
 	var repo sdk.EntityRepositoryInterface
 	if repository == nil {
 		repo = NewEndorServiceRepository(microServiceId, services, logger)
@@ -76,6 +76,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 	}
 
 	return NewEndorBaseSpecializedService[*sdk.Entity]("entity", "Entity").
+		WithPriority(priority).
 		WithActions(map[string]sdk.EndorServiceActionInterface{
 			"schema": sdk.NewAction(
 				entityService.schema,
