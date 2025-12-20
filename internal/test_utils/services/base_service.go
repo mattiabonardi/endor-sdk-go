@@ -1,6 +1,8 @@
 package test_utils_services
 
 import (
+	"fmt"
+
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
@@ -38,6 +40,10 @@ func (h *BaseService) publicAction(c *sdk.EndorContext[BaseServiceAction1Payload
 		Build(), nil
 }
 
+func (h *BaseService) errorAction(c *sdk.EndorContext[BaseServiceAction1Payload]) (*sdk.Response[any], error) {
+	return nil, sdk.NewForbiddenError(fmt.Errorf("unable to execute the action"))
+}
+
 func NewBaseServiceService() sdk.EndorBaseServiceInterface {
 	baseService := BaseService{}
 	return sdk_entity.NewEndorBaseService[*BaseServiceModel]("base-service", "Base Service (EndorBaseService)").
@@ -57,6 +63,10 @@ func NewBaseServiceService() sdk.EndorBaseServiceInterface {
 					ValidatePayload: true,
 				},
 				baseService.publicAction,
+			),
+			"error-action": sdk.NewAction(
+				baseService.errorAction,
+				"Error action",
 			),
 		})
 }

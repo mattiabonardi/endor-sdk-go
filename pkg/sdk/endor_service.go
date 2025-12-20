@@ -118,10 +118,10 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
 				logger.ErrorWithStackTrace(endorError)
-				c.AbortWithStatusJSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())))
+				c.JSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())).Build())
 			} else {
 				logger.ErrorWithStackTrace(err)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())))
+				c.JSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 			}
 		} else {
 			c.Header("x-endor-microservice", microserviceId)

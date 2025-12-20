@@ -11,7 +11,7 @@ type EndorError struct {
 }
 
 func (e *EndorError) Error() string {
-	return fmt.Sprintf("%v", e.InternalErr)
+	return fmt.Sprintf("%s", e.InternalErr.Error())
 }
 
 func (e *EndorError) Unwrap() error {
