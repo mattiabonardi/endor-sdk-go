@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
@@ -24,6 +25,7 @@ func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]s
 		internalEndorServices: internalEndorServices,
 		context:               context.TODO(),
 		logger:                logger,
+		mu:                    &sync.RWMutex{},
 	}
 	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		client, _ := sdk.GetMongoClient()
@@ -40,6 +42,9 @@ type EndorServiceRepository struct {
 	collection            *mongo.Collection
 	context               context.Context
 	logger                *sdk.Logger
+	mu                    *sync.RWMutex
+	cachedDictionary      map[string]EndorServiceDictionary
+	cacheInitialized      bool
 }
 
 type EndorServiceDictionary struct {
@@ -56,6 +61,33 @@ type EndorServiceActionDictionary struct {
 // #region Framework CRUD
 
 func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDictionary, error) {
+	// Check cache first with read lock
+	h.mu.RLock()
+	if h.cacheInitialized {
+		// Return a copy of the cached dictionary to prevent external modifications
+		result := make(map[string]EndorServiceDictionary, len(h.cachedDictionary))
+		for k, v := range h.cachedDictionary {
+			result[k] = v
+		}
+		h.mu.RUnlock()
+		return result, nil
+	}
+	h.mu.RUnlock()
+
+	// Acquire write lock to build the dictionary
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if h.cacheInitialized {
+		// Return a copy of the cached dictionary
+		result := make(map[string]EndorServiceDictionary, len(h.cachedDictionary))
+		for k, v := range h.cachedDictionary {
+			result[k] = v
+		}
+		return result, nil
+	}
+
 	entities := map[string]EndorServiceDictionary{}
 
 	// internal EndorServices
@@ -191,6 +223,11 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 			}
 		}
 	}
+
+	// Cache the result
+	h.cachedDictionary = entities
+	h.cacheInitialized = true
+
 	return entities, nil
 }
 

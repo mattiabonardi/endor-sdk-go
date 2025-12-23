@@ -52,7 +52,7 @@ type Entity struct {
 	ID          string `json:"id" bson:"_id" schema:"title=Id"`
 	Description string `json:"description" schema:"title=Description"`
 	Type        string `json:"type" schema:"title=Type,readOnly=true"`
-	Service     string `json:"service" schema:"title=Service" ui-schema:"entity=microservice"`
+	Service     string `json:"service" schema:"title=Service,readOnly=true" ui-schema:"entity=microservice"`
 }
 
 func (h *Entity) GetID() string {
@@ -90,7 +90,7 @@ type EntitySpecialized struct {
 
 // #endregion
 
-// #region Entity hubrid
+// #region Entity hybrid
 
 type EntityHybrid struct {
 	Entity               `json:",inline" bson:",inline"`

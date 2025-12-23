@@ -23,7 +23,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 	// hybrid category actions
 	hybridActions := map[string]sdk.EndorServiceActionInterface{
 		"schema": sdk.NewAction(
-			entityService.entityHybridSchema,
+			entityService.schema(sdk.NewSchema(&sdk.EntityHybrid{})),
 			"Get the schema of the entity of type "+string(sdk.EntityTypeHybrid),
 		),
 		"instance": sdk.NewAction(
@@ -38,7 +38,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 	// hybrid specialized actions
 	hybridSpecializedActions := map[string]sdk.EndorServiceActionInterface{
 		"schema": sdk.NewAction(
-			entityService.entityHybridSpecializedSchema,
+			entityService.schema(sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
 			"Get the schema of the entity of type "+string(sdk.EntityTypeHybridSpecialized),
 		),
 		"instance": sdk.NewAction(
@@ -60,14 +60,14 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 		hybridSpecializedActions["update"] = sdk.NewAction(entityService.updateHybridSpecialized, "Update an existing entity of type "+string(sdk.EntityTypeHybridSpecialized))
 	}
 	if sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-		dynamicActions["schema"] = sdk.NewAction(entityService.entityHybridSchema, "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
+		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema()), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Search for available entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["create"] = sdk.NewAction(entityService.createDynamic, "Create a new entity "+string(sdk.EntityTypeDynamic))
 		dynamicActions["update"] = sdk.NewAction(entityService.updateDynamic, "Update an existing entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["delete"] = sdk.NewAction(entityService.delete(sdk.EntityTypeDynamic), "Delete an existing entity "+string(sdk.EntityTypeDynamic))
 
-		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.entityHybridSpecializedSchema, "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
+		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSpecializedSchema()), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["create"] = sdk.NewAction(entityService.createDynamicSpecalized, "Create a new entity "+string(sdk.EntityTypeDynamicSpecialized))
@@ -79,7 +79,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 		WithPriority(priority).
 		WithActions(map[string]sdk.EndorServiceActionInterface{
 			"schema": sdk.NewAction(
-				entityService.schema,
+				entityService.schema(sdk.NewSchema(&sdk.Entity{})),
 				"Get the schema of the entity",
 			),
 			"instance": sdk.NewAction(
@@ -94,7 +94,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 			NewEndorBaseSpecializedServiceCategory[*sdk.Entity](string(sdk.EntityTypeBase), "Base").
 				WithActions(map[string]sdk.EndorServiceActionInterface{
 					"schema": sdk.NewAction(
-						entityService.schema,
+						entityService.schema(sdk.NewSchema(&sdk.Entity{})),
 						"Get the schema of the entity of type "+string(sdk.EntityTypeBase),
 					),
 					"instance": sdk.NewAction(
@@ -109,7 +109,7 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 			NewEndorBaseSpecializedServiceCategory[*sdk.EntitySpecialized](string(sdk.EntityTypeBaseSpecialized), "Base specialized").
 				WithActions(map[string]sdk.EndorServiceActionInterface{
 					"schema": sdk.NewAction(
-						entityService.entityBaseSpecializedSchema,
+						entityService.schema(sdk.NewSchema(&sdk.EntitySpecialized{})),
 						"Get the schema of the entity of type "+string(sdk.EntityTypeBaseSpecialized),
 					),
 					"instance": sdk.NewAction(
@@ -139,20 +139,10 @@ type EntityService struct {
 	repository     sdk.EntityRepositoryInterface
 }
 
-func (h *EntityService) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.Entity{})).Build(), nil
-}
-
-func (h *EntityService) entityBaseSpecializedSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.EntitySpecialized{})).Build(), nil
-}
-
-func (h *EntityService) entityHybridSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.EntityHybrid{})).Build(), nil
-}
-
-func (h *EntityService) entityHybridSpecializedSchema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
-	return sdk.NewResponseBuilder[any]().AddSchema(sdk.NewSchema(&sdk.EntityHybridSpecialized{})).Build(), nil
+func (h *EntityService) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
+		return sdk.NewResponseBuilder[any]().AddSchema(schema).Build(), nil
+	}
 }
 
 func (h *EntityService) list(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
@@ -239,4 +229,26 @@ func (h *EntityService) delete(entityType sdk.EntityType) func(c *sdk.EndorConte
 		}
 		return sdk.NewResponseBuilder[sdk.NoPayload]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("entity %s deleted", c.Payload.Id))).Build(), nil
 	}
+}
+
+func (h *EntityService) getDynamicSchema() *sdk.RootSchema {
+	schema := sdk.NewSchema(sdk.EntityHybrid{})
+	// define service as readOnly
+	properties := *schema.Schema.Properties
+	serviceSchema := properties["service"]
+	readOnly := false
+	serviceSchema.ReadOnly = &readOnly
+	properties["service"] = serviceSchema
+	return schema
+}
+
+func (h *EntityService) getDynamicSpecializedSchema() *sdk.RootSchema {
+	schema := sdk.NewSchema(sdk.EntityHybridSpecialized{})
+	// define service as readOnly
+	properties := *schema.Schema.Properties
+	serviceSchema := properties["service"]
+	readOnly := false
+	serviceSchema.ReadOnly = &readOnly
+	properties["service"] = serviceSchema
+	return schema
 }

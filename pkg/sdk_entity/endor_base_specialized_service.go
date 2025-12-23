@@ -82,6 +82,14 @@ func (h EndorBaseSpecializedService[T]) WithCategories(categories []sdk.EndorBas
 }
 
 func (h EndorBaseSpecializedService[T]) ToEndorService() sdk.EndorService {
+	// Create a new actions map to avoid modifying shared state
+	actions := make(map[string]sdk.EndorServiceActionInterface)
+
+	// Copy existing actions
+	for k, v := range h.actions {
+		actions[k] = v
+	}
+
 	// check if categories are defined
 	if len(h.categories) > 0 {
 		// iterate over categories
@@ -89,7 +97,7 @@ func (h EndorBaseSpecializedService[T]) ToEndorService() sdk.EndorService {
 			// iterate over category actions
 			if len(category.GetActions()) > 0 {
 				for actionName, action := range category.GetActions() {
-					h.actions[category.GetID()+"/"+actionName] = action
+					actions[category.GetID()+"/"+actionName] = action
 				}
 			}
 		}
@@ -102,7 +110,7 @@ func (h EndorBaseSpecializedService[T]) ToEndorService() sdk.EndorService {
 		Entity:            h.Entity,
 		EntityDescription: h.EntityDescription,
 		Priority:          h.Priority,
-		Actions:           h.actions,
+		Actions:           actions,
 		EntitySchema:      *rootSchema,
 	}
 }
