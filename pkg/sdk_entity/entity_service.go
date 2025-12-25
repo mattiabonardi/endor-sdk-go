@@ -60,14 +60,14 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 		hybridSpecializedActions["update"] = sdk.NewAction(entityService.updateHybridSpecialized, "Update an existing entity of type "+string(sdk.EntityTypeHybridSpecialized))
 	}
 	if sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema()), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
+		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybrid{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Search for available entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["create"] = sdk.NewAction(entityService.createDynamic, "Create a new entity "+string(sdk.EntityTypeDynamic))
 		dynamicActions["update"] = sdk.NewAction(entityService.updateDynamic, "Update an existing entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["delete"] = sdk.NewAction(entityService.delete(sdk.EntityTypeDynamic), "Delete an existing entity "+string(sdk.EntityTypeDynamic))
 
-		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSpecializedSchema()), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
+		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybridSpecialized{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["create"] = sdk.NewAction(entityService.createDynamicSpecalized, "Create a new entity "+string(sdk.EntityTypeDynamicSpecialized))
@@ -231,24 +231,16 @@ func (h *EntityService) delete(entityType sdk.EntityType) func(c *sdk.EndorConte
 	}
 }
 
-func (h *EntityService) getDynamicSchema() *sdk.RootSchema {
-	schema := sdk.NewSchema(sdk.EntityHybrid{})
+func (h *EntityService) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.RootSchema {
+	schema := sdk.NewSchema(baseSchema)
 	// define service as readOnly
 	properties := *schema.Schema.Properties
 	serviceSchema := properties["service"]
 	readOnly := false
 	serviceSchema.ReadOnly = &readOnly
+	query := "$filter(dynamicResourceEnabled == true)"
+	serviceSchema.UISchema.Query = &query
 	properties["service"] = serviceSchema
-	return schema
-}
 
-func (h *EntityService) getDynamicSpecializedSchema() *sdk.RootSchema {
-	schema := sdk.NewSchema(sdk.EntityHybridSpecialized{})
-	// define service as readOnly
-	properties := *schema.Schema.Properties
-	serviceSchema := properties["service"]
-	readOnly := false
-	serviceSchema.ReadOnly = &readOnly
-	properties["service"] = serviceSchema
 	return schema
 }

@@ -68,6 +68,7 @@ type Schema struct {
 
 type UISchema struct {
 	Entity *string   `json:"entity,omitempty" yaml:"entity,omitempty"` // define the reference entity
+	Query  *string   `json:"query,omitempty" yaml:"query,omitempty"`   // define the query to get the data of reference entity "$filter() $projection()"
 	Order  *[]string `json:"order,omitempty" yaml:"order,omitempty"`   // define the order of the attributes
 	Hidden *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"` // define if the property is displayable
 }
@@ -348,6 +349,8 @@ func applyUISchemaDecorators(s *Schema, props map[string]string) {
 		switch key {
 		case "entity":
 			s.UISchema.Entity = &v
+		case "query":
+			s.UISchema.Query = &v
 		case "hidden":
 			if v == "true" {
 				trueValue := true
