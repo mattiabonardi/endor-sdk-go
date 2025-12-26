@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 )
 
-func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorServiceInterface {
+func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int, hybridEntitiesEnabled bool, dynamicEntitiesEnabled bool) sdk.EndorServiceInterface {
 	var repo sdk.EntityRepositoryInterface
 	if repository == nil {
 		repo = NewEndorServiceRepository(microServiceId, services, logger)
@@ -55,11 +54,11 @@ func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterfa
 	// dynamic specialized category actions
 	dynamicSpecializedActions := map[string]sdk.EndorServiceActionInterface{}
 
-	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
+	if hybridEntitiesEnabled || dynamicEntitiesEnabled {
 		hybridActions["update"] = sdk.NewAction(entityService.updateHybrid, "Update an existing entity of type "+string(sdk.EntityTypeHybrid))
 		hybridSpecializedActions["update"] = sdk.NewAction(entityService.updateHybridSpecialized, "Update an existing entity of type "+string(sdk.EntityTypeHybridSpecialized))
 	}
-	if sdk_configuration.GetConfig().DynamicEntitiesEnabled {
+	if dynamicEntitiesEnabled {
 		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybrid{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Search for available entities of type "+string(sdk.EntityTypeDynamic))

@@ -79,7 +79,7 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices, nil, logger, 0))
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
 		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionService(microserviceId, h.endorServices))
 	}
 
