@@ -241,5 +241,7 @@ func (h *EntityService) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.Ro
 	serviceSchema.UISchema.Query = &query
 	properties["service"] = serviceSchema
 
+	// define category
+
 	return schema
 }

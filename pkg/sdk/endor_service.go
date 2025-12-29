@@ -139,6 +139,7 @@ type EndorServiceInterface interface {
 	GetEntity() string
 	GetEntityDescription() string
 	GetPriority() *int
+	GetSchema() *RootSchema
 }
 
 // base
@@ -155,11 +156,14 @@ type EndorBaseSpecializedServiceInterface interface {
 	WithPriority(priority int) EndorBaseSpecializedServiceInterface
 	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceInterface
 	WithCategories(categories []EndorBaseSpecializedServiceCategoryInterface) EndorBaseSpecializedServiceInterface
+	GetCategories() []Category
 	ToEndorService() EndorService
 }
 
 type EndorBaseSpecializedServiceCategoryInterface interface {
 	GetID() string
+	GetDescription() string
+	GetSchema() string
 	GetActions() map[string]EndorServiceActionInterface
 	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceCategoryInterface
 }
@@ -169,7 +173,7 @@ type EndorHybridServiceInterface interface {
 	EndorServiceInterface
 	WithPriority(priority int) EndorHybridServiceInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridServiceInterface
-	ToEndorService(metadataSchema Schema) EndorService
+	ToEndorService(metadataSchema RootSchema) EndorService
 }
 
 // hybrid specialized
@@ -177,12 +181,15 @@ type EndorHybridSpecializedServiceInterface interface {
 	EndorServiceInterface
 	WithPriority(priority int) EndorHybridSpecializedServiceInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceInterface
-	WithCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
-	ToEndorService(metadataSchema Schema, categoryMetadataSchemas map[string]Schema) EndorService
+	WithHybridCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
+	GetHybridCategories() []HybridCategory
+	ToEndorService(metadataSchema RootSchema, categoryMetadataSchemas map[string]RootSchema, additionalCategories []DynamicCategory) EndorService
 }
 
 type EndorHybridSpecializedServiceCategoryInterface interface {
 	GetID() string
+	GetDescription() string
+	GetSchema() string
 	GetActions() func(getSchema func() RootSchema) map[string]EndorServiceActionInterface
-	CreateDefaultActions(entity string, entityDescription string, metadataSchema Schema, categoryMetadataSchema Schema) map[string]EndorServiceActionInterface
+	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorServiceActionInterface
 }

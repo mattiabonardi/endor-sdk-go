@@ -14,6 +14,15 @@ func (h *EndorBaseSpecializedServiceCategory[T]) GetID() string {
 	return h.ID
 }
 
+func (h *EndorBaseSpecializedServiceCategory[T]) GetDescription() string {
+	return h.Description
+}
+
+func (h *EndorBaseSpecializedServiceCategory[T]) GetSchema() string {
+	schema, _ := getRootSchema[T]().ToYAML()
+	return schema
+}
+
 func (h *EndorBaseSpecializedServiceCategory[T]) GetActions() map[string]sdk.EndorServiceActionInterface {
 	return h.Actions
 }
@@ -50,6 +59,10 @@ func (h EndorBaseSpecializedService[T]) GetPriority() *int {
 	return h.Priority
 }
 
+func (h EndorBaseSpecializedService[T]) GetSchema() *sdk.RootSchema {
+	return getRootSchema[T]()
+}
+
 func NewEndorBaseSpecializedService[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorBaseSpecializedServiceInterface {
 	return EndorBaseSpecializedService[T]{
 		Entity:            entity,
@@ -79,6 +92,18 @@ func (h EndorBaseSpecializedService[T]) WithCategories(categories []sdk.EndorBas
 		h.categories[category.GetID()] = category
 	}
 	return h
+}
+
+func (h EndorBaseSpecializedService[T]) GetCategories() []sdk.Category {
+	categories := []sdk.Category{}
+	for _, category := range h.categories {
+		categories = append(categories, sdk.Category{
+			ID:          category.GetID(),
+			Description: category.GetDescription(),
+			Schema:      category.GetSchema(),
+		})
+	}
+	return categories
 }
 
 func (h EndorBaseSpecializedService[T]) ToEndorService() sdk.EndorService {

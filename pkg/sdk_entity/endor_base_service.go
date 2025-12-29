@@ -23,6 +23,10 @@ func (h EndorBaseService[T]) GetPriority() *int {
 	return h.priority
 }
 
+func (h EndorBaseService[T]) GetSchema() *sdk.RootSchema {
+	return getRootSchema[T]()
+}
+
 func NewEndorBaseService[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorBaseServiceInterface {
 	return EndorBaseService[T]{
 		entity:            entity,
@@ -54,4 +58,9 @@ func (h EndorBaseService[T]) ToEndorService() sdk.EndorService {
 		Actions:           h.actions,
 		EntitySchema:      *rootSchema,
 	}
+}
+
+func getRootSchema[T sdk.EntityInstanceInterface]() *sdk.RootSchema {
+	var baseModel T
+	return sdk.NewSchema(baseModel)
 }

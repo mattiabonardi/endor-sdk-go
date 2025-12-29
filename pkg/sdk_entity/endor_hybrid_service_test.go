@@ -15,7 +15,7 @@ type AdditionalAttributesMock struct {
 func TestEndorHybridService(t *testing.T) {
 	hybridService := test_utils_services.NewHybridService()
 	endorService := hybridService.ToEndorService(
-		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
+		*sdk.NewSchema(AdditionalAttributesMock{}),
 	)
 
 	// check attribute

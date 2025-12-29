@@ -21,7 +21,7 @@ properties:
 			Description: "Customers",
 			Service:     "",
 		},
-		AdditionalAttributes: yamlInput,
+		AdditionalSchema: yamlInput,
 	}
 	def, err := entity.UnmarshalAdditionalAttributes()
 	require.NoError(t, err, "Error parsing definition")

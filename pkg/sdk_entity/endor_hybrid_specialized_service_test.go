@@ -16,17 +16,31 @@ type HybridCategory2AdditionalSchema struct {
 	AdditionalAttributeCat2 string `json:"additionalAttributeCat2"`
 }
 
+type HybridCategory3AdditionalSchema struct {
+	AdditionalAttributeCat3 string `json:"additionalAttributeCat2"`
+}
+
 func TestEndorHybridSpecializedService(t *testing.T) {
 	category1AdditionalSchema := sdk.NewSchema(HybridCategory1AdditionalSchema{})
 	category2AdditionalSchema := sdk.NewSchema(HybridCategory2AdditionalSchema{})
+	category3AdditionalSchema := sdk.NewSchema(HybridCategory3AdditionalSchema{})
+
+	yaml, _ := category3AdditionalSchema.ToYAML()
+
+	additionalCategory1 := sdk.DynamicCategory{
+		ID:               "cat-3",
+		Description:      "category 3",
+		AdditionalSchema: yaml,
+	}
 
 	hybridService := test_utils_services.NewHybridSpecializedService()
 	endorService := hybridService.ToEndorService(
-		sdk.NewSchema(AdditionalAttributesMock{}).Schema,
-		map[string]sdk.Schema{
-			"cat-1": category1AdditionalSchema.Schema,
-			"cat-2": category2AdditionalSchema.Schema,
+		*sdk.NewSchema(AdditionalAttributesMock{}),
+		map[string]sdk.RootSchema{
+			"cat-1": *category1AdditionalSchema,
+			"cat-2": *category2AdditionalSchema,
 		},
+		[]sdk.DynamicCategory{additionalCategory1},
 	)
 
 	// check default methods
@@ -105,4 +119,7 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	} else {
 		assert.Fail(t, "'data' property not found in input schema for method 'cat-2/create'")
 	}
+	// dynamic categories cat-3
+	_, cat3CreateExists := endorService.Actions["cat-3/create"]
+	assert.True(t, cat3CreateExists, "method 'cat-3/create' not found in endorService methods map")
 }

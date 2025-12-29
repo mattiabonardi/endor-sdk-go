@@ -26,6 +26,10 @@ func (h EndorHybridService[T]) GetPriority() *int {
 	return h.Priority
 }
 
+func (h EndorHybridService[T]) GetSchema() *sdk.RootSchema {
+	return getRootSchema[T]()
+}
+
 func NewEndorHybridService[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorHybridServiceInterface {
 	return EndorHybridService[T]{
 		Entity:            entity,
@@ -49,7 +53,7 @@ func (h EndorHybridService[T]) WithActions(
 }
 
 // create endor service instance
-func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.Schema) sdk.EndorService {
+func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.RootSchema) sdk.EndorService {
 	var methods = make(map[string]sdk.EndorServiceActionInterface)
 
 	// schema
@@ -74,10 +78,9 @@ func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.Schema) sdk.End
 	}
 }
 
-func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk.Schema) *sdk.RootSchema {
-	var baseModel T
-	rootSchema := sdk.NewSchema(baseModel)
-	if metadataSchema.Properties != nil {
+func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk.RootSchema) *sdk.RootSchema {
+	rootSchema := getRootSchema[T]()
+	if metadataSchema.Schema.Properties != nil {
 		for k, v := range *metadataSchema.Properties {
 			(*rootSchema.Properties)[k] = v
 		}

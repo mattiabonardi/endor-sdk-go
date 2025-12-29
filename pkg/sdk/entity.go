@@ -8,18 +8,35 @@ import (
 
 type Category struct {
 	ID          string `json:"id" bson:"id" schema:"title=Category ID"`
-	Description string `json:"description" bson:"description" schema:"title=Category Description"`
+	Description string `json:"description" bson:"description" schema:"title=Category description"`
+	Schema      string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`
 }
 
 type HybridCategory struct {
-	ID                   string `json:"id" bson:"id" schema:"title=Category ID"`
-	Description          string `json:"description" bson:"description" schema:"title=Category Description"`
-	AdditionalAttributes string `json:"additionalAttributes" bson:"additionalAttributes" schema:"title=Additional category attributes schema,format=yaml"`
+	ID               string `json:"id" bson:"id" schema:"title=Category ID,readOnly=true"`
+	Description      string `json:"description" bson:"description" schema:"title=Category description,readOnly=true"`
+	Schema           string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`
+	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=Additional category schema,format=yaml"`
 }
 
-func (c *HybridCategory) UnmarshalAdditionalAttributes() (*Schema, error) {
-	var schema Schema
-	err := yaml.Unmarshal([]byte(c.AdditionalAttributes), &schema)
+type DynamicCategory struct {
+	ID               string `json:"id" bson:"id" schema:"title=Category ID"`
+	Description      string `json:"description" bson:"description" schema:"title=Category description"`
+	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=Additional category schema,format=yaml"`
+}
+
+func (c *HybridCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(c.AdditionalSchema), &schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
+	}
+	return &schema, nil
+}
+
+func (c *DynamicCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(c.AdditionalSchema), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Category AdditionalAttributes YAML: %w", err)
 	}
@@ -53,6 +70,7 @@ type Entity struct {
 	Description string `json:"description" schema:"title=Description"`
 	Type        string `json:"type" schema:"title=Type,readOnly=true"`
 	Service     string `json:"service" schema:"title=Service,readOnly=true" ui-schema:"entity=microservice"`
+	Schema      string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`
 }
 
 func (h *Entity) GetID() string {
@@ -85,7 +103,7 @@ func (r *Entity) SetService(service string) {
 
 type EntitySpecialized struct {
 	Entity     `json:",inline" bson:",inline"`
-	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories,readOnly=true"`
 }
 
 // #endregion
@@ -93,13 +111,13 @@ type EntitySpecialized struct {
 // #region Entity hybrid
 
 type EntityHybrid struct {
-	Entity               `json:",inline" bson:",inline"`
-	AdditionalAttributes string `json:"additionalAttributes" schema:"title=Additional attributes schema,format=yaml"` // YAML string, raw
+	Entity           `json:",inline" bson:",inline"`
+	AdditionalSchema string `json:"additionalSchema" schema:"title=Additional schema,format=yaml"` // YAML string, raw
 }
 
-func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*Schema, error) {
-	var schema Schema
-	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
+func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(h.AdditionalSchema), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse EntityDefinition YAML: %w", err)
 	}
@@ -111,13 +129,14 @@ func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*Schema, error) {
 // #region Entity hybrid specialized
 
 type EntityHybridSpecialized struct {
-	EntityHybrid `json:",inline" bson:",inline"`
-	Categories   []HybridCategory `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories"`
+	EntityHybrid         `json:",inline" bson:",inline"`
+	Categories           []HybridCategory  `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories,readOnly=true"`
+	AdditionalCategories []DynamicCategory `json:"additionalCategories,omitempty" bson:"additionalCategories,omitempty" schema:"title=Additional categories"`
 }
 
-func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*Schema, error) {
-	var schema Schema
-	err := yaml.Unmarshal([]byte(h.AdditionalAttributes), &schema)
+func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
+	var schema RootSchema
+	err := yaml.Unmarshal([]byte(h.AdditionalSchema), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse EntityDefinition YAML: %w", err)
 	}

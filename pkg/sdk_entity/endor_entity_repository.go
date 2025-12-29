@@ -93,30 +93,49 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 	// internal EndorServices
 	if h.internalEndorServices != nil {
 		for _, internalEndorService := range *h.internalEndorServices {
-			entity := sdk.Entity{
+			schema, err := internalEndorService.GetSchema().ToYAML()
+			if err != nil {
+				h.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", internalEndorService.GetEntity()))
+			}
+			baseEntity := sdk.Entity{
 				ID:          internalEndorService.GetEntity(),
 				Description: internalEndorService.GetEntityDescription(),
 				Service:     h.microServiceId,
 				Type:        string(sdk.EntityTypeBase),
+				Schema:      schema,
 			}
 
 			var endorService sdk.EndorService
+			var entity sdk.EntityInterface = &baseEntity
 
 			// hybrid specialized
 			if hybridSpecializedService, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
-				entity.Type = string(sdk.EntityTypeHybridSpecialized)
-				h.ensureEntityDocumentOfInternalService(&entity)
-				endorService = hybridSpecializedService.ToEndorService(sdk.Schema{}, map[string]sdk.Schema{})
+				baseEntity.Type = string(sdk.EntityTypeHybridSpecialized)
+				hybridSpecializedEntity := sdk.EntityHybridSpecialized{
+					EntityHybrid: sdk.EntityHybrid{
+						Entity:           baseEntity,
+						AdditionalSchema: "",
+					},
+					Categories: hybridSpecializedService.GetHybridCategories(),
+				}
+				h.ensureEntityDocumentOfInternalService(&hybridSpecializedEntity)
+				entity = &hybridSpecializedEntity
+				endorService = hybridSpecializedService.ToEndorService(sdk.RootSchema{}, map[string]sdk.RootSchema{}, []sdk.DynamicCategory{})
 			} else {
 				// hybrid
 				if hybridService, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
-					entity.Type = string(sdk.EntityTypeHybrid)
-					h.ensureEntityDocumentOfInternalService(&entity)
-					endorService = hybridService.ToEndorService(sdk.Schema{})
+					baseEntity.Type = string(sdk.EntityTypeHybrid)
+					h.ensureEntityDocumentOfInternalService(&baseEntity)
+					endorService = hybridService.ToEndorService(sdk.RootSchema{})
 				} else {
 					// base specialized
 					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
-						entity.Type = string(sdk.EntityTypeBaseSpecialized)
+						baseEntity.Type = string(sdk.EntityTypeBaseSpecialized)
+						baseSpecializedEntity := sdk.EntitySpecialized{
+							Entity:     baseEntity,
+							Categories: baseSpecializedService.GetCategories(),
+						}
+						entity = &baseSpecializedEntity
 						endorService = baseSpecializedService.ToEndorService()
 					} else {
 						// base
@@ -132,7 +151,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 			entities[internalEndorService.GetEntity()] = EndorServiceDictionary{
 				OriginalInstance: &internalEndorService,
 				EndorService:     endorService,
-				entity:           &entity,
+				entity:           entity,
 			}
 		}
 	}
@@ -170,7 +189,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						}
 						// inject categories and schema
 						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
-						categoriesAdditionalSchema := map[string]sdk.Schema{}
+						categoriesAdditionalSchema := map[string]sdk.RootSchema{}
 						for _, c := range entitySpecialized.Categories {
 							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 							categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
@@ -179,7 +198,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 							}
 							categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 						}
-						v.EndorService = specializedInstance.WithCategories(categories).ToEndorService(*defintion, categoriesAdditionalSchema)
+						v.EndorService = specializedInstance.WithHybridCategories(categories).ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories)
 						entities[entity.GetID()] = v
 					}
 				}
@@ -203,7 +222,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 					}
 					// create categories
 					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
-					categoriesAdditionalSchema := map[string]sdk.Schema{}
+					categoriesAdditionalSchema := map[string]sdk.RootSchema{}
 					for _, c := range entitySpecialized.Categories {
 						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 						categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
@@ -213,13 +232,12 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 					}
 					// create a new specilized service
-					hybridService := NewHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithCategories(categories)
+					hybridService := NewHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
 					entities[entitySpecialized.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(*defintion, categoriesAdditionalSchema),
+						EndorService: hybridService.ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories),
 						entity:       entitySpecialized,
 					}
 				}
-
 			}
 		}
 	}
