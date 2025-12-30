@@ -210,6 +210,8 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 					}
 					// create a new hybrid service
 					hybridService := NewEndorHybridService[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
+					schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
+					entityHybrid.Schema = schema
 					entities[entityHybrid.ID] = EndorServiceDictionary{
 						EndorService: hybridService.ToEndorService(*defintion),
 						entity:       entityHybrid,
@@ -233,6 +235,8 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 					}
 					// create a new specilized service
 					hybridService := NewHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
+					schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
+					entitySpecialized.Schema = schema
 					entities[entitySpecialized.ID] = EndorServiceDictionary{
 						EndorService: hybridService.ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories),
 						entity:       entitySpecialized,
@@ -437,6 +441,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 			if err != nil {
 				return nil, err
 			}
+			h.invalidateCache()
 			h.reloadRouteConfiguration(h.microServiceId)
 			return &dto.Data, nil
 		} else {
@@ -468,6 +473,7 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 			return nil, err
 		}
 
+		h.invalidateCache()
 		h.reloadRouteConfiguration(h.microServiceId)
 
 		return &dto.Data, nil
@@ -484,7 +490,8 @@ func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.Read
 			return err
 		}
 		_, err = h.collection.DeleteOne(h.context, bson.M{"_id": dto.Id})
-		if err != nil {
+		if err == nil {
+			h.invalidateCache()
 			h.reloadRouteConfiguration(h.microServiceId)
 		}
 		return err
@@ -496,6 +503,14 @@ func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.Read
 // #endregion
 
 // #region Utility
+
+// invalidateCache clears the cached dictionary so it will be rebuilt on next access
+func (h *EndorServiceRepository) invalidateCache() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cacheInitialized = false
+	h.cachedDictionary = nil
+}
 
 func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string) error {
 	config := sdk_configuration.GetConfig()

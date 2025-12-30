@@ -162,8 +162,7 @@ func (h *EntityAction) SetID(id string) {
 }
 
 type DynamicEntity struct {
-	Id          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
-	Description string `json:"description" bson:"description" schema:"title=Description"`
+	Id string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
 }
 
 func (h *DynamicEntity) GetID() string {
@@ -175,9 +174,8 @@ func (h *DynamicEntity) SetID(id string) {
 }
 
 type DynamicEntitySpecialized struct {
-	Id          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
-	Description string `json:"description" bson:"description" schema:"title=Description"`
-	Type        string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
+	Id   string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
+	Type string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
 }
 
 func (h *DynamicEntitySpecialized) GetID() string {

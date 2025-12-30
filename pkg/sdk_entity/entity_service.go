@@ -170,7 +170,7 @@ func (h *EntityService) createDynamic(c *sdk.EndorContext[sdk.CreateDTO[sdk.Enti
 	}, sdk.EntityTypeDynamic, sdk.NewSchema(sdk.EntityHybrid{}))
 }
 
-func (h *EntityService) createDynamicSpecalized(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityHybrid]]) (*sdk.Response[sdk.EntityInterface], error) {
+func (h *EntityService) createDynamicSpecalized(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityHybridSpecialized]]) (*sdk.Response[sdk.EntityInterface], error) {
 	return h.create(sdk.CreateDTO[sdk.EntityInterface]{
 		Data: &c.Payload.Data,
 	}, sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(sdk.EntityHybridSpecialized{}))
