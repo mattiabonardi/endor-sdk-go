@@ -83,8 +83,8 @@ func (h *Endor) Init(microserviceId string) {
 		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionService(microserviceId, h.endorServices))
 	}
 
-	// get all entities
-	EndorServiceRepository := sdk_entity.NewEndorServiceRepository(microserviceId, h.endorServices, logger)
+	// get all entities (initialize singleton repository)
+	EndorServiceRepository := sdk_entity.InitEndorServiceRepository(microserviceId, h.endorServices, logger)
 	entities, err := EndorServiceRepository.EndorServiceList()
 	if err != nil {
 		log.Fatal(err)

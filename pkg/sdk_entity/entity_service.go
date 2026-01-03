@@ -9,7 +9,13 @@ import (
 func NewEntityService(microServiceId string, services *[]sdk.EndorServiceInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int, hybridEntitiesEnabled bool, dynamicEntitiesEnabled bool) sdk.EndorServiceInterface {
 	var repo sdk.EntityRepositoryInterface
 	if repository == nil {
-		repo = NewEndorServiceRepository(microServiceId, services, logger)
+		// Use the singleton repository to ensure cache consistency
+		if singletonRepo := GetEndorServiceRepository(); singletonRepo != nil {
+			repo = singletonRepo
+		} else {
+			// Fallback: initialize if not yet initialized (should not happen in normal flow)
+			repo = InitEndorServiceRepository(microServiceId, services, logger)
+		}
 	} else {
 		repo = *repository
 	}
@@ -232,10 +238,14 @@ func (h *EntityService) delete(entityType sdk.EntityType) func(c *sdk.EndorConte
 
 func (h *EntityService) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.RootSchema {
 	schema := sdk.NewSchema(baseSchema)
-	// define service as readOnly
-	properties := *schema.Schema.Properties
-	serviceSchema := properties["service"]
 	readOnly := false
+	properties := *schema.Schema.Properties
+	// define id as readOnly
+	idSchema := properties["id"]
+	idSchema.ReadOnly = &readOnly
+	properties["id"] = idSchema
+	// define service as readOnly
+	serviceSchema := properties["service"]
 	serviceSchema.ReadOnly = &readOnly
 	query := "$filter(dynamicResourceEnabled == true)"
 	serviceSchema.UISchema.Query = &query

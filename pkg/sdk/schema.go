@@ -48,16 +48,17 @@ func NewSchemaFormat(f SchemaFormatName) *SchemaFormatName {
 }
 
 type Schema struct {
-	Reference   string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
-	Type        SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
-	Properties  *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
-	Items       *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
-	Enum        *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
-	Title       *string            `json:"title,omitempty" yaml:"title,omitempty"`
-	Description *string            `json:"description,omitempty" yaml:"description,omitempty"`
-	Format      *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
-	ReadOnly    *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
-	WriteOnly   *bool              `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
+	Reference            string             `json:"$ref,omitempty" yaml:"$ref,omitempty"`
+	Type                 SchemaTypeName     `json:"type,omitempty" yaml:"type,omitempty"`
+	Properties           *map[string]Schema `json:"properties,omitempty" yaml:"properties,omitempty"`
+	Items                *Schema            `json:"items,omitempty" yaml:"items,omitempty"`
+	AdditionalProperties *Schema            `json:"additionalProperties,omitempty" yaml:"additionalProperties,omitempty"`
+	Enum                 *[]string          `json:"enum,omitempty" yaml:"enum,omitempty"`
+	Title                *string            `json:"title,omitempty" yaml:"title,omitempty"`
+	Description          *string            `json:"description,omitempty" yaml:"description,omitempty"`
+	Format               *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
+	ReadOnly             *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
+	WriteOnly            *bool              `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
 
 	// field dimension
 	MinLength *int `json:"minLength,omitempty" yaml:"minLength,omitempty"`
@@ -230,6 +231,25 @@ func resolveExpandedFieldSchema(f reflect.StructField, t reflect.Type, visited m
 			schema = Schema{
 				Type:  SchemaTypeArray,
 				Items: &itemSchema,
+			}
+		case reflect.Map:
+			// Maps are represented as objects with additionalProperties
+			valueType := t.Elem()
+			// Check if it's map[string]any (interface{})
+			if valueType.Kind() == reflect.Interface && valueType.NumMethod() == 0 {
+				// For map[string]any, use empty schema to allow any value
+				emptySchema := Schema{}
+				schema = Schema{
+					Type:                 SchemaTypeObject,
+					AdditionalProperties: &emptySchema,
+				}
+			} else {
+				// For typed maps like map[string]string, resolve the value type
+				valueSchema := resolveExpandedFieldSchema(reflect.StructField{}, valueType, visited)
+				schema = Schema{
+					Type:                 SchemaTypeObject,
+					AdditionalProperties: &valueSchema,
+				}
 			}
 		case reflect.Struct:
 			schema = buildExpandedSchema(t, visited)

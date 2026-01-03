@@ -40,6 +40,11 @@ type GenericCar[T any] struct {
 	Value T `json:"value"`
 }
 
+type Map struct {
+	StringFilter map[string]string `json:"stringFilter"`
+	AnyFilter    map[string]any    `json:"anyFilter"`
+}
+
 func TestSchemaTypes(t *testing.T) {
 	schema := sdk.NewSchema(&User{})
 
@@ -296,4 +301,32 @@ func TestDeepEmbeddedStructInline(t *testing.T) {
 	order := *schema.UISchema.Order
 	assert.Len(t, order, 6, "Expected 6 ordered fields")
 	assert.Equal(t, "extraField", order[5], "Expected last field to be 'extraField' from DeepEmbeddedEntity")
+}
+
+func TestMap(t *testing.T) {
+	schema := sdk.NewSchema(&Map{})
+
+	// With expanded schema, no definitions and no root reference
+	assert.Empty(t, schema.Definitions, "Expected empty definitions")
+	assert.Empty(t, schema.Reference, "Expected no root reference")
+
+	// Root should be object type with properties
+	assert.Equal(t, sdk.SchemaTypeObject, schema.Type, "Expected object type at root")
+	assert.NotNil(t, schema.Properties, "Expected properties to be present")
+
+	props := *schema.Properties
+	assert.Len(t, props, 2, "Expected 2 properties")
+
+	// Assert string map (map[string]string)
+	stringFilterProp := props["stringFilter"]
+	assert.Equal(t, sdk.SchemaTypeObject, stringFilterProp.Type, "Expected stringFilter to be object type")
+	assert.NotNil(t, stringFilterProp.AdditionalProperties, "Expected stringFilter to have additionalProperties")
+	assert.Equal(t, sdk.SchemaTypeString, stringFilterProp.AdditionalProperties.Type, "Expected stringFilter additionalProperties to be string type")
+
+	// Assert any map (map[string]any)
+	anyFilterProp := props["anyFilter"]
+	assert.Equal(t, sdk.SchemaTypeObject, anyFilterProp.Type, "Expected anyFilter to be object type")
+	assert.NotNil(t, anyFilterProp.AdditionalProperties, "Expected anyFilter to have additionalProperties")
+	// For map[string]any, additionalProperties should be an empty schema (allowing any type)
+	assert.Empty(t, anyFilterProp.AdditionalProperties.Type, "Expected anyFilter additionalProperties to have no type (any)")
 }

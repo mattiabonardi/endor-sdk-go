@@ -66,7 +66,7 @@ const (
 // #region Entity
 
 type Entity struct {
-	ID          string `json:"id" bson:"_id" schema:"title=Id"`
+	ID          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Description string `json:"description" schema:"title=Description"`
 	Type        string `json:"type" schema:"title=Type,readOnly=true"`
 	Service     string `json:"service" schema:"title=Service,readOnly=true" ui-schema:"entity=microservice"`
@@ -103,7 +103,7 @@ func (r *Entity) SetService(service string) {
 
 type EntitySpecialized struct {
 	Entity     `json:",inline" bson:",inline"`
-	Categories []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=Categories,readOnly=true"`
+	Categories []Category `json:"categories,omitempty" schema:"title=Categories,readOnly=true"`
 }
 
 // #endregion
@@ -112,7 +112,7 @@ type EntitySpecialized struct {
 
 type EntityHybrid struct {
 	Entity           `json:",inline" bson:",inline"`
-	AdditionalSchema string `json:"additionalSchema" schema:"title=Additional schema,format=yaml"` // YAML string, raw
+	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=Additional schema,format=yaml"` // YAML string, raw
 }
 
 func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {

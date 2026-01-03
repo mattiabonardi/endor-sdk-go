@@ -19,21 +19,44 @@ import (
 // COLLECTION_ENTITIES is the MongoDB collection name for entities
 const COLLECTION_ENTITIES = "entities"
 
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
-	serviceRepository := &EndorServiceRepository{
-		microServiceId:        microServiceId,
-		internalEndorServices: internalEndorServices,
-		context:               context.TODO(),
-		logger:                logger,
-		mu:                    &sync.RWMutex{},
-	}
-	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-		client, _ := sdk.GetMongoClient()
-		database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
-		serviceRepository.collection = database.Collection(COLLECTION_ENTITIES)
-	}
+// Singleton instance and initialization sync
+var (
+	endorServiceRepositoryInstance *EndorServiceRepository
+	endorServiceRepositoryOnce     sync.Once
+)
 
-	return serviceRepository
+// GetEndorServiceRepository returns the singleton instance of EndorServiceRepository.
+// It must be initialized first by calling InitEndorServiceRepository.
+func GetEndorServiceRepository() *EndorServiceRepository {
+	return endorServiceRepositoryInstance
+}
+
+// InitEndorServiceRepository initializes the singleton EndorServiceRepository instance.
+// This should be called once during application startup.
+// Subsequent calls will return the existing instance without reinitializing.
+func InitEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
+	endorServiceRepositoryOnce.Do(func() {
+		endorServiceRepositoryInstance = &EndorServiceRepository{
+			microServiceId:        microServiceId,
+			internalEndorServices: internalEndorServices,
+			context:               context.TODO(),
+			logger:                logger,
+			mu:                    &sync.RWMutex{},
+		}
+		if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
+			client, _ := sdk.GetMongoClient()
+			database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
+			endorServiceRepositoryInstance.collection = database.Collection(COLLECTION_ENTITIES)
+		}
+	})
+	return endorServiceRepositoryInstance
+}
+
+// NewEndorServiceRepository returns the singleton instance of EndorServiceRepository.
+// If the singleton hasn't been initialized yet, it initializes it with the provided parameters.
+// Deprecated: Use InitEndorServiceRepository for explicit initialization or GetEndorServiceRepository to get the instance.
+func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
+	return InitEndorServiceRepository(microServiceId, internalEndorServices, logger)
 }
 
 type EndorServiceRepository struct {
