@@ -59,6 +59,7 @@ type Schema struct {
 	Format               *SchemaFormatName  `json:"format,omitempty" yaml:"format,omitempty"`
 	ReadOnly             *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
 	WriteOnly            *bool              `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
+	Required             []string           `json:"required,omitempty" yaml:"required,omitempty"`
 
 	// field dimension
 	MinLength *int `json:"minLength,omitempty" yaml:"minLength,omitempty"`
@@ -77,6 +78,83 @@ type UISchema struct {
 type RootSchema struct {
 	Schema      `json:",inline" yaml:",inline"`
 	Definitions map[string]Schema `json:"$defs,omitempty" yaml:"$defs,omitempty"`
+}
+
+// SchemaTransformer is a function that transforms a schema for a specific use case.
+// It creates a restrictive version of the base schema without modifying its structure.
+type SchemaTransformer func(*Schema)
+
+// Apply applies one or more SchemaTransformers to the RootSchema.
+// Use case schemas are declarative restrictions of the canonical entity schema.
+// They do not modify the structure, but reduce the interaction surface.
+func (r *RootSchema) Apply(ts ...SchemaTransformer) *RootSchema {
+	for _, t := range ts {
+		t(&r.Schema)
+	}
+	return r
+}
+
+// Require marks the specified fields as required in the schema.
+// Only fields that exist in the schema properties will be added to the required list.
+func Require(fields ...string) SchemaTransformer {
+	return func(s *Schema) {
+		if s.Properties == nil {
+			return
+		}
+		required := make([]string, 0)
+		for _, f := range fields {
+			if _, ok := (*s.Properties)[f]; ok {
+				required = append(required, f)
+			}
+		}
+		if len(required) > 0 {
+			s.Required = required
+		}
+	}
+}
+
+// Forbid removes the specified fields from the schema properties.
+// This is used when certain fields should not be accepted for a specific use case.
+func Forbid(fields ...string) SchemaTransformer {
+	return func(s *Schema) {
+		if s.Properties == nil {
+			return
+		}
+		for _, f := range fields {
+			delete(*s.Properties, f)
+		}
+		// Also remove from UISchema order if present
+		if s.UISchema != nil && s.UISchema.Order != nil {
+			forbiddenSet := make(map[string]bool)
+			for _, f := range fields {
+				forbiddenSet[f] = true
+			}
+			newOrder := make([]string, 0)
+			for _, o := range *s.UISchema.Order {
+				if !forbiddenSet[o] {
+					newOrder = append(newOrder, o)
+				}
+			}
+			s.UISchema.Order = &newOrder
+		}
+	}
+}
+
+// ReadOnly marks the specified fields as read-only in the schema.
+// Read-only fields cannot be modified by the client.
+func ReadOnly(fields ...string) SchemaTransformer {
+	return func(s *Schema) {
+		if s.Properties == nil {
+			return
+		}
+		for _, f := range fields {
+			if p, ok := (*s.Properties)[f]; ok {
+				v := true
+				p.ReadOnly = &v
+				(*s.Properties)[f] = p
+			}
+		}
+	}
 }
 
 func (h *RootSchema) ToYAML() (string, error) {

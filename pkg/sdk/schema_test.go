@@ -8,6 +8,179 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Order is a test struct for SchemaTransformer tests
+type Order struct {
+	ID          string `json:"id" schema:"readOnly=true"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	Date        string `json:"date" schema:"format=date"`
+	WarehouseID string `json:"warehouseId"`
+	Notes       string `json:"notes,omitempty"`
+	ReceivedQty int    `json:"receivedQty,omitempty"`
+}
+
+func TestSchemaTransformer(t *testing.T) {
+	t.Run("Require marks fields as required", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		schema.Apply(sdk.Require("type", "date", "warehouseId"))
+
+		assert.Len(t, schema.Required, 3)
+		assert.Contains(t, schema.Required, "type")
+		assert.Contains(t, schema.Required, "date")
+		assert.Contains(t, schema.Required, "warehouseId")
+	})
+
+	t.Run("Require ignores non-existent fields", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		schema.Apply(sdk.Require("type", "nonExistentField"))
+
+		assert.Len(t, schema.Required, 1)
+		assert.Contains(t, schema.Required, "type")
+		assert.NotContains(t, schema.Required, "nonExistentField")
+	})
+
+	t.Run("Forbid removes fields from schema", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		// Verify field exists before forbid
+		assert.Contains(t, *schema.Properties, "receivedQty")
+
+		schema.Apply(sdk.Forbid("receivedQty"))
+
+		// Verify field is removed
+		assert.NotContains(t, *schema.Properties, "receivedQty")
+		// Verify other fields still exist
+		assert.Contains(t, *schema.Properties, "type")
+		assert.Contains(t, *schema.Properties, "id")
+	})
+
+	t.Run("Forbid removes fields from UISchema order", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		// Verify field is in order before forbid
+		assert.Contains(t, *schema.UISchema.Order, "receivedQty")
+
+		schema.Apply(sdk.Forbid("receivedQty", "notes"))
+
+		// Verify fields are removed from order
+		assert.NotContains(t, *schema.UISchema.Order, "receivedQty")
+		assert.NotContains(t, *schema.UISchema.Order, "notes")
+		// Verify other fields still in order
+		assert.Contains(t, *schema.UISchema.Order, "type")
+	})
+
+	t.Run("ReadOnly marks fields as read-only", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		schema.Apply(sdk.ReadOnly("id", "status"))
+
+		props := *schema.Properties
+		assert.NotNil(t, props["id"].ReadOnly)
+		assert.True(t, *props["id"].ReadOnly)
+		assert.NotNil(t, props["status"].ReadOnly)
+		assert.True(t, *props["status"].ReadOnly)
+		// Verify other fields are not affected
+		assert.Nil(t, props["type"].ReadOnly)
+	})
+
+	t.Run("Multiple transformers can be chained", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		schema.Apply(
+			sdk.Require("type", "date", "warehouseId"),
+			sdk.Forbid("receivedQty"),
+			sdk.ReadOnly("id", "status"),
+		)
+
+		// Check required
+		assert.Len(t, schema.Required, 3)
+		assert.Contains(t, schema.Required, "type")
+
+		// Check forbidden
+		assert.NotContains(t, *schema.Properties, "receivedQty")
+
+		// Check read-only
+		props := *schema.Properties
+		assert.True(t, *props["id"].ReadOnly)
+		assert.True(t, *props["status"].ReadOnly)
+	})
+
+	t.Run("CreateOrder use case schema", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{}).Apply(
+			sdk.Require("type", "date", "warehouseId"),
+			sdk.Forbid("receivedQty"),
+			sdk.ReadOnly("id", "status"),
+		)
+
+		props := *schema.Properties
+
+		// Required fields
+		assert.Contains(t, schema.Required, "type")
+		assert.Contains(t, schema.Required, "date")
+		assert.Contains(t, schema.Required, "warehouseId")
+
+		// Forbidden field removed
+		assert.NotContains(t, props, "receivedQty")
+
+		// Read-only fields
+		assert.True(t, *props["id"].ReadOnly)
+		assert.True(t, *props["status"].ReadOnly)
+
+		// Other fields remain writable
+		assert.Nil(t, props["type"].ReadOnly)
+		assert.Nil(t, props["notes"].ReadOnly)
+	})
+
+	t.Run("ReceiveGoods use case schema", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{}).Apply(
+			sdk.Require("receivedQty"),
+			sdk.Forbid("type", "date", "warehouseId", "notes"),
+			sdk.ReadOnly("id", "status"),
+		)
+
+		props := *schema.Properties
+
+		// Required field
+		assert.Contains(t, schema.Required, "receivedQty")
+
+		// Forbidden fields removed
+		assert.NotContains(t, props, "type")
+		assert.NotContains(t, props, "date")
+		assert.NotContains(t, props, "warehouseId")
+		assert.NotContains(t, props, "notes")
+
+		// Read-only fields
+		assert.True(t, *props["id"].ReadOnly)
+		assert.True(t, *props["status"].ReadOnly)
+
+		// receivedQty remains and is writable
+		assert.Contains(t, props, "receivedQty")
+		assert.Nil(t, props["receivedQty"].ReadOnly)
+	})
+
+	t.Run("Apply returns the same RootSchema for chaining", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+		result := schema.Apply(sdk.Require("type"))
+
+		assert.Same(t, schema, result)
+	})
+
+	t.Run("Transformers on nil properties do nothing", func(t *testing.T) {
+		schema := &sdk.RootSchema{}
+
+		// Should not panic
+		assert.NotPanics(t, func() {
+			schema.Apply(
+				sdk.Require("field"),
+				sdk.Forbid("field"),
+				sdk.ReadOnly("field"),
+			)
+		})
+	})
+}
+
 type Address struct {
 	City  string `json:"city"`
 	State string `json:"state"`
