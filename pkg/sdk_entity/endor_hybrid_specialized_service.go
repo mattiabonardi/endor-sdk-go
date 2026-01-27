@@ -74,7 +74,7 @@ func (h EndorHybridSpecializedService[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewHybridSpecializedService[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorHybridSpecializedServiceInterface {
+func NewEndorHybridSpecializedService[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorHybridSpecializedServiceInterface {
 	return EndorHybridSpecializedService[T]{
 		Entity:            entity,
 		EntityDescription: entityDescription,

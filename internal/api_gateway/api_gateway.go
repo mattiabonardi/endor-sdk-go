@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"gopkg.in/yaml.v3"
 )
 
@@ -69,6 +70,11 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 			}
 			routers[key] = router
 		}
+	}
+
+	config := sdk_configuration.GetConfig()
+	if config.Development == true {
+		microServiceAddress = fmt.Sprintf("http://172.17.0.1:%s", config.ServerPort)
 	}
 
 	discoveryServices := make(map[string]ApiGatewayConfigurationService)

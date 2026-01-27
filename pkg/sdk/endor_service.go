@@ -191,5 +191,6 @@ type EndorHybridSpecializedServiceCategoryInterface interface {
 	GetDescription() string
 	GetSchema() string
 	GetActions() func(getSchema func() RootSchema) map[string]EndorServiceActionInterface
+	WithActions(actionFn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceCategoryInterface
 	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorServiceActionInterface
 }

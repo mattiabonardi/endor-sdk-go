@@ -15,6 +15,7 @@ type ServerConfig struct {
 	DynamicEntitiesEnabled      bool
 	DynamicEntityDocumentDBName string
 	LogType                     string
+	Development                 bool
 }
 
 // Variabili globali per il singleton
@@ -44,6 +45,7 @@ func loadConfiguration() *ServerConfig {
 	hybridEntitiesEnabled := getEnvAsBool("HYBRID_ENTITIES_ENABLED", false)
 	dynamicEntitiesEnabled := getEnvAsBool("DYNAMIC_ENTITIES_ENABLED", false)
 	logType := getEnv("LOG_TYPE", "JSON")
+	development := getEnvAsBool("DEVELOPMENT", false)
 
 	return &ServerConfig{
 		ServerPort:             port,
@@ -51,6 +53,7 @@ func loadConfiguration() *ServerConfig {
 		HybridEntitiesEnabled:  hybridEntitiesEnabled,
 		DynamicEntitiesEnabled: dynamicEntitiesEnabled,
 		LogType:                logType,
+		Development:            development,
 	}
 }
 

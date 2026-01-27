@@ -54,7 +54,7 @@ func (h *HybridSpecializedService) action1(c *sdk.EndorContext[HybridSpecialized
 func NewHybridSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
 	hybridSpecializedService := HybridSpecializedService{}
 
-	return sdk_entity.NewHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
+	return sdk_entity.NewEndorHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
 		WithHybridCategories(
 			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
 				sdk_entity.NewEndorHybridSpecializedServiceCategory[*HybridCategory1Schema]("cat-1", "Category 1"),

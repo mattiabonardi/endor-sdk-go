@@ -222,6 +222,10 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 							categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 						}
 						v.EndorService = specializedInstance.WithHybridCategories(categories).ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories)
+						if originalEntity, ok := v.entity.(*sdk.EntityHybridSpecialized); ok {
+							originalEntity.AdditionalCategories = entitySpecialized.AdditionalCategories
+							originalEntity.AdditionalSchema = entitySpecialized.AdditionalSchema
+						}
 						entities[entity.GetID()] = v
 					}
 				}
@@ -257,7 +261,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 					}
 					// create a new specilized service
-					hybridService := NewHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
+					hybridService := NewEndorHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
 					schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
 					entitySpecialized.Schema = schema
 					entities[entitySpecialized.ID] = EndorServiceDictionary{
