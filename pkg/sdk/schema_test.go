@@ -41,7 +41,7 @@ func TestSchemaTransformer(t *testing.T) {
 		assert.NotContains(t, schema.Required, "nonExistentField")
 	})
 
-	t.Run("Forbid marks fields as hidden", func(t *testing.T) {
+	t.Run("Forbid removes fields from schema", func(t *testing.T) {
 		schema := sdk.NewSchema(Order{})
 
 		// Verify field exists before forbid
@@ -49,14 +49,26 @@ func TestSchemaTransformer(t *testing.T) {
 
 		schema.Apply(sdk.Forbid("receivedQty"))
 
-		// Verify field is marked as hidden
-		props := *schema.Properties
-		assert.Contains(t, props, "receivedQty")
-		assert.NotNil(t, props["receivedQty"].UISchema)
-		assert.NotNil(t, props["receivedQty"].UISchema.Hidden)
-		assert.True(t, *props["receivedQty"].UISchema.Hidden)
-		// Verify other fields are not hidden
-		assert.Nil(t, props["type"].UISchema)
+		// Verify field is removed
+		assert.NotContains(t, *schema.Properties, "receivedQty")
+		// Verify other fields still exist
+		assert.Contains(t, *schema.Properties, "type")
+		assert.Contains(t, *schema.Properties, "id")
+	})
+
+	t.Run("Forbid removes fields from UISchema order", func(t *testing.T) {
+		schema := sdk.NewSchema(Order{})
+
+		// Verify field is in order before forbid
+		assert.Contains(t, *schema.UISchema.Order, "receivedQty")
+
+		schema.Apply(sdk.Forbid("receivedQty", "notes"))
+
+		// Verify fields are removed from order
+		assert.NotContains(t, *schema.UISchema.Order, "receivedQty")
+		assert.NotContains(t, *schema.UISchema.Order, "notes")
+		// Verify other fields still in order
+		assert.Contains(t, *schema.UISchema.Order, "type")
 	})
 
 	t.Run("ReadOnly marks fields as read-only", func(t *testing.T) {
@@ -86,11 +98,11 @@ func TestSchemaTransformer(t *testing.T) {
 		assert.Len(t, schema.Required, 3)
 		assert.Contains(t, schema.Required, "type")
 
-		// Check forbidden (hidden)
-		props := *schema.Properties
-		assert.True(t, *props["receivedQty"].UISchema.Hidden)
+		// Check forbidden
+		assert.NotContains(t, *schema.Properties, "receivedQty")
 
 		// Check read-only
+		props := *schema.Properties
 		assert.True(t, *props["id"].ReadOnly)
 		assert.True(t, *props["status"].ReadOnly)
 	})
@@ -109,9 +121,8 @@ func TestSchemaTransformer(t *testing.T) {
 		assert.Contains(t, schema.Required, "date")
 		assert.Contains(t, schema.Required, "warehouseId")
 
-		// Forbidden field is hidden
-		assert.Contains(t, props, "receivedQty")
-		assert.True(t, *props["receivedQty"].UISchema.Hidden)
+		// Forbidden field removed
+		assert.NotContains(t, props, "receivedQty")
 
 		// Read-only fields
 		assert.True(t, *props["id"].ReadOnly)
@@ -134,11 +145,11 @@ func TestSchemaTransformer(t *testing.T) {
 		// Required field
 		assert.Contains(t, schema.Required, "receivedQty")
 
-		// Forbidden fields are hidden
-		assert.True(t, *props["type"].UISchema.Hidden)
-		assert.True(t, *props["date"].UISchema.Hidden)
-		assert.True(t, *props["warehouseId"].UISchema.Hidden)
-		assert.True(t, *props["notes"].UISchema.Hidden)
+		// Forbidden fields removed
+		assert.NotContains(t, props, "type")
+		assert.NotContains(t, props, "date")
+		assert.NotContains(t, props, "warehouseId")
+		assert.NotContains(t, props, "notes")
 
 		// Read-only fields
 		assert.True(t, *props["id"].ReadOnly)
@@ -228,13 +239,10 @@ func TestSchemaTransformerNested(t *testing.T) {
 
 		schema.Apply(sdk.Forbid("warehouse.address"))
 
-		// Verify nested field is marked as hidden
+		// Verify nested field is removed
 		warehouseProps = (*schema.Properties)["warehouse"]
-		addressSchema := (*warehouseProps.Properties)["address"]
-		assert.NotNil(t, addressSchema.UISchema)
-		assert.NotNil(t, addressSchema.UISchema.Hidden)
-		assert.True(t, *addressSchema.UISchema.Hidden)
-		// Other nested fields still exist and are not hidden
+		assert.NotContains(t, *warehouseProps.Properties, "address")
+		// Other nested fields still exist
 		assert.Contains(t, *warehouseProps.Properties, "id")
 		assert.Contains(t, *warehouseProps.Properties, "name")
 	})
@@ -248,14 +256,13 @@ func TestSchemaTransformerNested(t *testing.T) {
 
 		schema.Apply(sdk.Forbid("items.notes", "items.price"))
 
-		// Verify nested fields are marked as hidden in array items
+		// Verify nested fields are removed from array items
 		itemsSchema = (*schema.Properties)["items"].Items
-		itemsProps := *itemsSchema.Properties
-		assert.True(t, *itemsProps["notes"].UISchema.Hidden)
-		assert.True(t, *itemsProps["price"].UISchema.Hidden)
-		// Other nested fields still exist and are not hidden
-		assert.Contains(t, itemsProps, "productId")
-		assert.Contains(t, itemsProps, "quantity")
+		assert.NotContains(t, *itemsSchema.Properties, "notes")
+		assert.NotContains(t, *itemsSchema.Properties, "price")
+		// Other nested fields still exist
+		assert.Contains(t, *itemsSchema.Properties, "productId")
+		assert.Contains(t, *itemsSchema.Properties, "quantity")
 	})
 
 	t.Run("ReadOnly nested field in object", func(t *testing.T) {
@@ -310,8 +317,8 @@ func TestSchemaTransformerNested(t *testing.T) {
 		// Top-level required
 		assert.Contains(t, schema.Required, "type")
 
-		// Top-level forbidden (hidden)
-		assert.True(t, *props["status"].UISchema.Hidden)
+		// Top-level forbidden
+		assert.NotContains(t, props, "status")
 
 		// Top-level read-only
 		assert.True(t, *props["id"].ReadOnly)
@@ -320,9 +327,8 @@ func TestSchemaTransformerNested(t *testing.T) {
 		assert.Contains(t, props["items"].Items.Required, "productId")
 		assert.Contains(t, props["items"].Items.Required, "quantity")
 
-		// Nested forbidden (hidden) in array items
-		itemsProps := *props["items"].Items.Properties
-		assert.True(t, *itemsProps["notes"].UISchema.Hidden)
+		// Nested forbidden in array items
+		assert.NotContains(t, *props["items"].Items.Properties, "notes")
 
 		// Nested required in object
 		assert.Contains(t, props["warehouse"].Required, "name")
@@ -364,8 +370,7 @@ func TestSchemaTransformerNested(t *testing.T) {
 		itemsSchema := props["items"].Items
 		assert.Contains(t, itemsSchema.Required, "productId")
 		assert.Contains(t, itemsSchema.Required, "quantity")
-		itemsProps := *itemsSchema.Properties
-		assert.True(t, *itemsProps["notes"].UISchema.Hidden)
+		assert.NotContains(t, *itemsSchema.Properties, "notes")
 
 		// Verify nested object
 		warehouseSchema := props["warehouse"]

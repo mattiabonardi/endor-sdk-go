@@ -232,39 +232,73 @@ func Require(fields ...string) SchemaTransformer {
 	}
 }
 
-// Forbid marks the specified fields as hidden in the schema (x-ui.hidden = true).
+// Forbid removes the specified fields from the schema properties.
 // Supports nested paths using dot notation (e.g., "address.city", "items.name").
-// This is used when certain fields should not be displayed for a specific use case.
+// This is used when certain fields should not be accepted for a specific use case.
 func Forbid(fields ...string) SchemaTransformer {
 	return func(s *Schema) {
 		if s.Properties == nil {
 			return
 		}
 
+		topLevelFields := make([]string, 0)
+		nestedFields := make(map[string][]string)
+
 		for _, f := range fields {
 			if !strings.Contains(f, ".") {
-				// Top-level field
-				if p, ok := (*s.Properties)[f]; ok {
-					if p.UISchema == nil {
-						p.UISchema = &UISchema{}
-					}
-					v := true
-					p.UISchema.Hidden = &v
-					(*s.Properties)[f] = p
-				}
+				topLevelFields = append(topLevelFields, f)
 			} else {
-				// Nested field
-				modifyNestedProperty(s, f, func(props *map[string]Schema, fieldName string) {
-					if p, ok := (*props)[fieldName]; ok {
-						if p.UISchema == nil {
-							p.UISchema = &UISchema{}
-						}
-						v := true
-						p.UISchema.Hidden = &v
-						(*props)[fieldName] = p
-					}
-				})
+				lastDot := strings.LastIndex(f, ".")
+				parentPath := f[:lastDot]
+				fieldName := f[lastDot+1:]
+				nestedFields[parentPath] = append(nestedFields[parentPath], fieldName)
 			}
+		}
+
+		// Forbid top-level fields
+		for _, f := range topLevelFields {
+			delete(*s.Properties, f)
+		}
+
+		// Also remove from UISchema order if present
+		if s.UISchema != nil && s.UISchema.Order != nil {
+			forbiddenSet := make(map[string]bool)
+			for _, f := range topLevelFields {
+				forbiddenSet[f] = true
+			}
+			newOrder := make([]string, 0)
+			for _, o := range *s.UISchema.Order {
+				if !forbiddenSet[o] {
+					newOrder = append(newOrder, o)
+				}
+			}
+			s.UISchema.Order = &newOrder
+		}
+
+		// Forbid nested fields
+		for parentPath, fieldNames := range nestedFields {
+			modifyNestedSchema(s, parentPath, func(schema *Schema) {
+				if schema.Properties == nil {
+					return
+				}
+				for _, fn := range fieldNames {
+					delete(*schema.Properties, fn)
+				}
+				// Also remove from nested UISchema order if present
+				if schema.UISchema != nil && schema.UISchema.Order != nil {
+					forbiddenSet := make(map[string]bool)
+					for _, fn := range fieldNames {
+						forbiddenSet[fn] = true
+					}
+					newOrder := make([]string, 0)
+					for _, o := range *schema.UISchema.Order {
+						if !forbiddenSet[o] {
+							newOrder = append(newOrder, o)
+						}
+					}
+					schema.UISchema.Order = &newOrder
+				}
+			})
 		}
 	}
 }
