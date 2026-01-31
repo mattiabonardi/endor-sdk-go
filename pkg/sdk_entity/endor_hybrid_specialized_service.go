@@ -226,26 +226,11 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
-		categoryID + "/update": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
-				Public:          false,
-				ValidatePayload: true,
-				InputSchema: &sdk.RootSchema{
-					Schema: sdk.Schema{
-						Type: sdk.SchemaTypeObject,
-						Properties: &map[string]sdk.Schema{
-							"id": {
-								Type: sdk.SchemaTypeString,
-							},
-							"data": schema.Schema,
-						},
-					},
-				},
+		categoryID + "/update": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+				return defaultUpdateSpecialized(c, schema, repository, entity)
 			},
-			func(c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstanceSpecialized[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultReplaceSpecialized(c, schema, repository, entity)
-			},
+			fmt.Sprintf("Partially update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
 	}
 }
@@ -288,14 +273,10 @@ func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultReplaceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	c.Payload.Data.SetCategoryType(c.CategoryType)
-	replaced, err := repository.Replace(context.TODO(), sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]{
-		Id:   c.Payload.Id,
-		Data: c.Payload.Data.EntityInstance,
-	})
+func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(replaced).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s replaced (category)", entity))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", entity))).Build(), nil
 }

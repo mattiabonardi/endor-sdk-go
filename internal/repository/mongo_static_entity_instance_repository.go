@@ -154,64 +154,6 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 	return dto.Data, nil
 }
 
-func (r *MongoStaticEntityInstanceRepository[T]) Replace(ctx context.Context, dto sdk.ReplaceByIdDTO[T]) (T, error) {
-	var zero T
-
-	// Verifica che l'istanza esista
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
-	if err != nil {
-		return zero, err
-	}
-
-	// Prepara il filtro
-	var filter bson.M
-	if *r.options.AutoGenerateID {
-		objectID, err := primitive.ObjectIDFromHex(dto.Id)
-		if err != nil {
-			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
-		}
-		filter = bson.M{"_id": objectID}
-
-		// Assicurati che l'ID sia impostato nella struct
-		dto.Data.SetID(dto.Id)
-
-		// Serializza la struct e imposta l'_id come ObjectID
-		docBytes, err := bson.Marshal(dto.Data)
-		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
-		}
-		var doc bson.M
-		if err := bson.Unmarshal(docBytes, &doc); err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
-		}
-		doc["_id"] = objectID // Sostituisci l'ID stringa con ObjectID
-
-		result, err := r.collection.ReplaceOne(ctx, filter, doc)
-		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
-		}
-		if result.MatchedCount == 0 {
-			return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-		}
-	} else {
-		filter = bson.M{"_id": dto.Id}
-
-		// Assicurati che l'ID sia impostato nella struct
-		dto.Data.SetID(dto.Id)
-
-		// Per ID manuali, aggiorna direttamente con la struct
-		result, err := r.collection.ReplaceOne(ctx, filter, dto.Data)
-		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
-		}
-		if result.MatchedCount == 0 {
-			return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-		}
-	}
-
-	return dto.Data, nil
-}
-
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	// Verifica che l'istanza esista
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
@@ -242,4 +184,44 @@ func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto
 	}
 
 	return nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateById[map[string]interface{}]) (T, error) {
+	var zero T
+
+	// Verify the instance exists
+	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+	if err != nil {
+		return zero, err
+	}
+
+	// Prepare the filter
+	var filter bson.M
+	if *r.options.AutoGenerateID {
+		objectID, err := primitive.ObjectIDFromHex(dto.Id)
+		if err != nil {
+			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+		}
+		filter = bson.M{"_id": objectID}
+	} else {
+		filter = bson.M{"_id": dto.Id}
+	}
+
+	// If no fields to update, return error
+	if len(dto.Data) == 0 {
+		return zero, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
+	}
+
+	// Perform the update with $set
+	update := bson.M{"$set": dto.Data}
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+	}
+	if result.MatchedCount == 0 {
+		return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
+	}
+
+	// Retrieve and return the updated document
+	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 }

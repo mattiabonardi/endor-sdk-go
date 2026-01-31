@@ -153,34 +153,6 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 	return &dto.Data, nil
 }
 
-func (r *MongoEntityInstanceRepository[T]) Replace(ctx context.Context, dto sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error) {
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
-	if err != nil {
-		return nil, err
-	}
-
-	filter, err := r.idConverter.ToFilter(dto.Id)
-	if err != nil {
-		return nil, sdk.NewBadRequestError(err)
-	}
-
-	doc, err := r.docConverter.ToDocument(dto.Data.This, dto.Data.Metadata, r.idConverter)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(err)
-	}
-
-	result, err := r.getCollection().ReplaceOne(ctx, filter, doc)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
-	}
-	if result.MatchedCount == 0 {
-		return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-	}
-
-	dto.Data.This.SetID(dto.Id)
-	return &dto.Data, nil
-}
-
 func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
@@ -202,6 +174,50 @@ func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.R
 	}
 
 	return nil
+}
+
+func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateById[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
+	// Verify the instance exists
+	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+	if err != nil {
+		return nil, err
+	}
+
+	filter, err := r.idConverter.ToFilter(dto.Id)
+	if err != nil {
+		return nil, sdk.NewBadRequestError(err)
+	}
+
+	// Prepare the $set document with both entity data and metadata
+	setDoc := bson.M{}
+
+	// Add entity data fields (at root level) from This map
+	for k, v := range dto.Data.This {
+		setDoc[k] = v
+	}
+
+	// Add metadata fields (under metadata prefix) from Metadata map
+	for k, v := range dto.Data.Metadata {
+		setDoc["metadata."+k] = v
+	}
+
+	// If no fields to update, return error
+	if len(setDoc) == 0 {
+		return nil, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
+	}
+
+	// Perform the update with $set
+	update := bson.M{"$set": setDoc}
+	result, err := r.getCollection().UpdateOne(ctx, filter, update)
+	if err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+	}
+	if result.MatchedCount == 0 {
+		return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
+	}
+
+	// Retrieve and return the updated document
+	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 }
 
 // Helper functions remain the same

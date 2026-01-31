@@ -17,7 +17,7 @@ type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
 	List(ctx context.Context, dto ReadDTO) ([]EntityInstance[T], error)
 	Create(ctx context.Context, dto CreateDTO[EntityInstance[T]]) (*EntityInstance[T], error)
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
-	Replace(ctx context.Context, dto ReplaceByIdDTO[EntityInstance[T]]) (*EntityInstance[T], error)
+	Update(ctx context.Context, dto UpdateById[PartialEntityInstance[T]]) (*EntityInstance[T], error)
 }
 
 // StaticEntityInstanceRepositoryOptions defines configuration options for StaticEntityInstanceRepository
@@ -37,7 +37,7 @@ type StaticEntityInstanceRepositoryInterface[T EntityInstanceInterface] interfac
 	List(ctx context.Context, dto ReadDTO) ([]T, error)
 	Create(ctx context.Context, dto CreateDTO[T]) (T, error)
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
-	Replace(ctx context.Context, dto ReplaceByIdDTO[T]) (T, error)
+	Update(ctx context.Context, dto UpdateById[map[string]interface{}]) (T, error)
 }
 
 type ReadInstanceDTO struct {
@@ -48,12 +48,13 @@ type CreateDTO[T any] struct {
 	Data T `json:"data" binding:"required"`
 }
 
-type ReplaceByIdDTO[T any] struct {
-	Id   string `json:"id,omitempty"`
-	Data T      `json:"data" binding:"required"`
-}
-
 type ReadDTO struct {
 	Filter     map[string]interface{} `json:"filter"`
 	Projection map[string]interface{} `json:"projection"`
+}
+
+// UpdateById defines the structure for updates with a generic data type
+type UpdateById[T any] struct {
+	Id   string `json:"id,omitempty"`
+	Data T      `json:"data" binding:"required"`
 }

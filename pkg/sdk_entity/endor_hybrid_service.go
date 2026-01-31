@@ -132,26 +132,11 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 				return defaultCreate(c, schema, repository, entity)
 			},
 		),
-		"update": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Update the existing instance of %s (%s)", entity, entityDescription),
-				Public:          false,
-				ValidatePayload: true,
-				InputSchema: &sdk.RootSchema{
-					Schema: sdk.Schema{
-						Type: sdk.SchemaTypeObject,
-						Properties: &map[string]sdk.Schema{
-							"id": {
-								Type: sdk.SchemaTypeString,
-							},
-							"data": schema.Schema,
-						},
-					},
-				},
+		"update": sdk.NewAction(
+			func(c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+				return defaultUpdate(c, schema, repository, entity)
 			},
-			func(c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultReplace(c, schema, repository, entity)
-			},
+			fmt.Sprintf("Partially update the existing instance of %s (%s)", entity, entityDescription),
 		),
 		"delete": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
@@ -190,12 +175,12 @@ func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Create
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created", entity))).Build(), nil
 }
 
-func defaultReplace[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	replaced, err := repository.Replace(context.TODO(), c.Payload)
+func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(replaced).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s replaced", entity))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated", entity))).Build(), nil
 }
 
 func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *EntityInstanceRepository[T], entity string) (*sdk.Response[any], error) {
