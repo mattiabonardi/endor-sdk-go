@@ -17,7 +17,7 @@ type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
 	List(ctx context.Context, dto ReadDTO) ([]EntityInstance[T], error)
 	Create(ctx context.Context, dto CreateDTO[EntityInstance[T]]) (*EntityInstance[T], error)
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
-	Update(ctx context.Context, dto UpdateByIdDTO[EntityInstance[T]]) (*EntityInstance[T], error)
+	Replace(ctx context.Context, dto ReplaceByIdDTO[EntityInstance[T]]) (*EntityInstance[T], error)
 }
 
 // StaticEntityInstanceRepositoryOptions defines configuration options for StaticEntityInstanceRepository
@@ -37,7 +37,7 @@ type StaticEntityInstanceRepositoryInterface[T EntityInstanceInterface] interfac
 	List(ctx context.Context, dto ReadDTO) ([]T, error)
 	Create(ctx context.Context, dto CreateDTO[T]) (T, error)
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
-	Update(ctx context.Context, dto UpdateByIdDTO[T]) (T, error)
+	Replace(ctx context.Context, dto ReplaceByIdDTO[T]) (T, error)
 }
 
 type ReadInstanceDTO struct {
@@ -48,7 +48,7 @@ type CreateDTO[T any] struct {
 	Data T `json:"data" binding:"required"`
 }
 
-type UpdateByIdDTO[T any] struct {
+type ReplaceByIdDTO[T any] struct {
 	Id   string `json:"id,omitempty"`
 	Data T      `json:"data" binding:"required"`
 }

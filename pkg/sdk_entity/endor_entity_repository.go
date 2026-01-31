@@ -479,7 +479,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 	}
 }
 
-func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+func (h *EndorServiceRepository) Replace(entityType *sdk.EntityType, dto sdk.ReplaceByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
 		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
 		var instance *sdk.EntityInterface
@@ -489,11 +489,11 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 		if err != nil {
 			return instance, err
 		}
-		updateBson, err := bson.Marshal(dto.Data)
+		replaceBson, err := bson.Marshal(dto.Data)
 		if err != nil {
 			return &dto.Data, err
 		}
-		update := bson.M{"$set": bson.Raw(updateBson)}
+		update := bson.M{"$set": bson.Raw(replaceBson)}
 		filter := bson.M{"_id": dto.Id}
 		_, err = h.collection.UpdateOne(h.context, filter, update)
 		if err != nil {
@@ -505,7 +505,7 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 
 		return &dto.Data, nil
 	} else {
-		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
+		return nil, sdk.NewForbiddenError(fmt.Errorf("replace entity not permitted"))
 	}
 }
 

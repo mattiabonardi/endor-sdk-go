@@ -154,7 +154,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 	return dto.Data, nil
 }
 
-func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[T]) (T, error) {
+func (r *MongoStaticEntityInstanceRepository[T]) Replace(ctx context.Context, dto sdk.ReplaceByIdDTO[T]) (T, error) {
 	var zero T
 
 	// Verifica che l'istanza esista
@@ -188,7 +188,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 
 		result, err := r.collection.ReplaceOne(ctx, filter, doc)
 		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
 		}
 		if result.MatchedCount == 0 {
 			return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
@@ -202,7 +202,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 		// Per ID manuali, aggiorna direttamente con la struct
 		result, err := r.collection.ReplaceOne(ctx, filter, dto.Data)
 		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
 		}
 		if result.MatchedCount == 0 {
 			return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))

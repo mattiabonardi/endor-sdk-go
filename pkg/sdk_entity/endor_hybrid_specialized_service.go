@@ -243,8 +243,8 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 					},
 				},
 			},
-			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstanceSpecialized[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultUpdateSpecialized(c, schema, repository, entity)
+			func(c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstanceSpecialized[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+				return defaultReplaceSpecialized(c, schema, repository, entity)
 			},
 		),
 	}
@@ -288,14 +288,14 @@ func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultReplaceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReplaceByIdDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	updated, err := repository.Update(context.TODO(), sdk.UpdateByIdDTO[sdk.EntityInstance[T]]{
+	replaced, err := repository.Replace(context.TODO(), sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]{
 		Id:   c.Payload.Id,
 		Data: c.Payload.Data.EntityInstance,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", entity))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(replaced).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s replaced (category)", entity))).Build(), nil
 }

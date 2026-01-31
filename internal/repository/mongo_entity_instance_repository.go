@@ -153,7 +153,7 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 	return &dto.Data, nil
 }
 
-func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error) {
+func (r *MongoEntityInstanceRepository[T]) Replace(ctx context.Context, dto sdk.ReplaceByIdDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error) {
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.U
 
 	result, err := r.getCollection().ReplaceOne(ctx, filter, doc)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to replace entity instance: %w", err))
 	}
 	if result.MatchedCount == 0 {
 		return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
