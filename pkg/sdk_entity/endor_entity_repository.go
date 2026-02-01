@@ -150,6 +150,10 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 					baseEntity.Type = string(sdk.EntityTypeHybrid)
 					h.ensureEntityDocumentOfInternalService(&baseEntity)
 					endorService = hybridService.ToEndorService(sdk.RootSchema{})
+					hybridEntity := sdk.EntityHybrid{
+						Entity: baseEntity,
+					}
+					entity = &hybridEntity
 				} else {
 					// base specialized
 					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
@@ -199,6 +203,9 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						}
 						// inject dynamic schema
 						v.EndorService = hybridInstance.ToEndorService(*defintion)
+						if originalEntity, ok := v.entity.(*sdk.EntityHybrid); ok {
+							originalEntity.AdditionalSchema = entityHybrid.AdditionalSchema
+						}
 						entities[entity.GetID()] = v
 					}
 				}
