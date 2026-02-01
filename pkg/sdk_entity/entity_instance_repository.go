@@ -39,6 +39,6 @@ func (r *EntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadIn
 	return r.repository.Delete(ctx, dto)
 }
 
-func (r *EntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateById[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
+func (r *EntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
 	return r.repository.Update(ctx, dto)
 }

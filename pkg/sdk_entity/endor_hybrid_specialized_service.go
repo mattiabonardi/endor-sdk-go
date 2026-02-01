@@ -226,11 +226,26 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
-		categoryID + "/update": sdk.NewAction(
-			func(c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+		categoryID + "/update": sdk.NewConfigurableAction(
+			sdk.EndorServiceActionOptions{
+				Description:     fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
+				Public:          false,
+				ValidatePayload: true,
+				InputSchema: &sdk.RootSchema{
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeObject,
+						Properties: &map[string]sdk.Schema{
+							"id": {
+								Type: sdk.SchemaTypeString,
+							},
+							"data": schema.Schema,
+						},
+					},
+				},
+			},
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
 				return defaultUpdateSpecialized(c, schema, repository, entity)
 			},
-			fmt.Sprintf("Partially update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
 	}
 }
@@ -273,7 +288,7 @@ func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateById[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err

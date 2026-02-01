@@ -186,7 +186,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto
 	return nil
 }
 
-func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateById[map[string]interface{}]) (T, error) {
+func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
 	var zero T
 
 	// Verify the instance exists

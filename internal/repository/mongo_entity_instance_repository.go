@@ -176,7 +176,7 @@ func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.R
 	return nil
 }
 
-func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateById[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
+func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
 	// Verify the instance exists
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {

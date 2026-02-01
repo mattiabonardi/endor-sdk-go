@@ -479,6 +479,36 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 	}
 }
 
+func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
+		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
+		var instance *sdk.EntityInterface
+		_, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
+			Id: dto.Id,
+		})
+		if err != nil {
+			return instance, err
+		}
+		updateBson, err := bson.Marshal(dto.Data)
+		if err != nil {
+			return &dto.Data, err
+		}
+		update := bson.M{"$set": bson.Raw(updateBson)}
+		filter := bson.M{"_id": dto.Id}
+		_, err = h.collection.UpdateOne(h.context, filter, update)
+		if err != nil {
+			return nil, err
+		}
+
+		h.invalidateCache()
+		h.reloadRouteConfiguration(h.microServiceId)
+
+		return &dto.Data, nil
+	} else {
+		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
+	}
+}
+
 func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) error {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized {
 		// check if entities already exist

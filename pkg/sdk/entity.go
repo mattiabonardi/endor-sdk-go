@@ -198,5 +198,6 @@ type EntityRepositoryInterface interface {
 	List(*EntityType) ([]EntityInterface, error)
 	Instance(*EntityType, ReadInstanceDTO) (*EntityInterface, error)
 	Create(*EntityType, CreateDTO[EntityInterface]) (*EntityInterface, error)
+	Update(*EntityType, UpdateByIdDTO[EntityInterface]) (*EntityInterface, error)
 	Delete(*EntityType, ReadInstanceDTO) error
 }
