@@ -149,7 +149,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 					},
 				},
 			},
-			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
 				return defaultUpdate(c, schema, repository, entity)
 			},
 		),
@@ -190,7 +190,7 @@ func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Create
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s created", entity))).Build(), nil
 }
 
-func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err

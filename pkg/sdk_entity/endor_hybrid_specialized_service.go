@@ -243,7 +243,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 					},
 				},
 			},
-			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstanceSpecialized[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
+			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
 				return defaultUpdateSpecialized(c, schema, repository, entity)
 			},
 		),
@@ -288,12 +288,8 @@ func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
 }
 
-func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	c.Payload.Data.SetCategoryType(c.CategoryType)
-	updated, err := repository.Update(context.TODO(), sdk.UpdateByIdDTO[sdk.EntityInstance[T]]{
-		Id:   c.Payload.Id,
-		Data: c.Payload.Data.EntityInstance,
-	})
+func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	updated, err := repository.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}

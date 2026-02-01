@@ -42,6 +42,6 @@ func (r *StaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.
 	return r.repository.Delete(ctx, dto)
 }
 
-func (r *StaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[T]) (T, error) {
+func (r *StaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
 	return r.repository.Update(ctx, dto)
 }
