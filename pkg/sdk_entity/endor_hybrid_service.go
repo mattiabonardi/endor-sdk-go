@@ -116,9 +116,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 		),
 		"create": sdk.NewConfigurableAction(
 			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Create the instance of %s (%s)", entity, entityDescription),
-				Public:          false,
-				ValidatePayload: true,
+				Description: fmt.Sprintf("Create the instance of %s (%s)", entity, entityDescription),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -134,9 +132,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 		),
 		"update": sdk.NewConfigurableAction(
 			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Update the existing instance of %s (%s)", entity, entityDescription),
-				Public:          false,
-				ValidatePayload: true,
+				Description: fmt.Sprintf("Update the existing instance of %s (%s)", entity, entityDescription),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,

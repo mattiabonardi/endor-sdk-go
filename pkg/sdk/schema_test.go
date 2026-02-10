@@ -200,8 +200,8 @@ func TestExpandedSchema(t *testing.T) {
 
 // Test structs for embedded struct testing
 type BaseEntity struct {
-	ID          string `json:"id" schema:"title=Entity ID"`
-	Description string `json:"description" schema:"title=Entity Description"`
+	ID          string `json:"id" schema:"title=Entity ID" ui-schema:"entityIdKey=true"`
+	Description string `json:"description" schema:"title=Entity Description" ui-schema:"entityDescriptionKey=true"`
 	CreatedAt   string `json:"createdAt" schema:"format=date-time"`
 }
 
@@ -301,6 +301,32 @@ func TestDeepEmbeddedStructInline(t *testing.T) {
 	order := *schema.UISchema.Order
 	assert.Len(t, order, 6, "Expected 6 ordered fields")
 	assert.Equal(t, "extraField", order[5], "Expected last field to be 'extraField' from DeepEmbeddedEntity")
+}
+
+func TestEntityIdKeyAndDescriptionKey(t *testing.T) {
+	schema := sdk.NewSchema(&BaseEntity{})
+
+	// Verify root-level UI schema has entityIdKey and entityDescriptionKey
+	assert.NotNil(t, schema.UISchema, "Expected UISchema to be present")
+	assert.NotNil(t, schema.UISchema.EntityIdKey, "Expected EntityIdKey to be set")
+	assert.NotNil(t, schema.UISchema.EntityDescriptionKey, "Expected EntityDescriptionKey to be set")
+
+	// Verify the values point to the correct field names
+	assert.Equal(t, "id", *schema.UISchema.EntityIdKey, "Expected EntityIdKey to be 'id'")
+	assert.Equal(t, "description", *schema.UISchema.EntityDescriptionKey, "Expected EntityDescriptionKey to be 'description'")
+
+	// Verify these properties are at root level, not at field level
+	props := *schema.Properties
+	idProp := props["id"]
+	descProp := props["description"]
+
+	// Field-level UISchema should not have EntityIdKey/EntityDescriptionKey
+	if idProp.UISchema != nil {
+		assert.Nil(t, idProp.UISchema.EntityIdKey, "Expected EntityIdKey not to be at field level")
+	}
+	if descProp.UISchema != nil {
+		assert.Nil(t, descProp.UISchema.EntityDescriptionKey, "Expected EntityDescriptionKey not to be at field level")
+	}
 }
 
 func TestMap(t *testing.T) {

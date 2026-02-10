@@ -17,10 +17,10 @@ type EndorServiceActionInterface interface {
 }
 
 type EndorServiceActionOptions struct {
-	Description     string
-	Public          bool
-	ValidatePayload bool
-	InputSchema     *RootSchema
+	Description           string
+	Public                bool
+	SkipPayloadValidation bool
+	InputSchema           *RootSchema
 }
 
 type EndorService struct {
@@ -48,10 +48,10 @@ func (h EndorService) GetPriority() *int {
 
 func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceActionInterface {
 	options := EndorServiceActionOptions{
-		Description:     description,
-		Public:          false,
-		ValidatePayload: true,
-		InputSchema:     nil,
+		Description:           description,
+		Public:                false,
+		SkipPayloadValidation: false,
+		InputSchema:           nil,
 	}
 	// resolve input params dynamically
 	options.InputSchema = ResolveGenericSchema[T]()
@@ -104,7 +104,7 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			CategoryType:   categoryType,
 		}
 		var t T
-		if m.options.ValidatePayload && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
+		if !m.options.SkipPayloadValidation && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
 			if err := c.ShouldBindJSON(&ec.Payload); err != nil {
 				//TODO: implements JSON Schema validation
 				logger.ErrorWithStackTrace(err)

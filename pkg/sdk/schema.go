@@ -69,10 +69,12 @@ type Schema struct {
 }
 
 type UISchema struct {
-	Entity *string   `json:"entity,omitempty" yaml:"entity,omitempty"` // define the reference entity
-	Query  *string   `json:"query,omitempty" yaml:"query,omitempty"`   // define the query to get the data of reference entity "$filter() $projection()"
-	Order  *[]string `json:"order,omitempty" yaml:"order,omitempty"`   // define the order of the attributes
-	Hidden *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"` // define if the property is displayable
+	Entity               *string   `json:"entity,omitempty" yaml:"entity,omitempty"`                             // define the reference entity
+	Query                *string   `json:"query,omitempty" yaml:"query,omitempty"`                               // define the query to get the data of reference entity "$filter() $projection()"
+	Order                *[]string `json:"order,omitempty" yaml:"order,omitempty"`                               // define the order of the attributes
+	Hidden               *bool     `json:"hidden,omitempty" yaml:"hidden,omitempty"`                             // define if the property is displayable
+	EntityIdKey          *string   `json:"entityIdKey,omitempty" yaml:"entityIdKey,omitempty"`                   // define which property is the entity id key
+	EntityDescriptionKey *string   `json:"entityDescriptionKey,omitempty" yaml:"entityDescriptionKey,omitempty"` // define which property is the entity description key
 }
 
 type RootSchema struct {
@@ -179,6 +181,15 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 				if embeddedSchema.UISchema != nil && embeddedSchema.UISchema.Order != nil {
 					*schema.UISchema.Order = append(*schema.UISchema.Order, *embeddedSchema.UISchema.Order...)
 				}
+				// Inherit root-level UI schema properties from embedded struct
+				if embeddedSchema.UISchema != nil {
+					if embeddedSchema.UISchema.EntityIdKey != nil && schema.UISchema.EntityIdKey == nil {
+						schema.UISchema.EntityIdKey = embeddedSchema.UISchema.EntityIdKey
+					}
+					if embeddedSchema.UISchema.EntityDescriptionKey != nil && schema.UISchema.EntityDescriptionKey == nil {
+						schema.UISchema.EntityDescriptionKey = embeddedSchema.UISchema.EntityDescriptionKey
+					}
+				}
 			}
 			continue
 		}
@@ -188,6 +199,17 @@ func buildExpandedSchema(t reflect.Type, visited map[string]bool) Schema {
 		}
 		if name == "-" {
 			continue
+		}
+
+		// Check for root-level UI schema decorators
+		if uiSchemaTag := field.Tag.Get("ui-schema"); uiSchemaTag != "" {
+			uiProps := parseSchemaTag(uiSchemaTag)
+			if val, ok := uiProps["entityIdKey"]; ok && val == "true" {
+				schema.UISchema.EntityIdKey = &name
+			}
+			if val, ok := uiProps["entityDescriptionKey"]; ok && val == "true" {
+				schema.UISchema.EntityDescriptionKey = &name
+			}
 		}
 
 		// add field to order
@@ -377,6 +399,8 @@ func applyUISchemaDecorators(s *Schema, props map[string]string) {
 				trueValue := true
 				s.UISchema.Hidden = &trueValue
 			}
+			// Note: entityIdKey and entityDescriptionKey are handled at root schema level,
+			// not at field level, so they are intentionally not processed here
 		}
 	}
 }

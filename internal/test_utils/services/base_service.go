@@ -52,9 +52,8 @@ func NewBaseServiceService() sdk.EndorBaseServiceInterface {
 			),
 			"public-action": sdk.NewConfigurableAction(
 				sdk.EndorServiceActionOptions{
-					Description:     "Public Action",
-					Public:          true,
-					ValidatePayload: true,
+					Description: "Public Action",
+					Public:      true,
 				},
 				baseService.publicAction,
 			),
