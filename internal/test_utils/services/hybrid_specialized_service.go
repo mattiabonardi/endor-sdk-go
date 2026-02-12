@@ -15,10 +15,6 @@ func (h HybridSpecializedModel) GetID() string {
 	return h.ID
 }
 
-func (h *HybridSpecializedModel) SetID(id string) {
-	h.ID = id
-}
-
 func (h HybridSpecializedModel) GetCategoryType() string {
 	return h.Type
 }

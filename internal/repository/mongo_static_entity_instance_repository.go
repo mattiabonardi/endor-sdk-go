@@ -57,8 +57,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
 	}
 
-	// Imposta l'ID string nel modello (già convertito da BSON)
-	result.SetID(dto.Id)
+	// BSON unmarshal automatically sets the ID field via bson:"_id" tag
 
 	return result, nil
 }
@@ -86,15 +85,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode entities: %w", err))
 	}
 
-	// Imposta gli ID per ogni risultato
-	for i := range results {
-		if *r.options.AutoGenerateID {
-			// L'ID sarà già presente come ObjectID, ma dobbiamo convertirlo in stringa per SetID
-			if idPtr := results[i].GetID(); idPtr != "" {
-				results[i].SetID(idPtr)
-			}
-		}
-	}
+	// BSON unmarshal automatically sets ID fields via bson:"_id" tags
 
 	return results, nil
 }
@@ -102,11 +93,11 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[T]) (T, error) {
 	var zero T
 	idPtr := dto.Data.GetID()
+	var idStr string
 
 	if *r.options.AutoGenerateID {
 		oid := primitive.NewObjectID()
-		idStr := oid.Hex()
-		dto.Data.SetID(idStr)
+		idStr = oid.Hex()
 
 		// Serializza la struct e imposta l'_id come ObjectID
 		docBytes, err := bson.Marshal(dto.Data)
@@ -117,7 +108,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		if err := bson.Unmarshal(docBytes, &doc); err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
 		}
-		doc["_id"] = oid // Sostituisci l'ID stringa con ObjectID
+		doc["_id"] = oid // Set _id as ObjectID in the document
 
 		_, err = r.collection.InsertOne(ctx, doc)
 		if err != nil {
@@ -130,6 +121,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		if idPtr == "" {
 			return zero, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
 		}
+		idStr = idPtr
 
 		// Verifica che l'ID non esista già
 		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idPtr})
@@ -151,7 +143,9 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		}
 	}
 
-	return dto.Data, nil
+	// Read back the created instance to ensure proper deserialization
+	// This eliminates the need for SetID and ensures consistency
+	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {

@@ -15,10 +15,6 @@ func (h *BaseSpecializedModel) GetID() string {
 	return h.ID
 }
 
-func (h *BaseSpecializedModel) SetID(id string) {
-	h.ID = id
-}
-
 func (h BaseSpecializedModel) GetCategoryType() string {
 	return h.Type
 }

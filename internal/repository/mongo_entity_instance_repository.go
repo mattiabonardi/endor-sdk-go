@@ -119,7 +119,8 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 
 	if r.autoGenerateID {
 		idStr = r.idConverter.GenerateNewID()
-		dto.Data.This.SetID(idStr)
+		// Note: We'll set the ID in the document during ToDocument conversion
+		// and then read back the created instance to get the properly deserialized model
 	} else {
 		if idPtr == "" {
 			return nil, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
@@ -142,6 +143,15 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 		return nil, sdk.NewInternalServerError(err)
 	}
 
+	// If auto-generating ID, we need to set it in the document
+	if r.autoGenerateID {
+		storageID, err := r.idConverter.ToStorageID(idStr)
+		if err != nil {
+			return nil, sdk.NewBadRequestError(err)
+		}
+		doc["_id"] = storageID
+	}
+
 	_, err = r.getCollection().InsertOne(ctx, doc)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
@@ -150,7 +160,9 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
 	}
 
-	return &dto.Data, nil
+	// Read back the created instance to ensure proper deserialization
+	// This eliminates the need for SetID and ensures consistency
+	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 
 func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {

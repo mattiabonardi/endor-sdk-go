@@ -14,10 +14,6 @@ func (h HybridServiceModel) GetID() string {
 	return h.ID
 }
 
-func (h *HybridServiceModel) SetID(id string) {
-	h.ID = id
-}
-
 type HybridServiceModelAction1Payload struct {
 	Name string `json:"name"`
 	Age  int    `json:"age"`

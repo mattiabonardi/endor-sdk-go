@@ -14,10 +14,6 @@ func (h BaseServiceModel) GetID() string {
 	return h.ID
 }
 
-func (h *BaseServiceModel) SetID(id string) {
-	h.ID = id
-}
-
 type BaseServiceAction1Payload struct {
 	Name string `json:"name"`
 	Age  int    `json:"age"`

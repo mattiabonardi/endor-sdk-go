@@ -19,10 +19,6 @@ func (t *TestEntity) GetID() string {
 	return t.ID
 }
 
-func (t *TestEntity) SetID(id string) {
-	t.ID = id
-}
-
 // Test Specialized Model for category-specific fields
 type TestSpecializedEntity struct {
 	ID   string `bson:"_id,omitempty" json:"id,omitempty"`
@@ -35,10 +31,6 @@ func (t *TestSpecializedEntity) GetID() string {
 	return t.ID
 }
 
-func (t *TestSpecializedEntity) SetID(id string) {
-	t.ID = id
-}
-
 // Test Model with embedded struct (inline)
 type TestBaseModel struct {
 	ID   string `bson:"_id,omitempty" json:"id,omitempty"`
@@ -49,10 +41,6 @@ func (t *TestBaseModel) GetID() string {
 	return t.ID
 }
 
-func (t *TestBaseModel) SetID(id string) {
-	t.ID = id
-}
-
 type TestEmbeddedEntity struct {
 	TestBaseModel `bson:",inline" json:",inline"`
 	Age           int32  `bson:"age" json:"age"`
@@ -61,10 +49,6 @@ type TestEmbeddedEntity struct {
 
 func (t *TestEmbeddedEntity) GetID() string {
 	return t.TestBaseModel.ID
-}
-
-func (t *TestEmbeddedEntity) SetID(id string) {
-	t.TestBaseModel.ID = id
 }
 
 func (t *TestSpecializedEntity) GetCategoryType() string {
@@ -330,10 +314,6 @@ type TestBaseWithStringID struct {
 
 func (t *TestBaseWithStringID) GetID() string {
 	return t.ID
-}
-
-func (t *TestBaseWithStringID) SetID(id string) {
-	t.ID = id
 }
 
 type TestExtendedWithStringID struct {

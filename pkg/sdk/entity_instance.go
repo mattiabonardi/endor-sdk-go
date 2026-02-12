@@ -7,7 +7,6 @@ import (
 
 type EntityInstanceInterface interface {
 	GetID() string
-	SetID(id string)
 }
 
 type EntityInstanceSpecializedInterface interface {
@@ -118,10 +117,6 @@ func (d *EntityInstance[T]) UnmarshalJSON(data []byte) error {
 
 func (d *EntityInstance[T]) GetID() string {
 	return d.This.GetID()
-}
-
-func (d *EntityInstance[T]) SetID(id string) {
-	d.This.SetID(id)
 }
 
 // PartialEntityInstance represents a partial update to an EntityInstance

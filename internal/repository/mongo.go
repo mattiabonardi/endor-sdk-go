@@ -99,8 +99,7 @@ func (c *StringIDConverter) GenerateNewID() string {
 //   - The _id field is preserved during ToModel conversion to support embedded structs
 //     that have bson:"_id" tags, ensuring all fields in the embedded struct are properly
 //     unmarshaled
-//   - The ID is then explicitly set via SetID() to ensure consistency regardless of
-//     the struct's BSON tags
+//   - The ID is automatically set by BSON unmarshal based on the struct's bson:"_id" tag
 //   - All other fields from embedded structs (with bson:",inline") are correctly
 //     preserved during the conversion process
 type DocumentConverter[T sdk.EntityInstanceInterface] struct{}
@@ -121,12 +120,12 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 	var model T
 
 	// Create a clean copy excluding metadata for unmarshaling
-	// We keep _id in the copy so it can be unmarshaled into embedded structs if needed,
-	// but we'll explicitly set it afterwards via SetID() to ensure consistency
+	// We keep _id in the copy so it can be unmarshaled into embedded structs if needed
 	docCopy := cloneBsonM(raw)
 	delete(docCopy, "metadata")
 
-	// First, unmarshal with _id present (for embedded structs that might have bson:"_id")
+	// Unmarshal the document - BSON will automatically populate the _id field
+	// based on the struct's bson tags (e.g., bson:"_id")
 	entityBytes, err := bson.Marshal(docCopy)
 	if err != nil {
 		return model, fmt.Errorf("failed to marshal raw entity: %w", err)
@@ -136,15 +135,8 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 		return model, fmt.Errorf("failed to unmarshal to model: %w", err)
 	}
 
-	// Always explicitly set ID via SetID() to ensure it's properly set
-	// regardless of whether the model struct has bson:"_id" tag or not
-	if rawID, ok := raw["_id"]; ok {
-		idStr, err := idConverter.FromStorageID(rawID)
-		if err != nil {
-			return model, err
-		}
-		model.SetID(idStr)
-	}
+	// The ID is automatically set by BSON unmarshal into the struct field
+	// tagged with bson:"_id". No need for explicit SetID() call.
 
 	return model, nil
 }
