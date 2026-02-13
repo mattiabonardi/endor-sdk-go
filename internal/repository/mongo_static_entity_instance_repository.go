@@ -34,7 +34,6 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entit
 
 func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	var zero T
-	var result T
 
 	// Preparazione del filtro
 	var filter bson.M
@@ -48,7 +47,8 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 		filter = bson.M{"_id": dto.Id}
 	}
 
-	// Esegui la query e fai decode diretto nella struct T
+	// Decode directly into the model - ObjectID fields are automatically converted via UnmarshalBSONValue
+	var result T
 	err := r.collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -56,8 +56,6 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 		}
 		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
 	}
-
-	// BSON unmarshal automatically sets the ID field via bson:"_id" tag
 
 	return result, nil
 }
@@ -80,12 +78,11 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 	}
 	defer cursor.Close(ctx)
 
+	// Decode directly into models - ObjectID fields are automatically converted via UnmarshalBSONValue
 	var results []T
 	if err := cursor.All(ctx, &results); err != nil {
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode entities: %w", err))
 	}
-
-	// BSON unmarshal automatically sets ID fields via bson:"_id" tags
 
 	return results, nil
 }
@@ -99,7 +96,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		oid := primitive.NewObjectID()
 		idStr = oid.Hex()
 
-		// Serializza la struct e imposta l'_id come ObjectID
+		// Serializza la struct - ObjectID fields are automatically converted via MarshalBSONValue
 		docBytes, err := bson.Marshal(dto.Data)
 		if err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
@@ -108,6 +105,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		if err := bson.Unmarshal(docBytes, &doc); err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
 		}
+
 		doc["_id"] = oid // Set _id as ObjectID in the document
 
 		_, err = r.collection.InsertOne(ctx, doc)
@@ -118,23 +116,33 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
 		}
 	} else {
-		if idPtr == "" {
+		if isIDEmpty(idPtr) {
 			return zero, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
 		}
-		idStr = idPtr
+		idStr = idToString(idPtr)
 
 		// Verifica che l'ID non esista già
-		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idPtr})
+		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 		if err == nil {
-			return zero, sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idPtr))
+			return zero, sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idStr))
 		}
 		var endorErr *sdk.EndorError
 		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
 			return zero, err
 		}
 
-		// Per ID manuali, inserisci direttamente la struct (l'ID rimane stringa)
-		_, err = r.collection.InsertOne(ctx, dto.Data)
+		// Serializza la struct - ObjectID fields are automatically converted via MarshalBSONValue
+		docBytes, err := bson.Marshal(dto.Data)
+		if err != nil {
+			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
+		}
+		var doc bson.M
+		if err := bson.Unmarshal(docBytes, &doc); err != nil {
+			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
+		}
+
+		// Insert the document
+		_, err = r.collection.InsertOne(ctx, doc)
 		if err != nil {
 			if mongo.IsDuplicateKeyError(err) {
 				return zero, sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
@@ -143,8 +151,6 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		}
 	}
 
-	// Read back the created instance to ensure proper deserialization
-	// This eliminates the need for SetID and ensures consistency
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 

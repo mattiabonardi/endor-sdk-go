@@ -118,14 +118,15 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 	var idStr string
 
 	if r.autoGenerateID {
-		idStr = r.idConverter.GenerateNewID()
+		generatedID := r.idConverter.GenerateNewID()
+		idStr = idToString(generatedID)
 		// Note: We'll set the ID in the document during ToDocument conversion
 		// and then read back the created instance to get the properly deserialized model
 	} else {
-		if idPtr == "" {
+		if isIDEmpty(idPtr) {
 			return nil, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
 		}
-		idStr = idPtr
+		idStr = idToString(idPtr)
 
 		// Check if exists
 		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
@@ -160,8 +161,6 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
 	}
 
-	// Read back the created instance to ensure proper deserialization
-	// This eliminates the need for SetID and ensures consistency
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 

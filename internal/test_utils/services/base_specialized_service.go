@@ -11,7 +11,7 @@ type BaseSpecializedModel struct {
 	Attribute string `json:"attribute" bson:"attribute"`
 }
 
-func (h *BaseSpecializedModel) GetID() string {
+func (h *BaseSpecializedModel) GetID() any {
 	return h.ID
 }
 

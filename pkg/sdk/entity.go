@@ -44,8 +44,7 @@ func (c *DynamicCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 }
 
 type EntityInterface interface {
-	GetID() string
-	SetID(id string)
+	GetID() any
 	GetCategoryType() string
 	SetCategoryType(entityType string)
 	GetService() string
@@ -73,12 +72,8 @@ type Entity struct {
 	Schema      string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`
 }
 
-func (h *Entity) GetID() string {
+func (h *Entity) GetID() any {
 	return h.ID
-}
-
-func (h *Entity) SetID(id string) {
-	h.ID = id
 }
 
 func (h *Entity) GetCategoryType() string {
@@ -153,24 +148,16 @@ type EntityAction struct {
 	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
 }
 
-func (h *EntityAction) GetID() string {
+func (h *EntityAction) GetID() any {
 	return h.ID
-}
-
-func (h *EntityAction) SetID(id string) {
-	h.ID = id
 }
 
 type DynamicEntity struct {
 	Id string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
 }
 
-func (h *DynamicEntity) GetID() string {
+func (h *DynamicEntity) GetID() any {
 	return h.Id
-}
-
-func (h *DynamicEntity) SetID(id string) {
-	h.Id = id
 }
 
 type DynamicEntitySpecialized struct {
@@ -178,12 +165,8 @@ type DynamicEntitySpecialized struct {
 	Type string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
 }
 
-func (h *DynamicEntitySpecialized) GetID() string {
+func (h *DynamicEntitySpecialized) GetID() any {
 	return h.Id
-}
-
-func (h *DynamicEntitySpecialized) SetID(id string) {
-	h.Id = id
 }
 
 func (h *DynamicEntitySpecialized) GetCategoryType() string {

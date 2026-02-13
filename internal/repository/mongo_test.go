@@ -3,6 +3,7 @@ package repository
 import (
 	"testing"
 
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,7 +16,7 @@ type TestEntity struct {
 	Age  int32  `bson:"age" json:"age"`
 }
 
-func (t *TestEntity) GetID() string {
+func (t *TestEntity) GetID() any {
 	return t.ID
 }
 
@@ -27,7 +28,7 @@ type TestSpecializedEntity struct {
 	Type string `bson:"categoryType,omitempty" json:"categoryType,omitempty"`
 }
 
-func (t *TestSpecializedEntity) GetID() string {
+func (t *TestSpecializedEntity) GetID() any {
 	return t.ID
 }
 
@@ -37,7 +38,7 @@ type TestBaseModel struct {
 	Name string `bson:"name" json:"name"`
 }
 
-func (t *TestBaseModel) GetID() string {
+func (t *TestBaseModel) GetID() any {
 	return t.ID
 }
 
@@ -47,7 +48,7 @@ type TestEmbeddedEntity struct {
 	Email         string `bson:"email" json:"email"`
 }
 
-func (t *TestEmbeddedEntity) GetID() string {
+func (t *TestEmbeddedEntity) GetID() any {
 	return t.TestBaseModel.ID
 }
 
@@ -86,7 +87,9 @@ func TestObjectIDConverter_GenerateNewID(t *testing.T) {
 	converter := &ObjectIDConverter{}
 	id := converter.GenerateNewID()
 	assert.NotEmpty(t, id)
-	assert.Equal(t, 24, len(id))
+	idStr, ok := id.(string)
+	assert.True(t, ok, "Generated ID should be a string")
+	assert.Equal(t, 24, len(idStr))
 }
 
 // Tests for StringIDConverter
@@ -312,7 +315,7 @@ type TestBaseWithStringID struct {
 	Attribute string `bson:"attribute" json:"attribute"`
 }
 
-func (t *TestBaseWithStringID) GetID() string {
+func (t *TestBaseWithStringID) GetID() any {
 	return t.ID
 }
 
@@ -442,4 +445,247 @@ func TestDocumentConverter_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.Type, reconstructed.Type)
 	assert.Equal(t, original.Attribute, reconstructed.Attribute, "Attribute from embedded struct must be preserved")
 	assert.Equal(t, original.ExtraField, reconstructed.ExtraField)
+}
+
+// TestModelWithObjectID demonstrates using ObjectID in entity models
+type TestModelWithObjectID struct {
+	ID         sdk.ObjectID `bson:"_id" json:"id"`
+	SupplierID sdk.ObjectID `bson:"supplierId" json:"supplierId"`
+	ProductID  sdk.ObjectID `bson:"productId" json:"productId"`
+	Name       string       `bson:"name" json:"name"`
+	Quantity   int          `bson:"quantity" json:"quantity"`
+}
+
+func (t *TestModelWithObjectID) GetID() any {
+	return t.ID
+}
+
+// TestObjectIDFieldDetection verifies that ObjectID fields are correctly identified
+func TestObjectIDFieldDetection(t *testing.T) {
+	fields := getObjectIDFields[*TestModelWithObjectID]()
+
+	// Should identify all ObjectID fields
+	assert.Contains(t, fields, "_id", "Should detect _id as ObjectID field")
+	assert.Contains(t, fields, "supplierId", "Should detect supplierId as ObjectID field")
+	assert.Contains(t, fields, "productId", "Should detect productID as ObjectID field")
+
+	// Should not include non-ObjectID fields
+	assert.NotContains(t, fields, "name", "Should not detect name as ObjectID field")
+	assert.NotContains(t, fields, "quantity", "Should not detect quantity as ObjectID field")
+
+	// Should have exactly 3 ObjectID fields
+	assert.Equal(t, 3, len(fields), "Should detect exactly 3 ObjectID fields")
+}
+
+// TestConvertObjectIDsToStorage verifies conversion from ObjectID to primitive.ObjectID
+func TestConvertObjectIDsToStorage(t *testing.T) {
+	oid1 := primitive.NewObjectID()
+	oid2 := primitive.NewObjectID()
+	oid3 := primitive.NewObjectID()
+
+	doc := bson.M{
+		"_id":        oid1.Hex(),
+		"supplierId": oid2.Hex(),
+		"productId":  oid3.Hex(),
+		"name":       "Test Product",
+		"quantity":   10,
+	}
+
+	fields := map[string]struct{}{
+		"_id":        {},
+		"supplierId": {},
+		"productId":  {},
+	}
+
+	err := convertObjectIDsToStorage(doc, fields)
+	assert.NoError(t, err, "Should convert without error")
+
+	// Verify conversion to primitive.ObjectID
+	assert.IsType(t, primitive.ObjectID{}, doc["_id"], "_id should be primitive.ObjectID")
+	assert.IsType(t, primitive.ObjectID{}, doc["supplierId"], "supplierId should be primitive.ObjectID")
+	assert.IsType(t, primitive.ObjectID{}, doc["productId"], "productId should be primitive.ObjectID")
+
+	// Verify correct ObjectID values
+	assert.Equal(t, oid1, doc["_id"], "_id should match original")
+	assert.Equal(t, oid2, doc["supplierId"], "supplierId should match original")
+	assert.Equal(t, oid3, doc["productId"], "productId should match original")
+
+	// Verify non-ObjectID fields unchanged
+	assert.Equal(t, "Test Product", doc["name"], "name should remain unchanged")
+	assert.Equal(t, 10, doc["quantity"], "quantity should remain unchanged")
+}
+
+// TestConvertObjectIDsFromStorage verifies conversion from primitive.ObjectID to string
+func TestConvertObjectIDsFromStorage(t *testing.T) {
+	oid1 := primitive.NewObjectID()
+	oid2 := primitive.NewObjectID()
+	oid3 := primitive.NewObjectID()
+
+	doc := bson.M{
+		"_id":        oid1,
+		"supplierId": oid2,
+		"productId":  oid3,
+		"name":       "Test Product",
+		"quantity":   10,
+	}
+
+	fields := map[string]struct{}{
+		"_id":        {},
+		"supplierId": {},
+		"productId":  {},
+	}
+
+	convertObjectIDsFromStorage(doc, fields)
+
+	// Verify conversion to string
+	assert.IsType(t, "", doc["_id"], "_id should be string")
+	assert.IsType(t, "", doc["supplierId"], "supplierId should be string")
+	assert.IsType(t, "", doc["productId"], "productId should be string")
+
+	// Verify correct hex values
+	assert.Equal(t, oid1.Hex(), doc["_id"], "_id should match hex representation")
+	assert.Equal(t, oid2.Hex(), doc["supplierId"], "supplierId should match hex representation")
+	assert.Equal(t, oid3.Hex(), doc["productId"], "productId should match hex representation")
+
+	// Verify non-ObjectID fields unchanged
+	assert.Equal(t, "Test Product", doc["name"], "name should remain unchanged")
+	assert.Equal(t, 10, doc["quantity"], "quantity should remain unchanged")
+}
+
+// TestDocumentConverterWithObjectID verifies full round-trip conversion
+func TestDocumentConverterWithObjectID(t *testing.T) {
+	converter := &DocumentConverter[*TestModelWithObjectID]{}
+	idConverter := &ObjectIDConverter{}
+
+	// Create test model
+	originalModel := &TestModelWithObjectID{
+		ID:         sdk.GenerateObjectID(),
+		SupplierID: sdk.GenerateObjectID(),
+		ProductID:  sdk.GenerateObjectID(),
+		Name:       "Test Widget",
+		Quantity:   42,
+	}
+
+	// Convert to document
+	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	assert.NoError(t, err, "ToDocument should not error")
+
+	// Verify ObjectID fields are primitive.ObjectID in document
+	assert.IsType(t, primitive.ObjectID{}, doc["_id"], "_id should be primitive.ObjectID in document")
+	assert.IsType(t, primitive.ObjectID{}, doc["supplierId"], "supplierId should be primitive.ObjectID in document")
+	assert.IsType(t, primitive.ObjectID{}, doc["productId"], "productId should be primitive.ObjectID in document")
+
+	// Convert back to model
+	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	assert.NoError(t, err, "ToModel should not error")
+
+	// Verify all fields match
+	assert.Equal(t, originalModel.ID, reconstructedModel.ID, "ID should match")
+	assert.Equal(t, originalModel.SupplierID, reconstructedModel.SupplierID, "SupplierID should match")
+	assert.Equal(t, originalModel.ProductID, reconstructedModel.ProductID, "ProductID should match")
+	assert.Equal(t, originalModel.Name, reconstructedModel.Name, "Name should match")
+	assert.Equal(t, originalModel.Quantity, reconstructedModel.Quantity, "Quantity should match")
+}
+
+// TestObjectIDWithEmbeddedStructs verifies ObjectID works with embedded structs
+type TestBaseModelWithObjectID struct {
+	ID   sdk.ObjectID `bson:"_id" json:"id"`
+	Name string       `bson:"name" json:"name"`
+}
+
+func (t *TestBaseModelWithObjectID) GetID() any {
+	return t.ID
+}
+
+type TestExtendedModelWithObjectID struct {
+	TestBaseModelWithObjectID `bson:",inline" json:",inline"`
+	CategoryID                sdk.ObjectID `bson:"categoryId" json:"categoryId"`
+	Price                     float64      `bson:"price" json:"price"`
+}
+
+func TestObjectIDWithEmbeddedStructs(t *testing.T) {
+	fields := getObjectIDFields[*TestExtendedModelWithObjectID]()
+
+	// Should identify ObjectID fields from both base and extended structs
+	assert.Contains(t, fields, "_id", "Should detect _id from embedded struct")
+	assert.Contains(t, fields, "categoryId", "Should detect categoryId from extended struct")
+	assert.Equal(t, 2, len(fields), "Should detect exactly 2 ObjectID fields")
+
+	// Test round-trip conversion
+	converter := &DocumentConverter[*TestExtendedModelWithObjectID]{}
+	idConverter := &ObjectIDConverter{}
+
+	originalModel := &TestExtendedModelWithObjectID{
+		TestBaseModelWithObjectID: TestBaseModelWithObjectID{
+			ID:   sdk.GenerateObjectID(),
+			Name: "Base Product",
+		},
+		CategoryID: sdk.GenerateObjectID(),
+		Price:      99.99,
+	}
+
+	// Convert to document
+	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	assert.NoError(t, err)
+
+	// Convert back to model
+	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	assert.NoError(t, err)
+
+	// Verify all fields match
+	assert.Equal(t, originalModel.ID, reconstructedModel.ID)
+	assert.Equal(t, originalModel.Name, reconstructedModel.Name)
+	assert.Equal(t, originalModel.CategoryID, reconstructedModel.CategoryID)
+	assert.Equal(t, originalModel.Price, reconstructedModel.Price)
+}
+
+// TestMixedIDTypes verifies handling of both ObjectID and string fields
+type TestMixedIDModel struct {
+	ID       sdk.ObjectID `bson:"_id" json:"id"`
+	RefID    sdk.ObjectID `bson:"refId" json:"refId"`
+	LegacyID string       `bson:"legacyId" json:"legacyId"`
+	Name     string       `bson:"name" json:"name"`
+}
+
+func (t *TestMixedIDModel) GetID() any {
+	return t.ID
+}
+
+func TestMixedIDTypes(t *testing.T) {
+	fields := getObjectIDFields[*TestMixedIDModel]()
+
+	// Should only identify ObjectID fields, not string fields
+	assert.Contains(t, fields, "_id")
+	assert.Contains(t, fields, "refId")
+	assert.NotContains(t, fields, "legacyId", "String field should not be detected as ObjectID")
+	assert.NotContains(t, fields, "name")
+	assert.Equal(t, 2, len(fields))
+
+	// Test conversion
+	converter := &DocumentConverter[*TestMixedIDModel]{}
+	idConverter := &ObjectIDConverter{}
+
+	originalModel := &TestMixedIDModel{
+		ID:       sdk.GenerateObjectID(),
+		RefID:    sdk.GenerateObjectID(),
+		LegacyID: "legacy-string-id-123",
+		Name:     "Mixed Model",
+	}
+
+	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	assert.NoError(t, err)
+
+	// Verify ObjectID fields are primitive.ObjectID
+	assert.IsType(t, primitive.ObjectID{}, doc["_id"])
+	assert.IsType(t, primitive.ObjectID{}, doc["refId"])
+
+	// Verify string fields remain strings
+	assert.IsType(t, "", doc["legacyId"])
+	assert.Equal(t, "legacy-string-id-123", doc["legacyId"])
+	assert.Equal(t, "Mixed Model", doc["name"])
+
+	// Round-trip
+	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	assert.NoError(t, err)
+	assert.Equal(t, originalModel.LegacyID, reconstructedModel.LegacyID)
 }

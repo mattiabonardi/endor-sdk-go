@@ -11,7 +11,7 @@ type HybridSpecializedModel struct {
 	Attribute string `json:"attribute" bson:"attribute"`
 }
 
-func (h HybridSpecializedModel) GetID() string {
+func (h HybridSpecializedModel) GetID() any {
 	return h.ID
 }
 

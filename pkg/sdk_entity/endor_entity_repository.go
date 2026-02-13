@@ -16,6 +16,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// idToString converts an ID of any type (string, ObjectID) to a string
+// This helper is used to handle GetID() which now returns any
+func idToString(id any) string {
+	if id == nil {
+		return ""
+	}
+	switch v := id.(type) {
+	case string:
+		return v
+	case sdk.ObjectID:
+		return v.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 // COLLECTION_ENTITIES is the MongoDB collection name for entities
 const COLLECTION_ENTITIES = "entities"
 
@@ -193,7 +209,8 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 		for _, entity := range dynamicEntities {
 			// check if service is already defined
 			// search service
-			if v, ok := entities[entity.GetID()]; ok {
+			entityID := idToString(entity.GetID())
+			if v, ok := entities[entityID]; ok {
 				// check entity hybrid
 				if entityHybrid, ok := entity.(*sdk.EntityHybrid); ok {
 					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
@@ -206,7 +223,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						if originalEntity, ok := v.entity.(*sdk.EntityHybrid); ok {
 							originalEntity.AdditionalSchema = entityHybrid.AdditionalSchema
 						}
-						entities[entity.GetID()] = v
+						entities[entityID] = v
 					}
 				}
 
@@ -233,7 +250,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 							originalEntity.AdditionalCategories = entitySpecialized.AdditionalCategories
 							originalEntity.AdditionalSchema = entitySpecialized.AdditionalSchema
 						}
-						entities[entity.GetID()] = v
+						entities[entityID] = v
 					}
 				}
 			} else {
@@ -467,7 +484,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 		dto.Data.SetCategoryType(string(*entityType))
 		dto.Data.SetService(h.microServiceId)
 		_, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
-			Id: dto.Data.GetID(),
+			Id: idToString(dto.Data.GetID()),
 		})
 		var endorError *sdk.EndorError
 		if errors.As(err, &endorError) && endorError.StatusCode == 404 {

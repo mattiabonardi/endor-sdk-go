@@ -6,7 +6,7 @@ import (
 )
 
 type EntityInstanceInterface interface {
-	GetID() string
+	GetID() any
 }
 
 type EntityInstanceSpecializedInterface interface {
@@ -115,7 +115,7 @@ func (d *EntityInstance[T]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (d *EntityInstance[T]) GetID() string {
+func (d *EntityInstance[T]) GetID() any {
 	return d.This.GetID()
 }
 

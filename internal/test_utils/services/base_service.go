@@ -10,7 +10,7 @@ type BaseServiceModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h BaseServiceModel) GetID() string {
+func (h BaseServiceModel) GetID() any {
 	return h.ID
 }
 
