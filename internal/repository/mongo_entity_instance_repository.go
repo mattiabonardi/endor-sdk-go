@@ -14,7 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// MongoEntityInstanceRepository with dependency injection
 type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	collectionName string
 	idConverter    IDConverter
@@ -22,13 +21,15 @@ type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	autoGenerateID bool
 }
 
-// NewMongoEntityInstanceRepository creates repository with injected dependencies
 func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	collectionName string,
 	options sdk.EntityInstanceRepositoryOptions,
 ) *MongoEntityInstanceRepository[T] {
+	// Detect ID type from the model structure
+	idType := detectIDType[T]()
+
 	var idConverter IDConverter
-	if *options.AutoGenerateID {
+	if idType == "objectid" {
 		idConverter = &ObjectIDConverter{}
 	} else {
 		idConverter = &StringIDConverter{}
@@ -80,6 +81,12 @@ func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.Rea
 		return nil, err
 	}
 
+	// Convert ObjectID fields in filter to primitive.ObjectID
+	objectIDFields := getObjectIDFields[T]()
+	if err := convertObjectIDsToStorage(mongoFilter, objectIDFields); err != nil {
+		return nil, sdk.NewBadRequestError(err)
+	}
+
 	opts := options.Find().SetProjection(prepareProjection[T](dto.Projection))
 	cursor, err := r.getCollection().Find(ctx, mongoFilter, opts)
 	if err != nil {
@@ -120,8 +127,6 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 	if r.autoGenerateID {
 		generatedID := r.idConverter.GenerateNewID()
 		idStr = idToString(generatedID)
-		// Note: We'll set the ID in the document during ToDocument conversion
-		// and then read back the created instance to get the properly deserialized model
 	} else {
 		if isIDEmpty(idPtr) {
 			return nil, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
@@ -215,6 +220,12 @@ func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.U
 	// If no fields to update, return error
 	if len(setDoc) == 0 {
 		return nil, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
+	}
+
+	// Convert ObjectID fields to primitive.ObjectID for storage
+	objectIDFields := getObjectIDFields[T]()
+	if err := convertObjectIDsToStorage(setDoc, objectIDFields); err != nil {
+		return nil, sdk.NewBadRequestError(err)
 	}
 
 	// Perform the update with $set

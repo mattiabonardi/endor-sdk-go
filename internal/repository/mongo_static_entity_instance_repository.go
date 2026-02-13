@@ -16,28 +16,46 @@ import (
 // MongoStaticEntityInstanceRepository provides MongoDB implementation for StaticEntityInstanceRepositoryInterface.
 // This implementation works directly with the model type T without the EntityInstance[T] wrapper,
 // offering a simpler interface for cases where metadata functionality is not required.
+//
+// ObjectID Handling Strategy:
+// The ID storage type and all sdk.ObjectID fields are automatically handled:
+//
+//  1. Detection: detectIDType inspects the model's _id field type at initialization
+//  2. Storage: All sdk.ObjectID fields are stored as primitive.ObjectID in MongoDB
+//  3. Conversion: convertObjectIDsToStorage ensures proper conversion in filters and updates
+//  4. BSON Marshaling: sdk.ObjectID implements MarshalBSONValue/UnmarshalBSONValue for
+//     automatic conversion during struct serialization
+//
+// This provides transparent ObjectID handling across all repository operations.
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	collection *mongo.Collection
 	options    sdk.StaticEntityInstanceRepositoryOptions
+	idType     string // "string" or "objectid"
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new MongoDB-based static repository
+// The ID storage type is automatically detected from the model's ID field type
 func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions) *MongoStaticEntityInstanceRepository[T] {
 	client, _ := sdk.GetMongoClient()
 
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
+
+	// Detect ID type from the model structure
+	idType := detectIDType[T]()
+
 	return &MongoStaticEntityInstanceRepository[T]{
 		collection: collection,
 		options:    options,
+		idType:     idType,
 	}
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	var zero T
 
-	// Preparazione del filtro
+	// Prepare filter based on detected ID type
 	var filter bson.M
-	if *r.options.AutoGenerateID {
+	if r.idType == "objectid" {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
 			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
@@ -61,10 +79,19 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	// Usa filtro e projezione direttamente dai DTO (semplificati)
+	// Use filter and projection directly from DTO
 	mongoFilter := dto.Filter
 	if mongoFilter == nil {
 		mongoFilter = bson.M{}
+	} else {
+		// Clone the filter to avoid modifying the input
+		mongoFilter = cloneBsonM(mongoFilter)
+	}
+
+	// Convert ObjectID fields in filter to primitive.ObjectID
+	objectIDFields := getObjectIDFields[T]()
+	if err := convertObjectIDsToStorage(mongoFilter, objectIDFields); err != nil {
+		return nil, sdk.NewBadRequestError(err)
 	}
 
 	var opts *options.FindOptions
@@ -93,10 +120,11 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 	var idStr string
 
 	if *r.options.AutoGenerateID {
+		// Generate ID based on detected type
 		oid := primitive.NewObjectID()
 		idStr = oid.Hex()
 
-		// Serializza la struct - ObjectID fields are automatically converted via MarshalBSONValue
+		// Serialize the struct - ObjectID fields are automatically converted via MarshalBSONValue
 		docBytes, err := bson.Marshal(dto.Data)
 		if err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
@@ -106,7 +134,14 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
 		}
 
-		doc["_id"] = oid // Set _id as ObjectID in the document
+		// Set _id based on detected type
+		if r.idType == "objectid" {
+			// For ObjectID type, store as primitive.ObjectID
+			doc["_id"] = oid
+		} else {
+			// For string type, store as hex string
+			doc["_id"] = idStr
+		}
 
 		_, err = r.collection.InsertOne(ctx, doc)
 		if err != nil {
@@ -121,7 +156,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		}
 		idStr = idToString(idPtr)
 
-		// Verifica che l'ID non esista già
+		// Verify that the ID doesn't already exist
 		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 		if err == nil {
 			return zero, sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idStr))
@@ -131,7 +166,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 			return zero, err
 		}
 
-		// Serializza la struct - ObjectID fields are automatically converted via MarshalBSONValue
+		// Serialize the struct - ObjectID fields are automatically converted via MarshalBSONValue
 		docBytes, err := bson.Marshal(dto.Data)
 		if err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
@@ -139,6 +174,17 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 		var doc bson.M
 		if err := bson.Unmarshal(docBytes, &doc); err != nil {
 			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
+		}
+
+		// Set _id based on detected type and ensure all ObjectID fields are properly stored
+		if r.idType == "objectid" {
+			oid, err := primitive.ObjectIDFromHex(idStr)
+			if err != nil {
+				return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
+			}
+			doc["_id"] = oid
+		} else {
+			doc["_id"] = idStr
 		}
 
 		// Insert the document
@@ -155,15 +201,15 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
-	// Verifica che l'istanza esista
+	// Verify that the instance exists
 	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 	if err != nil {
 		return err
 	}
 
-	// Prepara il filtro
+	// Prepare filter based on detected ID type
 	var filter bson.M
-	if *r.options.AutoGenerateID {
+	if r.idType == "objectid" {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
 			return sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
@@ -173,7 +219,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto
 		filter = bson.M{"_id": dto.Id}
 	}
 
-	// Elimina il documento
+	// Delete the document
 	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
 		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity instance: %w", err))
@@ -195,9 +241,9 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 		return zero, err
 	}
 
-	// Prepare the filter
+	// Prepare filter based on detected ID type
 	var filter bson.M
-	if *r.options.AutoGenerateID {
+	if r.idType == "objectid" {
 		objectID, err := primitive.ObjectIDFromHex(dto.Id)
 		if err != nil {
 			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
@@ -212,8 +258,15 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 		return zero, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
 	}
 
+	// Clone update data to avoid modifying input and convert ObjectID fields
+	updateData := cloneBsonM(dto.Data)
+	objectIDFields := getObjectIDFields[T]()
+	if err := convertObjectIDsToStorage(updateData, objectIDFields); err != nil {
+		return zero, sdk.NewBadRequestError(err)
+	}
+
 	// Perform the update with $set
-	update := bson.M{"$set": dto.Data}
+	update := bson.M{"$set": updateData}
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))

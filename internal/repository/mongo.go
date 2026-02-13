@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"go.mongodb.org/mongo-driver/bson"
@@ -47,8 +48,8 @@ func isIDEmpty(id any) bool {
 	}
 }
 
-// helper shallow copy
-func cloneBsonM(src bson.M) bson.M {
+// cloneBsonM performs a shallow copy of a bson.M map
+func cloneBsonM(src map[string]interface{}) bson.M {
 	dst := make(bson.M, len(src))
 	for k, v := range src {
 		dst[k] = v
@@ -226,7 +227,53 @@ func (c *StringIDConverter) FromStorageID(storageID interface{}) (any, error) {
 }
 
 func (c *StringIDConverter) GenerateNewID() any {
-	return "" // No auto-generation for string IDs
+	// For string IDs, autogenerate using ObjectID hex representation
+	return primitive.NewObjectID().Hex()
+}
+
+// detectIDType uses reflection to determine if the model uses string or ObjectID for its ID
+// It inspects the struct field with bson:"_id" tag to determine the appropriate storage type
+func detectIDType[T sdk.EntityInstanceInterface]() string {
+	var zero T
+	t := reflect.TypeOf(zero)
+
+	if t == nil {
+		return "string" // default
+	}
+
+	// Handle pointer types
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	// For non-struct types, default to string
+	if t.Kind() != reflect.Struct {
+		return "string"
+	}
+
+	// Look for the _id field (BSON tag for MongoDB ID)
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		bsonTag := field.Tag.Get("bson")
+
+		// Check if this field is the _id field
+		if bsonTag == "_id" || strings.HasPrefix(bsonTag, "_id,") {
+			fieldType := field.Type
+			if fieldType.Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+
+			// Check if it's sdk.ObjectID
+			if fieldType.PkgPath() == "github.com/mattiabonardi/endor-sdk-go/pkg/sdk" &&
+				fieldType.Name() == "ObjectID" {
+				return "objectid"
+			}
+
+			return "string"
+		}
+	}
+
+	return "string" // default if _id field not found
 }
 
 // DocumentConverter handles BSON <-> Model conversions
