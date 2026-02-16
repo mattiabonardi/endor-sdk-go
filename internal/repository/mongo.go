@@ -14,15 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// IDConverter handles ID conversion logic
-type IDConverter interface {
-	ToFilter(id any) (bson.M, error)
-	ToStorageID(id any) (interface{}, error)
-	FromStorageID(storageID interface{}) (any, error)
-	GenerateNewID() any
-}
+// ============================================================================
+// SECTION 1: Utility Functions
+// ============================================================================
 
-// idToString converts an ID of any type (string, ObjectID) to a string
+// idToString converts an ID of any type (string, ObjectID) to a string representation.
 func idToString(id any) string {
 	if id == nil {
 		return ""
@@ -37,7 +33,7 @@ func idToString(id any) string {
 	}
 }
 
-// isIDEmpty checks if an ID is empty (nil, empty string, or empty ObjectID)
+// isIDEmpty checks if an ID is empty (nil, empty string, or empty ObjectID).
 func isIDEmpty(id any) bool {
 	if id == nil {
 		return true
@@ -52,7 +48,7 @@ func isIDEmpty(id any) bool {
 	}
 }
 
-// cloneBsonM performs a shallow copy of a bson.M map
+// cloneBsonM creates a shallow copy of a bson.M map.
 func cloneBsonM(src map[string]interface{}) bson.M {
 	dst := make(bson.M, len(src))
 	for k, v := range src {
@@ -61,190 +57,132 @@ func cloneBsonM(src map[string]interface{}) bson.M {
 	return dst
 }
 
-// getObjectIDFields returns a map of BSON field names that are of type sdk.ObjectID in the model
-// This uses reflection to analyze the struct tags and field types
-func getObjectIDFields[T any]() map[string]struct{} {
-	result := make(map[string]struct{})
-	var zero T
-	t := reflect.TypeOf(zero)
+// ============================================================================
+// SECTION 2: ID Strategy
+// ============================================================================
+// IDStrategy handles the conversion and generation of document _id fields.
+// MongoDB can store _id as either primitive.ObjectID or string.
+// This interface abstracts that choice, allowing repositories to work with
+// string IDs internally while storing them appropriately in MongoDB.
 
-	if t == nil {
-		return result
-	}
+// IDStrategy defines how _id values are handled in MongoDB.
+type IDStrategy interface {
+	// CreateFilter creates a MongoDB filter for finding documents by _id.
+	CreateFilter(id string) (bson.M, error)
 
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
+	// ToStorageFormat converts a string ID to MongoDB storage format.
+	ToStorageFormat(id string) (interface{}, error)
 
-	if t.Kind() != reflect.Struct {
-		return result
-	}
+	// FromStorageFormat converts a MongoDB _id back to string format.
+	FromStorageFormat(storageID interface{}) (string, error)
 
-	// Recursively collect ObjectID fields, including those from embedded structs
-	var collectObjectIDFields func(reflect.Type)
-	collectObjectIDFields = func(t reflect.Type) {
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-
-			// Check if this is an embedded/anonymous field with "inline" tag
-			bsonTag := field.Tag.Get("bson")
-			isInline := field.Anonymous || bsonTag == ",inline" ||
-				(len(bsonTag) >= 7 && bsonTag[len(bsonTag)-7:] == ",inline")
-
-			if isInline && field.Type.Kind() == reflect.Struct {
-				// Recursively collect fields from embedded struct
-				collectObjectIDFields(field.Type)
-			} else if isInline && field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
-				// Handle pointer to embedded struct
-				collectObjectIDFields(field.Type.Elem())
-			} else {
-				// Check if field is of type sdk.ObjectID
-				fieldType := field.Type
-				if fieldType.Kind() == reflect.Ptr {
-					fieldType = fieldType.Elem()
-				}
-
-				// Check if it's sdk.ObjectID type
-				if fieldType.PkgPath() == "github.com/mattiabonardi/endor-sdk-go/pkg/sdk" &&
-					fieldType.Name() == "ObjectID" {
-					// Extract BSON tag name
-					tagName := ""
-					if bsonTag != "" && bsonTag != "-" {
-						// Remove options like ",omitempty" from tag
-						for commaIdx := 0; commaIdx < len(bsonTag); commaIdx++ {
-							if bsonTag[commaIdx] == ',' {
-								tagName = bsonTag[:commaIdx]
-								break
-							}
-						}
-						if tagName == "" {
-							tagName = bsonTag
-						}
-					} else {
-						tagName = field.Name
-					}
-
-					if tagName != "" && tagName != "-" {
-						result[tagName] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-
-	collectObjectIDFields(t)
-	return result
+	// GenerateID creates a new unique ID.
+	GenerateID() interface{}
 }
 
-// convertObjectIDsToStorage converts sdk.ObjectID fields in a BSON document to primitive.ObjectID
-// This is called before storing data in MongoDB
-func convertObjectIDsToStorage(doc bson.M, objectIDFields map[string]struct{}) error {
-	for field := range objectIDFields {
-		if val, exists := doc[field]; exists && val != nil {
-			// Convert string to ObjectID
-			switch v := val.(type) {
-			case string:
-				if v != "" {
-					oid, err := primitive.ObjectIDFromHex(v)
-					if err != nil {
-						return fmt.Errorf("field %s: invalid ObjectID format: %w", field, err)
-					}
-					doc[field] = oid
-				}
-			case sdk.ObjectID:
-				if v != "" {
-					oid, err := primitive.ObjectIDFromHex(v.String())
-					if err != nil {
-						return fmt.Errorf("field %s: invalid ObjectID format: %w", field, err)
-					}
-					doc[field] = oid
-				}
-			}
-		}
-	}
-	return nil
-}
+// ObjectIDStrategy stores _id as primitive.ObjectID in MongoDB.
+// Use this when you want MongoDB's native ObjectID format.
+type ObjectIDStrategy struct{}
 
-// ObjectIDConverter for auto-generated MongoDB ObjectIDs
-type ObjectIDConverter struct{}
-
-func (c *ObjectIDConverter) ToFilter(id any) (bson.M, error) {
-	idStr := idToString(id)
-	objectID, err := primitive.ObjectIDFromHex(idStr)
+func (s *ObjectIDStrategy) CreateFilter(id string) (bson.M, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ObjectID format: %w", err)
 	}
-	return bson.M{"_id": objectID}, nil
+	return bson.M{"_id": oid}, nil
 }
 
-func (c *ObjectIDConverter) ToStorageID(id any) (interface{}, error) {
-	idStr := idToString(id)
-	return primitive.ObjectIDFromHex(idStr)
+func (s *ObjectIDStrategy) ToStorageFormat(id string) (interface{}, error) {
+	return primitive.ObjectIDFromHex(id)
 }
 
-func (c *ObjectIDConverter) FromStorageID(storageID interface{}) (any, error) {
+func (s *ObjectIDStrategy) FromStorageFormat(storageID interface{}) (string, error) {
 	oid, ok := storageID.(primitive.ObjectID)
 	if !ok {
-		return "", fmt.Errorf("invalid _id type in database")
+		return "", fmt.Errorf("expected primitive.ObjectID, got %T", storageID)
 	}
 	return oid.Hex(), nil
 }
 
-func (c *ObjectIDConverter) GenerateNewID() any {
+func (s *ObjectIDStrategy) GenerateID() interface{} {
 	return primitive.NewObjectID()
 }
 
-// StringIDConverter for custom string IDs
-type StringIDConverter struct{}
+// StringIDStrategy stores _id as string in MongoDB.
+// Use this when you need custom string-based IDs.
+type StringIDStrategy struct{}
 
-func (c *StringIDConverter) ToFilter(id any) (bson.M, error) {
-	idStr := idToString(id)
-	return bson.M{"_id": idStr}, nil
+func (s *StringIDStrategy) CreateFilter(id string) (bson.M, error) {
+	return bson.M{"_id": id}, nil
 }
 
-func (c *StringIDConverter) ToStorageID(id any) (interface{}, error) {
-	return idToString(id), nil
+func (s *StringIDStrategy) ToStorageFormat(id string) (interface{}, error) {
+	return id, nil
 }
 
-func (c *StringIDConverter) FromStorageID(storageID interface{}) (any, error) {
-	s, ok := storageID.(string)
+func (s *StringIDStrategy) FromStorageFormat(storageID interface{}) (string, error) {
+	str, ok := storageID.(string)
 	if !ok {
-		return "", fmt.Errorf("invalid _id type in database")
+		return "", fmt.Errorf("expected string, got %T", storageID)
 	}
-	return s, nil
+	return str, nil
 }
 
-func (c *StringIDConverter) GenerateNewID() any {
-	// For string IDs, autogenerate using ObjectID hex representation
+func (s *StringIDStrategy) GenerateID() interface{} {
+	// Generate a new ObjectID hex string for auto-generated string IDs
 	return primitive.NewObjectID().Hex()
 }
 
-// detectIDType uses reflection to determine if the model uses string or ObjectID for its ID
-// It inspects the struct field with bson:"_id" tag to determine the appropriate storage type
-func detectIDType[T sdk.EntityInstanceInterface]() string {
+// detectIDStrategy determines the appropriate IDStrategy for a model type.
+// It inspects the _id field's type: sdk.ObjectID uses ObjectIDStrategy,
+// everything else uses StringIDStrategy.
+// It recursively handles embedded structs with bson:",inline" tags.
+func detectIDStrategy[T sdk.EntityInstanceInterface]() IDStrategy {
 	var zero T
 	t := reflect.TypeOf(zero)
 
 	if t == nil {
-		return "string" // default
+		return &StringIDStrategy{}
 	}
-
-	// Handle pointer types
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-
-	// For non-struct types, default to string
 	if t.Kind() != reflect.Struct {
-		return "string"
+		return &StringIDStrategy{}
 	}
 
-	// Look for the _id field (BSON tag for MongoDB ID)
+	if strategy := findIDFieldStrategy(t); strategy != nil {
+		return strategy
+	}
+
+	return &StringIDStrategy{}
+}
+
+// findIDFieldStrategy recursively searches for the _id field in a struct type,
+// handling inline embedded structs. Returns nil if _id field is not found.
+func findIDFieldStrategy(t reflect.Type) IDStrategy {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		bsonTag := field.Tag.Get("bson")
 
-		// Check if this field is the _id field
+		// Handle embedded structs with inline tag
+		isInline := field.Anonymous || bsonTag == ",inline" ||
+			strings.HasSuffix(bsonTag, ",inline")
+
+		if isInline {
+			embeddedType := field.Type
+			if embeddedType.Kind() == reflect.Ptr {
+				embeddedType = embeddedType.Elem()
+			}
+			if embeddedType.Kind() == reflect.Struct {
+				if strategy := findIDFieldStrategy(embeddedType); strategy != nil {
+					return strategy
+				}
+			}
+			continue
+		}
+
+		// Check if this is the _id field
 		if bsonTag == "_id" || strings.HasPrefix(bsonTag, "_id,") {
 			fieldType := field.Type
 			if fieldType.Kind() == reflect.Ptr {
@@ -254,72 +192,274 @@ func detectIDType[T sdk.EntityInstanceInterface]() string {
 			// Check if it's sdk.ObjectID
 			if fieldType.PkgPath() == "github.com/mattiabonardi/endor-sdk-go/pkg/sdk" &&
 				fieldType.Name() == "ObjectID" {
-				return "objectid"
+				return &ObjectIDStrategy{}
 			}
-
-			return "string"
+			return &StringIDStrategy{}
 		}
 	}
 
-	return "string" // default if _id field not found
+	return nil
 }
 
-// DocumentConverter handles BSON <-> Model conversions
-//
-// This converter properly supports embedded structs (struct composition) when using
-// the bson:",inline" tag. Fields from embedded structs are automatically flattened
-// to the top level of the BSON document during both marshaling and unmarshaling.
-//
-// Example:
-//
-//	type BaseModel struct {
-//	    ID string `bson:"_id"`
-//	    Name string `bson:"name"`
-//	}
-//
-//	type ExtendedModel struct {
-//	    BaseModel `bson:",inline"`  // Fields will be flattened
-//	    Email string `bson:"email"`
-//	}
-//
-// The BSON document for ExtendedModel will have fields: _id, name, email (not nested).
-//
-// Important notes:
-//   - The _id field is preserved during ToModel conversion to support embedded structs
-//     that have bson:"_id" tags, ensuring all fields in the embedded struct are properly
-//     unmarshaled
-//   - The ID is automatically set by BSON unmarshal based on the struct's bson:"_id" tag
-//   - All other fields from embedded structs (with bson:",inline") are correctly
-//     preserved during the conversion process
-type DocumentConverter[T sdk.EntityInstanceInterface] struct{}
+// ============================================================================
+// SECTION 3: ObjectID Field Handling
+// ============================================================================
+// sdk.ObjectID fields (other than _id) must be converted to primitive.ObjectID
+// when storing in MongoDB and back when reading. This section handles that conversion.
 
-func (c *DocumentConverter[T]) ExtractMetadata(raw bson.M) (map[string]interface{}, error) {
-	metadata := make(map[string]interface{})
-	if rawMeta, ok := raw["metadata"]; ok && rawMeta != nil {
-		metaBytes, err := bson.Marshal(rawMeta)
-		if err != nil {
-			return nil, err
+// ObjectIDFieldRegistry tracks which fields in a model are of type sdk.ObjectID.
+// This enables automatic conversion when reading/writing documents.
+type ObjectIDFieldRegistry struct {
+	fields map[string]struct{}
+}
+
+// NewObjectIDFieldRegistry creates a registry by inspecting the model's struct fields.
+// It recursively handles embedded structs with bson:",inline" tags.
+func NewObjectIDFieldRegistry[T any]() *ObjectIDFieldRegistry {
+	registry := &ObjectIDFieldRegistry{
+		fields: make(map[string]struct{}),
+	}
+
+	var zero T
+	t := reflect.TypeOf(zero)
+	if t == nil {
+		return registry
+	}
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return registry
+	}
+
+	registry.collectObjectIDFields(t)
+	return registry
+}
+
+func (r *ObjectIDFieldRegistry) collectObjectIDFields(t reflect.Type) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		bsonTag := field.Tag.Get("bson")
+
+		// Handle embedded structs with inline tag
+		isInline := field.Anonymous || bsonTag == ",inline" ||
+			strings.HasSuffix(bsonTag, ",inline")
+
+		if isInline {
+			embeddedType := field.Type
+			if embeddedType.Kind() == reflect.Ptr {
+				embeddedType = embeddedType.Elem()
+			}
+			if embeddedType.Kind() == reflect.Struct {
+				r.collectObjectIDFields(embeddedType)
+			}
+			continue
 		}
-		_ = bson.Unmarshal(metaBytes, &metadata)
+
+		// Check if field is sdk.ObjectID
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		if fieldType.PkgPath() == "github.com/mattiabonardi/endor-sdk-go/pkg/sdk" &&
+			fieldType.Name() == "ObjectID" {
+			tagName := extractBsonTagName(bsonTag, field.Name)
+			if tagName != "" && tagName != "-" {
+				r.fields[tagName] = struct{}{}
+			}
+		}
+	}
+}
+
+// extractBsonTagName extracts the field name from a bson tag.
+// Example: "fieldName,omitempty" -> "fieldName"
+func extractBsonTagName(tag, defaultName string) string {
+	if tag == "" || tag == "-" {
+		return defaultName
+	}
+	if idx := strings.Index(tag, ","); idx != -1 {
+		return tag[:idx]
+	}
+	return tag
+}
+
+// ConvertToStorage converts sdk.ObjectID string values to primitive.ObjectID
+// for fields registered in this registry. This should be called before
+// inserting/updating documents in MongoDB.
+func (r *ObjectIDFieldRegistry) ConvertToStorage(doc bson.M) error {
+	for field := range r.fields {
+		val, exists := doc[field]
+		if !exists || val == nil {
+			continue
+		}
+
+		var hexStr string
+		switch v := val.(type) {
+		case string:
+			hexStr = v
+		case sdk.ObjectID:
+			hexStr = v.String()
+		default:
+			continue
+		}
+
+		if hexStr == "" {
+			continue
+		}
+
+		oid, err := primitive.ObjectIDFromHex(hexStr)
+		if err != nil {
+			return fmt.Errorf("field %s: invalid ObjectID format: %w", field, err)
+		}
+		doc[field] = oid
+	}
+	return nil
+}
+
+// IsObjectIDField returns true if the given field name is an ObjectID field.
+func (r *ObjectIDFieldRegistry) IsObjectIDField(fieldName string) bool {
+	_, exists := r.fields[fieldName]
+	return exists
+}
+
+// ============================================================================
+// SECTION 4: Model Field Registry
+// ============================================================================
+// To properly separate entity fields from metadata fields when querying,
+// we need to know which fields belong to the model struct.
+
+// ModelFieldRegistry tracks which JSON field names belong to the model struct.
+type ModelFieldRegistry struct {
+	fields map[string]struct{}
+}
+
+// NewModelFieldRegistry creates a registry by inspecting the model's struct fields.
+// It uses JSON tags to determine field names since filters/projections use JSON field names.
+func NewModelFieldRegistry[T any]() *ModelFieldRegistry {
+	registry := &ModelFieldRegistry{
+		fields: make(map[string]struct{}),
+	}
+
+	var zero T
+	t := reflect.TypeOf(zero)
+	if t == nil {
+		return registry
+	}
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return registry
+	}
+
+	registry.collectFields(t)
+	return registry
+}
+
+func (r *ModelFieldRegistry) collectFields(t reflect.Type) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		jsonTag := field.Tag.Get("json")
+
+		// Handle embedded structs with inline tag
+		isInline := field.Anonymous || jsonTag == ",inline" ||
+			strings.HasSuffix(jsonTag, ",inline")
+
+		if isInline {
+			embeddedType := field.Type
+			if embeddedType.Kind() == reflect.Ptr {
+				embeddedType = embeddedType.Elem()
+			}
+			if embeddedType.Kind() == reflect.Struct {
+				r.collectFields(embeddedType)
+			}
+			continue
+		}
+
+		tagName := extractBsonTagName(jsonTag, field.Name)
+		if tagName != "" && tagName != "-" {
+			r.fields[tagName] = struct{}{}
+		}
+	}
+}
+
+// IsModelField returns true if the given JSON field name belongs to the model.
+func (r *ModelFieldRegistry) IsModelField(fieldName string) bool {
+	_, exists := r.fields[fieldName]
+	return exists
+}
+
+// PrepareFilter transforms a filter map by prefixing metadata fields with "metadata.".
+// Model fields remain at the root level, metadata fields become "metadata.<field>".
+func (r *ModelFieldRegistry) PrepareFilter(filter map[string]interface{}) bson.M {
+	result := bson.M{}
+	for k, v := range filter {
+		if r.IsModelField(k) {
+			result[k] = v
+		} else {
+			result["metadata."+k] = v
+		}
+	}
+	return result
+}
+
+// PrepareProjection transforms a projection map by prefixing metadata fields.
+func (r *ModelFieldRegistry) PrepareProjection(projection map[string]interface{}) bson.M {
+	result := bson.M{}
+	for k, v := range projection {
+		if r.IsModelField(k) {
+			result[k] = v
+		} else {
+			result["metadata."+k] = v
+		}
+	}
+	return result
+}
+
+// ============================================================================
+// SECTION 5: Document Mapper
+// ============================================================================
+// DocumentMapper handles conversion between Go structs and MongoDB documents.
+// It manages the separation between entity data and metadata.
+
+// DocumentMapper converts between model types and MongoDB documents.
+// It handles:
+// - Embedded structs with bson:",inline" tags
+// - Automatic ObjectID conversion via the model's MarshalBSONValue/UnmarshalBSONValue
+// - Metadata extraction and injection
+type DocumentMapper[T sdk.EntityInstanceInterface] struct{}
+
+// ExtractMetadata extracts the metadata field from a raw MongoDB document.
+func (m *DocumentMapper[T]) ExtractMetadata(doc bson.M) (map[string]interface{}, error) {
+	metadata := make(map[string]interface{})
+	rawMeta, ok := doc["metadata"]
+	if !ok || rawMeta == nil {
+		return metadata, nil
+	}
+
+	metaBytes, err := bson.Marshal(rawMeta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+	if err := bson.Unmarshal(metaBytes, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 	return metadata, nil
 }
 
-func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, error) {
+// ToModel converts a raw MongoDB document to the model type T.
+// The document should contain entity fields at root level.
+// ObjectID fields are automatically converted via UnmarshalBSONValue.
+func (m *DocumentMapper[T]) ToModel(doc bson.M) (T, error) {
 	var model T
 
-	// Create a clean copy excluding metadata for unmarshaling
-	// We keep _id in the copy so it can be unmarshaled into embedded structs if needed
-	docCopy := cloneBsonM(raw)
+	// Create a copy without metadata for clean unmarshaling
+	docCopy := cloneBsonM(doc)
 	delete(docCopy, "metadata")
 
-	// Unmarshal the document - BSON will automatically populate the _id field
-	// based on the struct's bson tags (e.g., bson:"_id")
-	// The ObjectID type has MarshalBSONValue/UnmarshalBSONValue methods that handle
-	// automatic conversion between primitive.ObjectID and ObjectID
 	entityBytes, err := bson.Marshal(docCopy)
 	if err != nil {
-		return model, fmt.Errorf("failed to marshal raw entity: %w", err)
+		return model, fmt.Errorf("failed to marshal document: %w", err)
 	}
 
 	if err := bson.Unmarshal(entityBytes, &model); err != nil {
@@ -329,70 +469,83 @@ func (c *DocumentConverter[T]) ToModel(raw bson.M, idConverter IDConverter) (T, 
 	return model, nil
 }
 
-func (c *DocumentConverter[T]) ToDocument(model T, metadata map[string]interface{}, idConverter IDConverter) (bson.M, error) {
-	// Marshal the model - ObjectID fields will be automatically converted to primitive.ObjectID
-	// via their MarshalBSONValue method
+// ToDocument converts a model to a MongoDB document, adding metadata.
+// The idStrategy is used to ensure proper _id storage format.
+// ObjectID fields are automatically converted via MarshalBSONValue.
+func (m *DocumentMapper[T]) ToDocument(model T, metadata map[string]interface{}, idStrategy IDStrategy) (bson.M, error) {
+	// Marshal model - ObjectID fields auto-convert via MarshalBSONValue
 	entityBytes, err := bson.Marshal(model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity: %w", err)
+		return nil, fmt.Errorf("failed to marshal model: %w", err)
 	}
 
-	var entityMap bson.M
-	if err := bson.Unmarshal(entityBytes, &entityMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal entity: %w", err)
+	var doc bson.M
+	if err := bson.Unmarshal(entityBytes, &doc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to document: %w", err)
 	}
 
-	// Always ensure _id is properly set using the IDConverter
-	// This ensures consistency with the repository's ID handling strategy
-	idPtr := model.GetID()
-	idStr := idToString(idPtr)
+	// Ensure _id is in correct storage format
+	idStr := idToString(model.GetID())
 	if idStr != "" {
-		storageID, err := idConverter.ToStorageID(idStr)
+		storageID, err := idStrategy.ToStorageFormat(idStr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert _id: %w", err)
 		}
-		entityMap["_id"] = storageID
+		doc["_id"] = storageID
 	}
 
 	// Add metadata
-	entityMap["metadata"] = metadata
+	doc["metadata"] = metadata
 
-	return entityMap, nil
+	return doc, nil
 }
 
-// mongoBaseRepository contains common MongoDB operations used by both repository implementations
-// This eliminates duplication while allowing each repository to maintain its specific storage format
+// ToDocumentWithoutMetadata converts a model to a MongoDB document without metadata.
+// Used by StaticEntityInstanceRepository where metadata is not needed.
+func (m *DocumentMapper[T]) ToDocumentWithoutMetadata(model T, idStrategy IDStrategy) (bson.M, error) {
+	entityBytes, err := bson.Marshal(model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal model: %w", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(entityBytes, &doc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to document: %w", err)
+	}
+
+	return doc, nil
+}
+
+// ============================================================================
+// SECTION 6: Base Repository
+// ============================================================================
+// mongoBaseRepository provides common MongoDB CRUD operations used by both
+// MongoEntityInstanceRepository and MongoStaticEntityInstanceRepository.
+
 type mongoBaseRepository[T sdk.EntityInstanceInterface] struct {
 	collection     *mongo.Collection
-	idConverter    IDConverter
+	idStrategy     IDStrategy
 	autoGenerateID bool
-	objectIDFields map[string]struct{}
+	objectIDFields *ObjectIDFieldRegistry
+	documentMapper *DocumentMapper[T]
 }
 
 func newMongoBaseRepository[T sdk.EntityInstanceInterface](
 	collection *mongo.Collection,
 	autoGenerateID bool,
 ) *mongoBaseRepository[T] {
-	idType := detectIDType[T]()
-
-	var idConverter IDConverter
-	if idType == "objectid" {
-		idConverter = &ObjectIDConverter{}
-	} else {
-		idConverter = &StringIDConverter{}
-	}
-
 	return &mongoBaseRepository[T]{
 		collection:     collection,
-		idConverter:    idConverter,
+		idStrategy:     detectIDStrategy[T](),
 		autoGenerateID: autoGenerateID,
-		objectIDFields: getObjectIDFields[T](),
+		objectIDFields: NewObjectIDFieldRegistry[T](),
+		documentMapper: &DocumentMapper[T]{},
 	}
 }
 
-// findOne retrieves a single document by ID
-func (r *mongoBaseRepository[T]) findOne(ctx context.Context, id string) (bson.M, error) {
-	filter, err := r.idConverter.ToFilter(id)
+// FindByID retrieves a single document by its _id.
+func (r *mongoBaseRepository[T]) FindByID(ctx context.Context, id string) (bson.M, error) {
+	filter, err := r.idStrategy.CreateFilter(id)
 	if err != nil {
 		return nil, sdk.NewBadRequestError(err)
 	}
@@ -401,16 +554,16 @@ func (r *mongoBaseRepository[T]) findOne(ctx context.Context, id string) (bson.M
 	err = r.collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+			return nil, sdk.NewNotFoundError(fmt.Errorf("entity with id %s not found", id))
 		}
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find entity: %w", err))
 	}
 
 	return result, nil
 }
 
-// find retrieves multiple documents with filter and projection
-func (r *mongoBaseRepository[T]) find(ctx context.Context, filter bson.M, projection bson.M) ([]bson.M, error) {
+// Find retrieves documents matching the filter with optional projection.
+func (r *mongoBaseRepository[T]) Find(ctx context.Context, filter bson.M, projection bson.M) ([]bson.M, error) {
 	mongoFilter := filter
 	if mongoFilter == nil {
 		mongoFilter = bson.M{}
@@ -419,7 +572,7 @@ func (r *mongoBaseRepository[T]) find(ctx context.Context, filter bson.M, projec
 	}
 
 	// Convert ObjectID fields in filter to primitive.ObjectID
-	if err := convertObjectIDsToStorage(mongoFilter, r.objectIDFields); err != nil {
+	if err := r.objectIDFields.ConvertToStorage(mongoFilter); err != nil {
 		return nil, sdk.NewBadRequestError(err)
 	}
 
@@ -430,7 +583,7 @@ func (r *mongoBaseRepository[T]) find(ctx context.Context, filter bson.M, projec
 
 	cursor, err := r.collection.Find(ctx, mongoFilter, opts)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list entities: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find entities: %w", err))
 	}
 	defer cursor.Close(ctx)
 
@@ -442,58 +595,59 @@ func (r *mongoBaseRepository[T]) find(ctx context.Context, filter bson.M, projec
 	return results, nil
 }
 
-// insertOne inserts a document with optional auto-generated ID
-func (r *mongoBaseRepository[T]) insertOne(ctx context.Context, doc bson.M, providedID any) (string, error) {
+// Insert creates a new document. If autoGenerateID is true, a new ID is generated.
+// Otherwise, providedID must be non-empty.
+func (r *mongoBaseRepository[T]) Insert(ctx context.Context, doc bson.M, providedID any) (string, error) {
 	var idStr string
 
 	if r.autoGenerateID {
-		doc["_id"] = r.idConverter.GenerateNewID()
+		doc["_id"] = r.idStrategy.GenerateID()
 	} else {
-		if providedID == "" {
+		if isIDEmpty(providedID) {
 			return "", sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
 		}
-		idStr, ok := providedID.(string)
-		if !ok {
-			return "", sdk.NewBadRequestError(fmt.Errorf("provided ID must be a string"))
-		}
+		idStr = idToString(providedID)
 
-		// Check if exists
-		_, err := r.findOne(ctx, idStr)
+		// Check for existing document
+		_, err := r.FindByID(ctx, idStr)
 		if err == nil {
-			return "", sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idStr))
+			return "", sdk.NewConflictError(fmt.Errorf("entity with id %s already exists", idStr))
 		}
 		var endorErr *sdk.EndorError
 		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
 			return "", err
 		}
 
-		storageID, err := r.idConverter.ToStorageID(idStr)
+		storageID, err := r.idStrategy.ToStorageFormat(idStr)
 		if err != nil {
 			return "", sdk.NewBadRequestError(err)
 		}
 		doc["_id"] = storageID
 	}
 
-	_, err := r.collection.InsertOne(ctx, doc)
+	result, err := r.collection.InsertOne(ctx, doc)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return "", sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
+			return "", sdk.NewConflictError(fmt.Errorf("entity already exists: %w", err))
 		}
-		return "", sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
+		return "", sdk.NewInternalServerError(fmt.Errorf("failed to create entity: %w", err))
 	}
 
+	// Return the string ID
+	if r.autoGenerateID {
+		idStr, _ = r.idStrategy.FromStorageFormat(result.InsertedID)
+	}
 	return idStr, nil
 }
 
-// updateOne updates a document by ID with the provided update document
-func (r *mongoBaseRepository[T]) updateOne(ctx context.Context, id string, updateData bson.M) error {
-	// Verify the instance exists
-	_, err := r.findOne(ctx, id)
-	if err != nil {
+// Update modifies an existing document by its _id.
+func (r *mongoBaseRepository[T]) Update(ctx context.Context, id string, updateData bson.M) error {
+	// Verify existence
+	if _, err := r.FindByID(ctx, id); err != nil {
 		return err
 	}
 
-	filter, err := r.idConverter.ToFilter(id)
+	filter, err := r.idStrategy.CreateFilter(id)
 	if err != nil {
 		return sdk.NewBadRequestError(err)
 	}
@@ -502,46 +656,53 @@ func (r *mongoBaseRepository[T]) updateOne(ctx context.Context, id string, updat
 		return sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
 	}
 
-	// Clone update data and convert ObjectID fields
+	// Clone and convert ObjectID fields
 	data := cloneBsonM(updateData)
-	if err := convertObjectIDsToStorage(data, r.objectIDFields); err != nil {
+	if err := r.objectIDFields.ConvertToStorage(data); err != nil {
 		return sdk.NewBadRequestError(err)
 	}
 
-	// Perform the update with $set
 	update := bson.M{"$set": data}
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+		return sdk.NewInternalServerError(fmt.Errorf("failed to update entity: %w", err))
 	}
 	if result.MatchedCount == 0 {
-		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+		return sdk.NewNotFoundError(fmt.Errorf("entity with id %s not found", id))
 	}
 
 	return nil
 }
 
-// deleteOne deletes a document by ID
-func (r *mongoBaseRepository[T]) deleteOne(ctx context.Context, id string) error {
-	// Verify the instance exists
-	_, err := r.findOne(ctx, id)
-	if err != nil {
+// Delete removes a document by its _id.
+func (r *mongoBaseRepository[T]) Delete(ctx context.Context, id string) error {
+	// Verify existence
+	if _, err := r.FindByID(ctx, id); err != nil {
 		return err
 	}
 
-	filter, err := r.idConverter.ToFilter(id)
+	filter, err := r.idStrategy.CreateFilter(id)
 	if err != nil {
 		return sdk.NewBadRequestError(err)
 	}
 
 	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
-		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity instance: %w", err))
+		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity: %w", err))
 	}
-
 	if result.DeletedCount == 0 {
-		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+		return sdk.NewNotFoundError(fmt.Errorf("entity with id %s not found", id))
 	}
 
 	return nil
+}
+
+// GetIDStrategy returns the ID strategy used by this repository.
+func (r *mongoBaseRepository[T]) GetIDStrategy() IDStrategy {
+	return r.idStrategy
+}
+
+// GetDocumentMapper returns the document mapper used by this repository.
+func (r *mongoBaseRepository[T]) GetDocumentMapper() *DocumentMapper[T] {
+	return r.documentMapper
 }

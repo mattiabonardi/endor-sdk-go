@@ -244,15 +244,16 @@ func (h *EntityService) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.Ro
 	idSchema := properties["id"]
 	idSchema.ReadOnly = &readOnly
 	properties["id"] = idSchema
+	// define description as readOnly
+	descriptionSchema := properties["description"]
+	descriptionSchema.ReadOnly = &readOnly
+	properties["description"] = descriptionSchema
 	// define service as readOnly
 	serviceSchema := properties["service"]
 	serviceSchema.ReadOnly = &readOnly
 	query := "$filter(dynamicResourceEnabled == true)"
 	serviceSchema.UISchema.Query = &query
 	properties["service"] = serviceSchema
-
-	// define category
-
 	return schema
 }
 

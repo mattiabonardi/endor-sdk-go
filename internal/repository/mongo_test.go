@@ -65,60 +65,60 @@ type TestSpecializedEntityCategory struct {
 	Priority   int32  `bson:"priority" json:"priority"`
 }
 
-// Tests for ObjectIDConverter
-func TestObjectIDConverter_ToFilter(t *testing.T) {
-	converter := &ObjectIDConverter{}
+// Tests for ObjectIDStrategy
+func TestObjectIDStrategy_CreateFilter(t *testing.T) {
+	strategy := &ObjectIDStrategy{}
 	validID := primitive.NewObjectID().Hex()
 
 	t.Run("valid ObjectID", func(t *testing.T) {
-		filter, err := converter.ToFilter(validID)
+		filter, err := strategy.CreateFilter(validID)
 		assert.NoError(t, err)
 		assert.NotNil(t, filter)
 		assert.NotNil(t, filter["_id"])
 	})
 
 	t.Run("invalid ObjectID", func(t *testing.T) {
-		_, err := converter.ToFilter("invalid-id")
+		_, err := strategy.CreateFilter("invalid-id")
 		assert.Error(t, err)
 	})
 }
 
-func TestObjectIDConverter_GenerateNewID(t *testing.T) {
-	converter := &ObjectIDConverter{}
-	id := converter.GenerateNewID()
+func TestObjectIDStrategy_GenerateID(t *testing.T) {
+	strategy := &ObjectIDStrategy{}
+	id := strategy.GenerateID()
 	assert.NotEmpty(t, id)
-	idStr, ok := id.(string)
-	assert.True(t, ok, "Generated ID should be a string")
-	assert.Equal(t, 24, len(idStr))
+	oid, ok := id.(primitive.ObjectID)
+	assert.True(t, ok, "Generated ID should be primitive.ObjectID")
+	assert.False(t, oid.IsZero(), "Generated ID should not be zero")
 }
 
-// Tests for StringIDConverter
-func TestStringIDConverter_ToFilter(t *testing.T) {
-	converter := &StringIDConverter{}
+// Tests for StringIDStrategy
+func TestStringIDStrategy_CreateFilter(t *testing.T) {
+	strategy := &StringIDStrategy{}
 
-	filter, err := converter.ToFilter("test-id")
+	filter, err := strategy.CreateFilter("test-id")
 	assert.NoError(t, err)
 	assert.Equal(t, "test-id", filter["_id"])
 }
 
-func TestStringIDConverter_FromStorageID(t *testing.T) {
-	converter := &StringIDConverter{}
+func TestStringIDStrategy_FromStorageFormat(t *testing.T) {
+	strategy := &StringIDStrategy{}
 
 	t.Run("valid string ID", func(t *testing.T) {
-		id, err := converter.FromStorageID("test-id")
+		id, err := strategy.FromStorageFormat("test-id")
 		assert.NoError(t, err)
 		assert.Equal(t, "test-id", id)
 	})
 
 	t.Run("invalid type", func(t *testing.T) {
-		_, err := converter.FromStorageID(123)
+		_, err := strategy.FromStorageFormat(123)
 		assert.Error(t, err)
 	})
 }
 
-// Tests for DocumentConverter
-func TestDocumentConverter_ExtractMetadata(t *testing.T) {
-	converter := &DocumentConverter[*TestEntity]{}
+// Tests for DocumentMapper
+func TestDocumentMapper_ExtractMetadata(t *testing.T) {
+	mapper := &DocumentMapper[*TestEntity]{}
 
 	t.Run("with metadata", func(t *testing.T) {
 		raw := bson.M{
@@ -130,7 +130,7 @@ func TestDocumentConverter_ExtractMetadata(t *testing.T) {
 			},
 		}
 
-		metadata, err := converter.ExtractMetadata(raw)
+		metadata, err := mapper.ExtractMetadata(raw)
 		assert.NoError(t, err)
 		assert.Equal(t, "value1", metadata["key1"])
 		assert.Equal(t, int32(42), metadata["key2"])
@@ -142,15 +142,14 @@ func TestDocumentConverter_ExtractMetadata(t *testing.T) {
 			"name": "Test",
 		}
 
-		metadata, err := converter.ExtractMetadata(raw)
+		metadata, err := mapper.ExtractMetadata(raw)
 		assert.NoError(t, err)
 		assert.Empty(t, metadata)
 	})
 }
 
-func TestDocumentConverter_ToModel(t *testing.T) {
-	converter := &DocumentConverter[*TestEntity]{}
-	idConverter := &ObjectIDConverter{}
+func TestDocumentMapper_ToModel(t *testing.T) {
+	mapper := &DocumentMapper[*TestEntity]{}
 	testID := primitive.NewObjectID()
 
 	raw := bson.M{
@@ -162,16 +161,16 @@ func TestDocumentConverter_ToModel(t *testing.T) {
 		},
 	}
 
-	model, err := converter.ToModel(raw, idConverter)
+	model, err := mapper.ToModel(raw)
 	assert.NoError(t, err)
 	assert.Equal(t, "TestModel", model.Name)
 	assert.Equal(t, int32(25), model.Age)
 	assert.Equal(t, testID.Hex(), model.ID)
 }
 
-func TestDocumentConverter_ToDocument(t *testing.T) {
-	converter := &DocumentConverter[*TestEntity]{}
-	idConverter := &StringIDConverter{}
+func TestDocumentMapper_ToDocument(t *testing.T) {
+	mapper := &DocumentMapper[*TestEntity]{}
+	idStrategy := &StringIDStrategy{}
 
 	testID := "test-123"
 	model := &TestEntity{
@@ -184,7 +183,7 @@ func TestDocumentConverter_ToDocument(t *testing.T) {
 		"version": 1,
 	}
 
-	doc, err := converter.ToDocument(model, metadata, idConverter)
+	doc, err := mapper.ToDocument(model, metadata, idStrategy)
 	assert.NoError(t, err)
 	assert.Equal(t, "test-123", doc["_id"])
 	assert.Equal(t, "TestDoc", doc["name"])
@@ -192,9 +191,8 @@ func TestDocumentConverter_ToDocument(t *testing.T) {
 	assert.Equal(t, metadata, doc["metadata"])
 }
 
-func TestDocumentConverter_WithEmbeddedStruct_ToModel(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedEntity]{}
-	idConverter := &ObjectIDConverter{}
+func TestDocumentMapper_WithEmbeddedStruct_ToModel(t *testing.T) {
+	mapper := &DocumentMapper[*TestEmbeddedEntity]{}
 	testID := primitive.NewObjectID()
 
 	raw := bson.M{
@@ -207,7 +205,7 @@ func TestDocumentConverter_WithEmbeddedStruct_ToModel(t *testing.T) {
 		},
 	}
 
-	model, err := converter.ToModel(raw, idConverter)
+	model, err := mapper.ToModel(raw)
 	assert.NoError(t, err)
 	assert.Equal(t, "TestEmbedded", model.Name)
 	assert.Equal(t, int32(35), model.Age)
@@ -215,9 +213,9 @@ func TestDocumentConverter_WithEmbeddedStruct_ToModel(t *testing.T) {
 	assert.Equal(t, testID.Hex(), model.GetID())
 }
 
-func TestDocumentConverter_WithEmbeddedStruct_ToDocument(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedEntity]{}
-	idConverter := &StringIDConverter{}
+func TestDocumentMapper_WithEmbeddedStruct_ToDocument(t *testing.T) {
+	mapper := &DocumentMapper[*TestEmbeddedEntity]{}
+	idStrategy := &StringIDStrategy{}
 
 	testID := "test-embedded-123"
 	model := &TestEmbeddedEntity{
@@ -233,7 +231,7 @@ func TestDocumentConverter_WithEmbeddedStruct_ToDocument(t *testing.T) {
 		"version": 1,
 	}
 
-	doc, err := converter.ToDocument(model, metadata, idConverter)
+	doc, err := mapper.ToDocument(model, metadata, idStrategy)
 	assert.NoError(t, err)
 	assert.Equal(t, "test-embedded-123", doc["_id"])
 	assert.Equal(t, "TestEmbedded", doc["name"])
@@ -246,9 +244,9 @@ func TestDocumentConverter_WithEmbeddedStruct_ToDocument(t *testing.T) {
 	assert.False(t, hasNestedStruct, "Embedded struct should be inlined, not nested")
 }
 
-func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
-	converter := &DocumentConverter[*TestEmbeddedEntity]{}
-	idConverter := &StringIDConverter{}
+func TestDocumentMapper_RoundTripWithEmbeddedStruct(t *testing.T) {
+	mapper := &DocumentMapper[*TestEmbeddedEntity]{}
+	idStrategy := &StringIDStrategy{}
 
 	testID := "round-trip-123"
 	originalModel := &TestEmbeddedEntity{
@@ -265,11 +263,11 @@ func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
 	}
 
 	// Convert to document
-	doc, err := converter.ToDocument(originalModel, metadata, idConverter)
+	doc, err := mapper.ToDocument(originalModel, metadata, idStrategy)
 	assert.NoError(t, err)
 
 	// Convert back to model
-	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	reconstructedModel, err := mapper.ToModel(doc)
 	assert.NoError(t, err)
 
 	// Verify all fields match
@@ -279,11 +277,10 @@ func TestDocumentConverter_RoundTripWithEmbeddedStruct(t *testing.T) {
 	assert.Equal(t, originalModel.Email, reconstructedModel.Email)
 }
 
-func TestDocumentConverter_EmbeddedStructWithNestedID(t *testing.T) {
+func TestDocumentMapper_EmbeddedStructWithNestedID(t *testing.T) {
 	// This test verifies that embedded structs where the ID is in the embedded struct
 	// are handled correctly through the full round-trip
-	converter := &DocumentConverter[*TestEmbeddedEntity]{}
-	idConverter := &StringIDConverter{}
+	mapper := &DocumentMapper[*TestEmbeddedEntity]{}
 
 	// Simulate a raw document from MongoDB
 	rawDoc := bson.M{
@@ -297,7 +294,7 @@ func TestDocumentConverter_EmbeddedStructWithNestedID(t *testing.T) {
 	}
 
 	// Convert to model
-	model, err := converter.ToModel(rawDoc, idConverter)
+	model, err := mapper.ToModel(rawDoc)
 	assert.NoError(t, err)
 
 	// The ID should be set correctly even though it's in the embedded struct
@@ -324,10 +321,9 @@ type TestExtendedWithStringID struct {
 	ExtraField           string `bson:"extraField" json:"extraField"`
 }
 
-func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToModel(t *testing.T) {
+func TestDocumentMapper_EmbeddedStructWithNonPointerID_ToModel(t *testing.T) {
 	// This test reproduces the issue with HybridSpecializedModel
-	converter := &DocumentConverter[*TestExtendedWithStringID]{}
-	idConverter := &StringIDConverter{}
+	mapper := &DocumentMapper[*TestExtendedWithStringID]{}
 
 	rawDoc := bson.M{
 		"_id":        "test-id-123",
@@ -339,7 +335,7 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToModel(t *testing.T) 
 		},
 	}
 
-	model, err := converter.ToModel(rawDoc, idConverter)
+	model, err := mapper.ToModel(rawDoc)
 	assert.NoError(t, err)
 
 	// All fields should be populated correctly
@@ -349,9 +345,9 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToModel(t *testing.T) 
 	assert.Equal(t, "extra-value", model.ExtraField)
 }
 
-func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToDocument(t *testing.T) {
-	converter := &DocumentConverter[*TestExtendedWithStringID]{}
-	idConverter := &StringIDConverter{}
+func TestDocumentMapper_EmbeddedStructWithNonPointerID_ToDocument(t *testing.T) {
+	mapper := &DocumentMapper[*TestExtendedWithStringID]{}
+	idStrategy := &StringIDStrategy{}
 
 	model := &TestExtendedWithStringID{
 		TestBaseWithStringID: TestBaseWithStringID{
@@ -366,7 +362,7 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToDocument(t *testing.
 		"version": 2,
 	}
 
-	doc, err := converter.ToDocument(model, metadata, idConverter)
+	doc, err := mapper.ToDocument(model, metadata, idStrategy)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "test-id-456", doc["_id"])
@@ -376,9 +372,9 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_ToDocument(t *testing.
 	assert.Equal(t, metadata, doc["metadata"])
 }
 
-func TestDocumentConverter_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T) {
-	converter := &DocumentConverter[*TestExtendedWithStringID]{}
-	idConverter := &StringIDConverter{}
+func TestDocumentMapper_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T) {
+	mapper := &DocumentMapper[*TestExtendedWithStringID]{}
+	idStrategy := &StringIDStrategy{}
 
 	original := &TestExtendedWithStringID{
 		TestBaseWithStringID: TestBaseWithStringID{
@@ -394,11 +390,11 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T
 	}
 
 	// To document
-	doc, err := converter.ToDocument(original, metadata, idConverter)
+	doc, err := mapper.ToDocument(original, metadata, idStrategy)
 	assert.NoError(t, err)
 
 	// Back to model
-	reconstructed, err := converter.ToModel(doc, idConverter)
+	reconstructed, err := mapper.ToModel(doc)
 	assert.NoError(t, err)
 
 	assert.Equal(t, original.GetID(), reconstructed.GetID())
@@ -407,10 +403,10 @@ func TestDocumentConverter_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T
 	assert.Equal(t, original.ExtraField, reconstructed.ExtraField)
 }
 
-func TestDocumentConverter_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
-	// This test simulates the HybridSpecializedModel scenario with ObjectID converter
-	converter := &DocumentConverter[*TestExtendedWithStringID]{}
-	idConverter := &ObjectIDConverter{}
+func TestDocumentMapper_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
+	// This test simulates the HybridSpecializedModel scenario with ObjectID strategy
+	mapper := &DocumentMapper[*TestExtendedWithStringID]{}
+	idStrategy := &ObjectIDStrategy{}
 
 	testID := primitive.NewObjectID()
 	original := &TestExtendedWithStringID{
@@ -427,7 +423,7 @@ func TestDocumentConverter_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
 	}
 
 	// To document (simulates database write)
-	doc, err := converter.ToDocument(original, metadata, idConverter)
+	doc, err := mapper.ToDocument(original, metadata, idStrategy)
 	assert.NoError(t, err)
 
 	// Verify the document structure
@@ -437,7 +433,7 @@ func TestDocumentConverter_EmbeddedStructWithObjectID_RoundTrip(t *testing.T) {
 	assert.Equal(t, "hybrid-extra", doc["extraField"])
 
 	// From document (simulates database read)
-	reconstructed, err := converter.ToModel(doc, idConverter)
+	reconstructed, err := mapper.ToModel(doc)
 	assert.NoError(t, err)
 
 	// All fields should be preserved through the round trip
@@ -462,19 +458,16 @@ func (t *TestModelWithObjectID) GetID() any {
 
 // TestObjectIDFieldDetection verifies that ObjectID fields are correctly identified
 func TestObjectIDFieldDetection(t *testing.T) {
-	fields := getObjectIDFields[*TestModelWithObjectID]()
+	registry := NewObjectIDFieldRegistry[*TestModelWithObjectID]()
 
 	// Should identify all ObjectID fields
-	assert.Contains(t, fields, "_id", "Should detect _id as ObjectID field")
-	assert.Contains(t, fields, "supplierId", "Should detect supplierId as ObjectID field")
-	assert.Contains(t, fields, "productId", "Should detect productID as ObjectID field")
+	assert.True(t, registry.IsObjectIDField("_id"), "Should detect _id as ObjectID field")
+	assert.True(t, registry.IsObjectIDField("supplierId"), "Should detect supplierId as ObjectID field")
+	assert.True(t, registry.IsObjectIDField("productId"), "Should detect productID as ObjectID field")
 
 	// Should not include non-ObjectID fields
-	assert.NotContains(t, fields, "name", "Should not detect name as ObjectID field")
-	assert.NotContains(t, fields, "quantity", "Should not detect quantity as ObjectID field")
-
-	// Should have exactly 3 ObjectID fields
-	assert.Equal(t, 3, len(fields), "Should detect exactly 3 ObjectID fields")
+	assert.False(t, registry.IsObjectIDField("name"), "Should not detect name as ObjectID field")
+	assert.False(t, registry.IsObjectIDField("quantity"), "Should not detect quantity as ObjectID field")
 }
 
 // TestConvertObjectIDsToStorage verifies conversion from ObjectID to primitive.ObjectID
@@ -491,13 +484,8 @@ func TestConvertObjectIDsToStorage(t *testing.T) {
 		"quantity":   10,
 	}
 
-	fields := map[string]struct{}{
-		"_id":        {},
-		"supplierId": {},
-		"productId":  {},
-	}
-
-	err := convertObjectIDsToStorage(doc, fields)
+	registry := NewObjectIDFieldRegistry[*TestModelWithObjectID]()
+	err := registry.ConvertToStorage(doc)
 	assert.NoError(t, err, "Should convert without error")
 
 	// Verify conversion to primitive.ObjectID
@@ -515,47 +503,10 @@ func TestConvertObjectIDsToStorage(t *testing.T) {
 	assert.Equal(t, 10, doc["quantity"], "quantity should remain unchanged")
 }
 
-// TestConvertObjectIDsFromStorage verifies conversion from primitive.ObjectID to string
-func TestConvertObjectIDsFromStorage(t *testing.T) {
-	oid1 := primitive.NewObjectID()
-	oid2 := primitive.NewObjectID()
-	oid3 := primitive.NewObjectID()
-
-	doc := bson.M{
-		"_id":        oid1,
-		"supplierId": oid2,
-		"productId":  oid3,
-		"name":       "Test Product",
-		"quantity":   10,
-	}
-
-	fields := map[string]struct{}{
-		"_id":        {},
-		"supplierId": {},
-		"productId":  {},
-	}
-
-	convertObjectIDsFromStorage(doc, fields)
-
-	// Verify conversion to string
-	assert.IsType(t, "", doc["_id"], "_id should be string")
-	assert.IsType(t, "", doc["supplierId"], "supplierId should be string")
-	assert.IsType(t, "", doc["productId"], "productId should be string")
-
-	// Verify correct hex values
-	assert.Equal(t, oid1.Hex(), doc["_id"], "_id should match hex representation")
-	assert.Equal(t, oid2.Hex(), doc["supplierId"], "supplierId should match hex representation")
-	assert.Equal(t, oid3.Hex(), doc["productId"], "productId should match hex representation")
-
-	// Verify non-ObjectID fields unchanged
-	assert.Equal(t, "Test Product", doc["name"], "name should remain unchanged")
-	assert.Equal(t, 10, doc["quantity"], "quantity should remain unchanged")
-}
-
-// TestDocumentConverterWithObjectID verifies full round-trip conversion
-func TestDocumentConverterWithObjectID(t *testing.T) {
-	converter := &DocumentConverter[*TestModelWithObjectID]{}
-	idConverter := &ObjectIDConverter{}
+// TestDocumentMapperWithObjectID verifies full round-trip conversion
+func TestDocumentMapperWithObjectID(t *testing.T) {
+	mapper := &DocumentMapper[*TestModelWithObjectID]{}
+	idStrategy := &ObjectIDStrategy{}
 
 	// Create test model
 	originalModel := &TestModelWithObjectID{
@@ -567,7 +518,7 @@ func TestDocumentConverterWithObjectID(t *testing.T) {
 	}
 
 	// Convert to document
-	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	doc, err := mapper.ToDocument(originalModel, map[string]interface{}{}, idStrategy)
 	assert.NoError(t, err, "ToDocument should not error")
 
 	// Verify ObjectID fields are primitive.ObjectID in document
@@ -576,7 +527,7 @@ func TestDocumentConverterWithObjectID(t *testing.T) {
 	assert.IsType(t, primitive.ObjectID{}, doc["productId"], "productId should be primitive.ObjectID in document")
 
 	// Convert back to model
-	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	reconstructedModel, err := mapper.ToModel(doc)
 	assert.NoError(t, err, "ToModel should not error")
 
 	// Verify all fields match
@@ -604,16 +555,15 @@ type TestExtendedModelWithObjectID struct {
 }
 
 func TestObjectIDWithEmbeddedStructs(t *testing.T) {
-	fields := getObjectIDFields[*TestExtendedModelWithObjectID]()
+	registry := NewObjectIDFieldRegistry[*TestExtendedModelWithObjectID]()
 
 	// Should identify ObjectID fields from both base and extended structs
-	assert.Contains(t, fields, "_id", "Should detect _id from embedded struct")
-	assert.Contains(t, fields, "categoryId", "Should detect categoryId from extended struct")
-	assert.Equal(t, 2, len(fields), "Should detect exactly 2 ObjectID fields")
+	assert.True(t, registry.IsObjectIDField("_id"), "Should detect _id from embedded struct")
+	assert.True(t, registry.IsObjectIDField("categoryId"), "Should detect categoryId from extended struct")
 
 	// Test round-trip conversion
-	converter := &DocumentConverter[*TestExtendedModelWithObjectID]{}
-	idConverter := &ObjectIDConverter{}
+	mapper := &DocumentMapper[*TestExtendedModelWithObjectID]{}
+	idStrategy := &ObjectIDStrategy{}
 
 	originalModel := &TestExtendedModelWithObjectID{
 		TestBaseModelWithObjectID: TestBaseModelWithObjectID{
@@ -625,11 +575,11 @@ func TestObjectIDWithEmbeddedStructs(t *testing.T) {
 	}
 
 	// Convert to document
-	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	doc, err := mapper.ToDocument(originalModel, map[string]interface{}{}, idStrategy)
 	assert.NoError(t, err)
 
 	// Convert back to model
-	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	reconstructedModel, err := mapper.ToModel(doc)
 	assert.NoError(t, err)
 
 	// Verify all fields match
@@ -652,18 +602,17 @@ func (t *TestMixedIDModel) GetID() any {
 }
 
 func TestMixedIDTypes(t *testing.T) {
-	fields := getObjectIDFields[*TestMixedIDModel]()
+	registry := NewObjectIDFieldRegistry[*TestMixedIDModel]()
 
 	// Should only identify ObjectID fields, not string fields
-	assert.Contains(t, fields, "_id")
-	assert.Contains(t, fields, "refId")
-	assert.NotContains(t, fields, "legacyId", "String field should not be detected as ObjectID")
-	assert.NotContains(t, fields, "name")
-	assert.Equal(t, 2, len(fields))
+	assert.True(t, registry.IsObjectIDField("_id"))
+	assert.True(t, registry.IsObjectIDField("refId"))
+	assert.False(t, registry.IsObjectIDField("legacyId"), "String field should not be detected as ObjectID")
+	assert.False(t, registry.IsObjectIDField("name"))
 
 	// Test conversion
-	converter := &DocumentConverter[*TestMixedIDModel]{}
-	idConverter := &ObjectIDConverter{}
+	mapper := &DocumentMapper[*TestMixedIDModel]{}
+	idStrategy := &ObjectIDStrategy{}
 
 	originalModel := &TestMixedIDModel{
 		ID:       sdk.GenerateObjectID(),
@@ -672,7 +621,7 @@ func TestMixedIDTypes(t *testing.T) {
 		Name:     "Mixed Model",
 	}
 
-	doc, err := converter.ToDocument(originalModel, map[string]interface{}{}, idConverter)
+	doc, err := mapper.ToDocument(originalModel, map[string]interface{}{}, idStrategy)
 	assert.NoError(t, err)
 
 	// Verify ObjectID fields are primitive.ObjectID
@@ -685,7 +634,102 @@ func TestMixedIDTypes(t *testing.T) {
 	assert.Equal(t, "Mixed Model", doc["name"])
 
 	// Round-trip
-	reconstructedModel, err := converter.ToModel(doc, idConverter)
+	reconstructedModel, err := mapper.ToModel(doc)
 	assert.NoError(t, err)
 	assert.Equal(t, originalModel.LegacyID, reconstructedModel.LegacyID)
+}
+
+// Test Model without json tag on one field (uses Go field name for that field)
+type TestEntityNoBsonTag struct {
+	ID          string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name        string `bson:"name" json:"name"`
+	Description string `bson:"description"` // No json tag - should use field name "Description"
+}
+
+func (t *TestEntityNoBsonTag) GetID() any {
+	return t.ID
+}
+
+func TestModelFieldRegistry_PrepareFilter(t *testing.T) {
+	t.Run("model fields stay at root level", func(t *testing.T) {
+		registry := NewModelFieldRegistry[*TestEntity]()
+
+		filter := map[string]interface{}{
+			"name": "Test",
+			"age":  25,
+		}
+
+		result := registry.PrepareFilter(filter)
+
+		// Model fields should remain at root level
+		assert.Equal(t, "Test", result["name"])
+		assert.Equal(t, 25, result["age"])
+		// No metadata prefix for model fields
+		_, hasMetadataName := result["metadata.name"]
+		assert.False(t, hasMetadataName)
+	})
+
+	t.Run("non-model fields get metadata prefix", func(t *testing.T) {
+		registry := NewModelFieldRegistry[*TestEntity]()
+
+		filter := map[string]interface{}{
+			"name":           "Test",
+			"customMetadata": "value",
+		}
+
+		result := registry.PrepareFilter(filter)
+
+		// Model field at root
+		assert.Equal(t, "Test", result["name"])
+		// Non-model field should be prefixed with metadata.
+		assert.Equal(t, "value", result["metadata.customMetadata"])
+		_, hasRootCustom := result["customMetadata"]
+		assert.False(t, hasRootCustom)
+	})
+
+	t.Run("fields without json tags are recognized as model fields", func(t *testing.T) {
+		registry := NewModelFieldRegistry[*TestEntityNoBsonTag]()
+
+		// Verify the registry includes the field without json tag (uses Go field name)
+		assert.True(t, registry.IsModelField("Description"), "Field without json tag should use field name")
+		assert.True(t, registry.IsModelField("name"))
+		assert.True(t, registry.IsModelField("id"))
+
+		filter := map[string]interface{}{
+			"name":          "Test",
+			"Description":   "A description",
+			"metadataField": "meta",
+		}
+
+		result := registry.PrepareFilter(filter)
+
+		// Both model fields should be at root
+		assert.Equal(t, "Test", result["name"])
+		assert.Equal(t, "A description", result["Description"])
+		// Non-model field should get metadata prefix
+		assert.Equal(t, "meta", result["metadata.metadataField"])
+	})
+
+	t.Run("embedded struct fields are recognized", func(t *testing.T) {
+		registry := NewModelFieldRegistry[*TestEmbeddedEntity]()
+
+		// Fields from embedded struct should be recognized (using JSON tag names)
+		assert.True(t, registry.IsModelField("id"))
+		assert.True(t, registry.IsModelField("name"))
+		// Fields from the outer struct
+		assert.True(t, registry.IsModelField("age"))
+		assert.True(t, registry.IsModelField("email"))
+
+		filter := map[string]interface{}{
+			"name":      "Test",
+			"email":     "test@example.com",
+			"extraMeta": "value",
+		}
+
+		result := registry.PrepareFilter(filter)
+
+		assert.Equal(t, "Test", result["name"])
+		assert.Equal(t, "test@example.com", result["email"])
+		assert.Equal(t, "value", result["metadata.extraMeta"])
+	})
 }

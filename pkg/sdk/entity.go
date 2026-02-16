@@ -66,7 +66,7 @@ const (
 
 type Entity struct {
 	ID          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
-	Description string `json:"description" schema:"title=Description"`
+	Description string `json:"description" schema:"title=Description,readOnly=true"`
 	Type        string `json:"type" schema:"title=Type,readOnly=true"`
 	Service     string `json:"service" schema:"title=Service,readOnly=true" ui-schema:"entity=microservice"`
 	Schema      string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`

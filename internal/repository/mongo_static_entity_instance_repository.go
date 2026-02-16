@@ -9,13 +9,37 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// MongoStaticEntityInstanceRepository provides MongoDB implementation for StaticEntityInstanceRepositoryInterface.
+// MongoStaticEntityInstanceRepository handles entities defined entirely at compile time.
+//
+// Document structure in MongoDB:
+//
+//	{
+//	    "_id": "...",
+//	    "field1": "...",      // All model fields at root level
+//	    "field2": "...",
+//	}
+//
+// Unlike MongoEntityInstanceRepository, this repository:
+// - Does NOT have a metadata field
+// - Stores entities directly as they are defined in the struct
+// - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	base *mongoBaseRepository[T]
 }
 
-func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions) *MongoStaticEntityInstanceRepository[T] {
-	client, _ := sdk.GetMongoClient()
+// NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
+func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
+	entityId string,
+	options sdk.StaticEntityInstanceRepositoryOptions,
+) *MongoStaticEntityInstanceRepository[T] {
+	client, err := sdk.GetMongoClient()
+	if client == nil || err != nil {
+		// Return a repository with nil base - operations will fail at runtime
+		// This allows the service to be constructed without a DB connection (useful for tests)
+		return &MongoStaticEntityInstanceRepository[T]{
+			base: nil,
+		}
+	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
 
 	return &MongoStaticEntityInstanceRepository[T]{
@@ -23,67 +47,62 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entit
 	}
 }
 
+// Instance retrieves a single entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	var zero T
 
-	rawResult, err := r.base.findOne(ctx, dto.Id)
+	rawDoc, err := r.base.FindByID(ctx, dto.Id)
 	if err != nil {
 		return zero, err
 	}
 
-	// Decode directly into the model - ObjectID fields are automatically converted via UnmarshalBSONValue
-	var result T
-	entityBytes, err := bson.Marshal(rawResult)
-	if err != nil {
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
-	}
-
-	if err := bson.Unmarshal(entityBytes, &result); err != nil {
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
-	}
-
-	return result, nil
+	return r.toModel(rawDoc)
 }
 
+// List retrieves entities matching the filter.
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	rawResults, err := r.base.find(ctx, dto.Filter, dto.Projection)
+	// For static entities, filter and projection are used directly (no metadata separation)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.base.Find(ctx, filter, projection)
 	if err != nil {
 		return nil, err
 	}
 
-	// Decode directly into models - ObjectID fields are automatically converted via UnmarshalBSONValue
-	results := make([]T, 0, len(rawResults))
-	for _, raw := range rawResults {
-		var result T
-		entityBytes, err := bson.Marshal(raw)
+	results := make([]T, 0, len(rawDocs))
+	for _, rawDoc := range rawDocs {
+		model, err := r.toModel(rawDoc)
 		if err != nil {
-			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
+			return nil, err
 		}
-
-		if err := bson.Unmarshal(entityBytes, &result); err != nil {
-			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
-		}
-		results = append(results, result)
+		results = append(results, model)
 	}
 
 	return results, nil
 }
 
+// Create inserts a new entity.
 func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[T]) (T, error) {
 	var zero T
 
-	// Serialize the struct - ObjectID fields are automatically converted via MarshalBSONValue
-	docBytes, err := bson.Marshal(dto.Data)
+	mapper := r.base.GetDocumentMapper()
+	doc, err := mapper.ToDocumentWithoutMetadata(dto.Data, r.base.GetIDStrategy())
 	if err != nil {
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
-	}
-	var doc bson.M
-	if err := bson.Unmarshal(docBytes, &doc); err != nil {
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
+		return zero, sdk.NewInternalServerError(err)
 	}
 
-	// Insert using base repository
-	idStr, err := r.base.insertOne(ctx, doc, dto.Data.GetID())
+	// Get provided ID
+	providedID := dto.Data.GetID()
+
+	idStr, err := r.base.Insert(ctx, doc, providedID)
 	if err != nil {
 		return zero, err
 	}
@@ -91,18 +110,35 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 
-func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
-	return r.base.deleteOne(ctx, dto.Id)
-}
-
+// Update modifies an existing entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
 	var zero T
 
-	// Update using base repository
-	if err := r.base.updateOne(ctx, dto.Id, dto.Data); err != nil {
+	if err := r.base.Update(ctx, dto.Id, dto.Data); err != nil {
 		return zero, err
 	}
 
-	// Retrieve and return the updated document
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+}
+
+// Delete removes an entity by ID.
+func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
+	return r.base.Delete(ctx, dto.Id)
+}
+
+// toModel converts a raw MongoDB document to the model type T.
+func (r *MongoStaticEntityInstanceRepository[T]) toModel(rawDoc bson.M) (T, error) {
+	var zero T
+
+	entityBytes, err := bson.Marshal(rawDoc)
+	if err != nil {
+		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
+	}
+
+	var result T
+	if err := bson.Unmarshal(entityBytes, &result); err != nil {
+		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
+	}
+
+	return result, nil
 }

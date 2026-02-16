@@ -60,9 +60,11 @@ func InitEndorServiceRepository(microServiceId string, internalEndorServices *[]
 			mu:                    &sync.RWMutex{},
 		}
 		if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-			client, _ := sdk.GetMongoClient()
-			database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
-			endorServiceRepositoryInstance.collection = database.Collection(COLLECTION_ENTITIES)
+			client, err := sdk.GetMongoClient()
+			if client != nil && err == nil {
+				database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
+				endorServiceRepositoryInstance.collection = database.Collection(COLLECTION_ENTITIES)
+			}
 		}
 	})
 	return endorServiceRepositoryInstance
