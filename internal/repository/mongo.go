@@ -232,18 +232,23 @@ func NewObjectIDFieldRegistry[T any]() *ObjectIDFieldRegistry {
 		return registry
 	}
 
-	registry.collectObjectIDFields(t)
+	registry.collectObjectIDFieldsWithPrefix(t, "")
 	return registry
 }
 
-func (r *ObjectIDFieldRegistry) collectObjectIDFields(t reflect.Type) {
+// collectObjectIDFieldsWithPrefix recursively collects ObjectID fields from a struct type,
+// building full paths for nested structs (e.g., "lines.productId").
+// Uses JSON tags for field names, except for _id which uses BSON tag.
+func (r *ObjectIDFieldRegistry) collectObjectIDFieldsWithPrefix(t reflect.Type, prefix string) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		bsonTag := field.Tag.Get("bson")
+		jsonTag := field.Tag.Get("json")
 
-		// Handle embedded structs with inline tag
-		isInline := field.Anonymous || bsonTag == ",inline" ||
-			strings.HasSuffix(bsonTag, ",inline")
+		// Handle embedded structs with inline tag (check both json and bson)
+		isInline := field.Anonymous ||
+			bsonTag == ",inline" || strings.HasSuffix(bsonTag, ",inline") ||
+			jsonTag == ",inline" || strings.HasSuffix(jsonTag, ",inline")
 
 		if isInline {
 			embeddedType := field.Type
@@ -251,33 +256,71 @@ func (r *ObjectIDFieldRegistry) collectObjectIDFields(t reflect.Type) {
 				embeddedType = embeddedType.Elem()
 			}
 			if embeddedType.Kind() == reflect.Struct {
-				r.collectObjectIDFields(embeddedType)
+				r.collectObjectIDFieldsWithPrefix(embeddedType, prefix)
 			}
 			continue
 		}
 
-		// Check if field is sdk.ObjectID
+		// For _id field, use bson tag; for all other fields, use json tag
+		var tagName string
+		if bsonTag == "_id" || strings.HasPrefix(bsonTag, "_id,") {
+			tagName = "_id"
+		} else {
+			tagName = extractTagName(jsonTag, field.Name)
+		}
+
+		if tagName == "" || tagName == "-" {
+			continue
+		}
+
+		fullPath := tagName
+		if prefix != "" {
+			fullPath = prefix + "." + tagName
+		}
+
 		fieldType := field.Type
 		if fieldType.Kind() == reflect.Ptr {
 			fieldType = fieldType.Elem()
 		}
+
+		// Check if field is sdk.ObjectID
 		if fieldType.PkgPath() == "github.com/mattiabonardi/endor-sdk-go/pkg/sdk" &&
 			fieldType.Name() == "ObjectID" {
-			tagName := extractBsonTagName(bsonTag, field.Name)
-			if tagName != "" && tagName != "-" {
-				r.fields[tagName] = struct{}{}
+			r.fields[fullPath] = struct{}{}
+			continue
+		}
+
+		// Get element type for slices/arrays
+		elementType := fieldType
+		if elementType.Kind() == reflect.Slice || elementType.Kind() == reflect.Array {
+			elementType = elementType.Elem()
+		}
+		if elementType.Kind() == reflect.Ptr {
+			elementType = elementType.Elem()
+		}
+
+		// Recurse into nested structs (including slice/array elements)
+		if elementType.Kind() == reflect.Struct {
+			// Skip standard library types and MongoDB types
+			pkgPath := elementType.PkgPath()
+			if pkgPath == "" || pkgPath == "time" || strings.HasPrefix(pkgPath, "go.mongodb.org/") {
+				continue
 			}
+			r.collectObjectIDFieldsWithPrefix(elementType, fullPath)
 		}
 	}
 }
 
-// extractBsonTagName extracts the field name from a bson tag.
+// extractTagName extracts the field name from a tag (json or bson).
 // Example: "fieldName,omitempty" -> "fieldName"
-func extractBsonTagName(tag, defaultName string) string {
+func extractTagName(tag, defaultName string) string {
 	if tag == "" || tag == "-" {
 		return defaultName
 	}
 	if idx := strings.Index(tag, ","); idx != -1 {
+		if idx == 0 {
+			return defaultName
+		}
 		return tag[:idx]
 	}
 	return tag
@@ -314,6 +357,176 @@ func (r *ObjectIDFieldRegistry) ConvertToStorage(doc bson.M) error {
 		doc[field] = oid
 	}
 	return nil
+}
+
+// ConvertFilterToStorage converts sdk.ObjectID string values to primitive.ObjectID
+// in MongoDB query filters. Unlike ConvertToStorage, this method handles query
+// operators like $in, $gt, $eq, etc., and nested conditions like $or, $and.
+func (r *ObjectIDFieldRegistry) ConvertFilterToStorage(filter bson.M) error {
+	for key, val := range filter {
+		if val == nil {
+			continue
+		}
+
+		// Handle logical operators: $or, $and, $nor
+		if key == "$or" || key == "$and" || key == "$nor" {
+			conditions, ok := val.([]interface{})
+			if !ok {
+				// Try []bson.M
+				if bsonConditions, ok := val.([]bson.M); ok {
+					for _, condition := range bsonConditions {
+						if err := r.ConvertFilterToStorage(condition); err != nil {
+							return err
+						}
+					}
+					continue
+				}
+				continue
+			}
+			for i, cond := range conditions {
+				if condMap, ok := cond.(bson.M); ok {
+					if err := r.ConvertFilterToStorage(condMap); err != nil {
+						return err
+					}
+					conditions[i] = condMap
+				} else if condMap, ok := cond.(map[string]interface{}); ok {
+					bsonCond := bson.M(condMap)
+					if err := r.ConvertFilterToStorage(bsonCond); err != nil {
+						return err
+					}
+					conditions[i] = bsonCond
+				}
+			}
+			continue
+		}
+
+		// Handle $not operator
+		if key == "$not" {
+			if notFilter, ok := val.(bson.M); ok {
+				if err := r.ConvertFilterToStorage(notFilter); err != nil {
+					return err
+				}
+			} else if notFilter, ok := val.(map[string]interface{}); ok {
+				bsonNotFilter := bson.M(notFilter)
+				if err := r.ConvertFilterToStorage(bsonNotFilter); err != nil {
+					return err
+				}
+				filter[key] = bsonNotFilter
+			}
+			continue
+		}
+
+		// Check if this is an ObjectID field
+		if !r.IsObjectIDField(key) {
+			continue
+		}
+
+		// Convert the value based on its type
+		converted, err := r.convertFilterValue(val)
+		if err != nil {
+			return fmt.Errorf("field %s: %w", key, err)
+		}
+		if converted != nil {
+			filter[key] = converted
+		}
+	}
+	return nil
+}
+
+// convertFilterValue recursively converts ObjectID values in various filter structures:
+// - Direct values: "507f..." -> primitive.ObjectID
+// - Operators: {"$gt": "507f..."} -> {"$gt": primitive.ObjectID}
+// - Arrays: {"$in": ["507f...", "507f..."]} -> {"$in": [primitive.ObjectID, primitive.ObjectID]}
+func (r *ObjectIDFieldRegistry) convertFilterValue(val interface{}) (interface{}, error) {
+	if val == nil {
+		return nil, nil
+	}
+
+	switch v := val.(type) {
+	case string:
+		// Direct string value
+		if v == "" {
+			return nil, nil
+		}
+		oid, err := primitive.ObjectIDFromHex(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ObjectID format: %w", err)
+		}
+		return oid, nil
+
+	case sdk.ObjectID:
+		// Direct sdk.ObjectID value
+		hexStr := v.String()
+		if hexStr == "" {
+			return nil, nil
+		}
+		oid, err := primitive.ObjectIDFromHex(hexStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ObjectID format: %w", err)
+		}
+		return oid, nil
+
+	case bson.M:
+		// Operator map like {"$gt": "507f...", "$lt": "507f..."}
+		result := bson.M{}
+		for op, opVal := range v {
+			converted, err := r.convertFilterValue(opVal)
+			if err != nil {
+				return nil, fmt.Errorf("operator %s: %w", op, err)
+			}
+			if converted != nil {
+				result[op] = converted
+			} else {
+				result[op] = opVal
+			}
+		}
+		return result, nil
+
+	case map[string]interface{}:
+		// Convert to bson.M and process
+		bsonMap := bson.M(v)
+		return r.convertFilterValue(bsonMap)
+
+	case []interface{}:
+		// Array of values (for $in, $nin, $all, etc.)
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			converted, err := r.convertFilterValue(item)
+			if err != nil {
+				return nil, fmt.Errorf("array index %d: %w", i, err)
+			}
+			if converted != nil {
+				result[i] = converted
+			} else {
+				result[i] = item
+			}
+		}
+		return result, nil
+
+	case []string:
+		// Array of strings
+		result := make([]interface{}, len(v))
+		for i, str := range v {
+			if str == "" {
+				result[i] = str
+				continue
+			}
+			oid, err := primitive.ObjectIDFromHex(str)
+			if err != nil {
+				return nil, fmt.Errorf("array index %d: invalid ObjectID format: %w", i, err)
+			}
+			result[i] = oid
+		}
+		return result, nil
+
+	case primitive.ObjectID:
+		// Already converted, return as-is
+		return v, nil
+
+	default:
+		// Unknown type, return nil to keep original value
+		return nil, nil
+	}
 }
 
 // IsObjectIDField returns true if the given field name is an ObjectID field.
@@ -376,7 +589,7 @@ func (r *ModelFieldRegistry) collectFields(t reflect.Type) {
 			continue
 		}
 
-		tagName := extractBsonTagName(jsonTag, field.Name)
+		tagName := extractTagName(jsonTag, field.Name)
 		if tagName != "" && tagName != "-" {
 			r.fields[tagName] = struct{}{}
 		}
@@ -572,7 +785,7 @@ func (r *mongoBaseRepository[T]) Find(ctx context.Context, filter bson.M, projec
 	}
 
 	// Convert ObjectID fields in filter to primitive.ObjectID
-	if err := r.objectIDFields.ConvertToStorage(mongoFilter); err != nil {
+	if err := r.objectIDFields.ConvertFilterToStorage(mongoFilter); err != nil {
 		return nil, sdk.NewBadRequestError(err)
 	}
 

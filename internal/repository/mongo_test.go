@@ -733,3 +733,282 @@ func TestModelFieldRegistry_PrepareFilter(t *testing.T) {
 		assert.Equal(t, "value", result["metadata.extraMeta"])
 	})
 }
+
+// Test model with ObjectID fields for filter conversion
+type TestEntityWithObjectIDFields struct {
+	ID       string        `bson:"_id,omitempty" json:"id,omitempty"`
+	Name     string        `bson:"name" json:"name"`
+	UserID   sdk.ObjectID  `bson:"userId" json:"userId"`
+	OwnerID  sdk.ObjectID  `bson:"ownerId" json:"ownerId"`
+	ParentID *sdk.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+}
+
+func (t *TestEntityWithObjectIDFields) GetID() any {
+	return t.ID
+}
+
+func TestObjectIDFieldRegistry_ConvertFilterToStorage(t *testing.T) {
+	registry := NewObjectIDFieldRegistry[*TestEntityWithObjectIDFields]()
+
+	// Verify ObjectID fields are registered
+	assert.True(t, registry.IsObjectIDField("userId"))
+	assert.True(t, registry.IsObjectIDField("ownerId"))
+	assert.True(t, registry.IsObjectIDField("parentId"))
+	assert.False(t, registry.IsObjectIDField("name"))
+
+	t.Run("simple equality filter", func(t *testing.T) {
+		userIDStr := "507f1f77bcf86cd799439011"
+		filter := bson.M{
+			"userId": userIDStr,
+			"name":   "test",
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		// userId should be converted to primitive.ObjectID
+		userIDObj, ok := filter["userId"].(primitive.ObjectID)
+		assert.True(t, ok, "userId should be primitive.ObjectID")
+		assert.Equal(t, userIDStr, userIDObj.Hex())
+
+		// name should remain as string
+		assert.Equal(t, "test", filter["name"])
+	})
+
+	t.Run("$in operator", func(t *testing.T) {
+		userID1 := "507f1f77bcf86cd799439011"
+		userID2 := "507f1f77bcf86cd799439012"
+
+		filter := bson.M{
+			"userId": bson.M{
+				"$in": []interface{}{userID1, userID2},
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		// Check that $in array elements are converted
+		inClause := filter["userId"].(bson.M)["$in"].([]interface{})
+		assert.Len(t, inClause, 2)
+
+		oid1, ok := inClause[0].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userID1, oid1.Hex())
+
+		oid2, ok := inClause[1].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userID2, oid2.Hex())
+	})
+
+	t.Run("$gt operator", func(t *testing.T) {
+		userIDStr := "507f1f77bcf86cd799439011"
+
+		filter := bson.M{
+			"userId": bson.M{
+				"$gt": userIDStr,
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		gtValue := filter["userId"].(bson.M)["$gt"]
+		oid, ok := gtValue.(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userIDStr, oid.Hex())
+	})
+
+	t.Run("multiple operators", func(t *testing.T) {
+		gtID := "507f1f77bcf86cd799439011"
+		ltID := "607f1f77bcf86cd799439099"
+
+		filter := bson.M{
+			"userId": bson.M{
+				"$gt": gtID,
+				"$lt": ltID,
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		userIDClause := filter["userId"].(bson.M)
+
+		gtOID, ok := userIDClause["$gt"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, gtID, gtOID.Hex())
+
+		ltOID, ok := userIDClause["$lt"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, ltID, ltOID.Hex())
+	})
+
+	t.Run("$or operator with ObjectID fields", func(t *testing.T) {
+		userID1 := "507f1f77bcf86cd799439011"
+		ownerID1 := "507f1f77bcf86cd799439012"
+
+		filter := bson.M{
+			"$or": []interface{}{
+				bson.M{"userId": userID1},
+				bson.M{"ownerId": ownerID1},
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		orClauses := filter["$or"].([]interface{})
+		assert.Len(t, orClauses, 2)
+
+		// Check first condition
+		cond1 := orClauses[0].(bson.M)
+		userOID, ok := cond1["userId"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userID1, userOID.Hex())
+
+		// Check second condition
+		cond2 := orClauses[1].(bson.M)
+		ownerOID, ok := cond2["ownerId"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, ownerID1, ownerOID.Hex())
+	})
+
+	t.Run("$and operator with mixed fields", func(t *testing.T) {
+		userIDStr := "507f1f77bcf86cd799439011"
+
+		filter := bson.M{
+			"$and": []interface{}{
+				bson.M{"userId": userIDStr},
+				bson.M{"name": "test"},
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		andClauses := filter["$and"].([]interface{})
+		assert.Len(t, andClauses, 2)
+
+		// Check ObjectID field is converted
+		cond1 := andClauses[0].(bson.M)
+		userOID, ok := cond1["userId"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userIDStr, userOID.Hex())
+
+		// Check string field remains as string
+		cond2 := andClauses[1].(bson.M)
+		assert.Equal(t, "test", cond2["name"])
+	})
+
+	t.Run("$nin operator with string array", func(t *testing.T) {
+		userID1 := "507f1f77bcf86cd799439011"
+		userID2 := "507f1f77bcf86cd799439012"
+
+		filter := bson.M{
+			"userId": bson.M{
+				"$nin": []string{userID1, userID2},
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		ninClause := filter["userId"].(bson.M)["$nin"].([]interface{})
+		assert.Len(t, ninClause, 2)
+
+		oid1, ok := ninClause[0].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userID1, oid1.Hex())
+
+		oid2, ok := ninClause[1].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userID2, oid2.Hex())
+	})
+
+	t.Run("complex nested query", func(t *testing.T) {
+		userID1 := "507f1f77bcf86cd799439011"
+		userID2 := "507f1f77bcf86cd799439012"
+		ownerID := "607f1f77bcf86cd799439099"
+
+		filter := bson.M{
+			"$or": []interface{}{
+				bson.M{
+					"userId": bson.M{
+						"$in": []interface{}{userID1, userID2},
+					},
+				},
+				bson.M{
+					"$and": []interface{}{
+						bson.M{"ownerId": ownerID},
+						bson.M{"name": "test"},
+					},
+				},
+			},
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		// Verify the structure is maintained and ObjectIDs are converted
+		orClauses := filter["$or"].([]interface{})
+		assert.Len(t, orClauses, 2)
+
+		// First OR clause: userId $in
+		firstClause := orClauses[0].(bson.M)
+		userIDInClause := firstClause["userId"].(bson.M)["$in"].([]interface{})
+		assert.Len(t, userIDInClause, 2)
+
+		// Second OR clause: $and with ownerId and name
+		secondClause := orClauses[1].(bson.M)
+		andClauses := secondClause["$and"].([]interface{})
+		assert.Len(t, andClauses, 2)
+
+		ownerIDCond := andClauses[0].(bson.M)
+		ownerOID, ok := ownerIDCond["ownerId"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, ownerID, ownerOID.Hex())
+	})
+
+	t.Run("invalid ObjectID format", func(t *testing.T) {
+		filter := bson.M{
+			"userId": "invalid-objectid",
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid ObjectID format")
+	})
+
+	t.Run("nil and empty values", func(t *testing.T) {
+		filter := bson.M{
+			"userId":  nil,
+			"ownerId": "",
+			"name":    "test",
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		// nil and empty should be preserved
+		assert.Nil(t, filter["userId"])
+		assert.Equal(t, "", filter["ownerId"])
+		assert.Equal(t, "test", filter["name"])
+	})
+
+	t.Run("sdk.ObjectID type", func(t *testing.T) {
+		userIDStr := "507f1f77bcf86cd799439011"
+		userID := sdk.ObjectID(userIDStr)
+
+		filter := bson.M{
+			"userId": userID,
+		}
+
+		err := registry.ConvertFilterToStorage(filter)
+		assert.NoError(t, err)
+
+		oid, ok := filter["userId"].(primitive.ObjectID)
+		assert.True(t, ok)
+		assert.Equal(t, userIDStr, oid.Hex())
+	})
+}
