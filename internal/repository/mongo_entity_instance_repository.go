@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,53 +9,30 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	collectionName string
-	idConverter    IDConverter
-	docConverter   *DocumentConverter[T]
-	autoGenerateID bool
+	base         *mongoBaseRepository[T]
+	docConverter *DocumentConverter[T]
 }
 
 func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	collectionName string,
 	options sdk.EntityInstanceRepositoryOptions,
 ) *MongoEntityInstanceRepository[T] {
-	// Detect ID type from the model structure
-	idType := detectIDType[T]()
-
-	var idConverter IDConverter
-	if idType == "objectid" {
-		idConverter = &ObjectIDConverter{}
-	} else {
-		idConverter = &StringIDConverter{}
-	}
+	client, _ := sdk.GetMongoClient()
+	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(collectionName)
 
 	return &MongoEntityInstanceRepository[T]{
-		collectionName: collectionName,
-		idConverter:    idConverter,
-		docConverter:   &DocumentConverter[T]{},
-		autoGenerateID: *options.AutoGenerateID,
+		base:         newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		docConverter: &DocumentConverter[T]{},
 	}
 }
 
 func (r *MongoEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], error) {
-	var rawResult bson.M
-
-	filter, err := r.idConverter.ToFilter(dto.Id)
+	rawResult, err := r.base.findOne(ctx, dto.Id)
 	if err != nil {
-		return nil, sdk.NewBadRequestError(err)
-	}
-
-	err = r.getCollection().FindOne(ctx, filter).Decode(&rawResult)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-		}
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
+		return nil, err
 	}
 
 	metadata, err := r.docConverter.ExtractMetadata(rawResult)
@@ -64,7 +40,7 @@ func (r *MongoEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk
 		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to extract metadata: %w", err))
 	}
 
-	model, err := r.docConverter.ToModel(rawResult, r.idConverter)
+	model, err := r.docConverter.ToModel(rawResult, r.base.idConverter)
 	if err != nil {
 		return nil, sdk.NewInternalServerError(err)
 	}
@@ -81,22 +57,11 @@ func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.Rea
 		return nil, err
 	}
 
-	// Convert ObjectID fields in filter to primitive.ObjectID
-	objectIDFields := getObjectIDFields[T]()
-	if err := convertObjectIDsToStorage(mongoFilter, objectIDFields); err != nil {
-		return nil, sdk.NewBadRequestError(err)
-	}
+	mongoProjection := prepareProjection[T](dto.Projection)
 
-	opts := options.Find().SetProjection(prepareProjection[T](dto.Projection))
-	cursor, err := r.getCollection().Find(ctx, mongoFilter, opts)
+	rawResults, err := r.base.find(ctx, mongoFilter, mongoProjection)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list entities: %w", err))
-	}
-	defer cursor.Close(ctx)
-
-	var rawResults []bson.M
-	if err := cursor.All(ctx, &rawResults); err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode entities: %w", err))
+		return nil, err
 	}
 
 	results := make([]sdk.EntityInstance[T], 0, len(rawResults))
@@ -106,7 +71,7 @@ func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.Rea
 			return nil, sdk.NewInternalServerError(fmt.Errorf("failed to extract metadata: %w", err))
 		}
 
-		model, err := r.docConverter.ToModel(raw, r.idConverter)
+		model, err := r.docConverter.ToModel(raw, r.base.idConverter)
 		if err != nil {
 			return nil, sdk.NewInternalServerError(err)
 		}
@@ -121,89 +86,32 @@ func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.Rea
 }
 
 func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[sdk.EntityInstance[T]]) (*sdk.EntityInstance[T], error) {
-	idPtr := dto.Data.This.GetID()
-	var idStr string
-
-	if r.autoGenerateID {
-		generatedID := r.idConverter.GenerateNewID()
-		idStr = idToString(generatedID)
-	} else {
-		if isIDEmpty(idPtr) {
-			return nil, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
-		}
-		idStr = idToString(idPtr)
-
-		// Check if exists
-		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
-		if err == nil {
-			return nil, sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idStr))
-		}
-		var endorErr *sdk.EndorError
-		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
-			return nil, err
-		}
-	}
-
-	doc, err := r.docConverter.ToDocument(dto.Data.This, dto.Data.Metadata, r.idConverter)
+	doc, err := r.docConverter.ToDocument(dto.Data.This, dto.Data.Metadata, r.base.idConverter)
 	if err != nil {
 		return nil, sdk.NewInternalServerError(err)
 	}
 
-	// If auto-generating ID, we need to set it in the document
-	if r.autoGenerateID {
-		storageID, err := r.idConverter.ToStorageID(idStr)
-		if err != nil {
-			return nil, sdk.NewBadRequestError(err)
-		}
-		doc["_id"] = storageID
+	// Get provided ID (if any)
+	idPtr := dto.Data.This.GetID()
+	var providedID string
+	if !isIDEmpty(idPtr) {
+		providedID = idToString(idPtr)
 	}
 
-	_, err = r.getCollection().InsertOne(ctx, doc)
+	// Insert using base repository
+	idStr, err := r.base.insertOne(ctx, doc, providedID)
 	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			return nil, sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
-		}
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
+		return nil, err
 	}
 
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
 }
 
 func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
-	if err != nil {
-		return err
-	}
-
-	filter, err := r.idConverter.ToFilter(dto.Id)
-	if err != nil {
-		return sdk.NewBadRequestError(err)
-	}
-
-	result, err := r.getCollection().DeleteOne(ctx, filter)
-	if err != nil {
-		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity instance: %w", err))
-	}
-
-	if result.DeletedCount == 0 {
-		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-	}
-
-	return nil
+	return r.base.deleteOne(ctx, dto.Id)
 }
 
 func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
-	// Verify the instance exists
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
-	if err != nil {
-		return nil, err
-	}
-
-	filter, err := r.idConverter.ToFilter(dto.Id)
-	if err != nil {
-		return nil, sdk.NewBadRequestError(err)
-	}
-
 	// Prepare the $set document with both entity data and metadata
 	setDoc := bson.M{}
 
@@ -217,32 +125,15 @@ func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.U
 		setDoc["metadata."+k] = v
 	}
 
-	// If no fields to update, return error
-	if len(setDoc) == 0 {
-		return nil, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
-	}
-
-	// Convert ObjectID fields to primitive.ObjectID for storage
-	objectIDFields := getObjectIDFields[T]()
-	if err := convertObjectIDsToStorage(setDoc, objectIDFields); err != nil {
-		return nil, sdk.NewBadRequestError(err)
-	}
-
-	// Perform the update with $set
-	update := bson.M{"$set": setDoc}
-	result, err := r.getCollection().UpdateOne(ctx, filter, update)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
-	}
-	if result.MatchedCount == 0 {
-		return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
+	// Update using base repository
+	if err := r.base.updateOne(ctx, dto.Id, setDoc); err != nil {
+		return nil, err
 	}
 
 	// Retrieve and return the updated document
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
 }
 
-// Helper functions remain the same
 func prepareProjection[T sdk.EntityInstanceInterface](projection map[string]interface{}) bson.M {
 	result := bson.M{}
 	var thisModel T
@@ -289,9 +180,4 @@ func prepareFilter[T sdk.EntityInstanceInterface](filter map[string]interface{})
 		}
 	}
 	return result, nil
-}
-
-func (r *MongoEntityInstanceRepository[T]) getCollection() *mongo.Collection {
-	client, _ := sdk.GetMongoClient()
-	return client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(r.collectionName)
 }

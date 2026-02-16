@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -8,6 +10,8 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // IDConverter handles ID conversion logic
@@ -155,26 +159,10 @@ func convertObjectIDsToStorage(doc bson.M, objectIDFields map[string]struct{}) e
 					}
 					doc[field] = oid
 				}
-			// primitive.ObjectID is already in the correct format
-			case primitive.ObjectID:
-				// Already correct, do nothing
 			}
 		}
 	}
 	return nil
-}
-
-// convertObjectIDsFromStorage converts primitive.ObjectID fields in a BSON document to strings
-// This is called after reading data from MongoDB, so sdk.ObjectID fields can be properly unmarshaled
-func convertObjectIDsFromStorage(doc bson.M, objectIDFields map[string]struct{}) {
-	for field := range objectIDFields {
-		if val, exists := doc[field]; exists && val != nil {
-			// Convert primitive.ObjectID to string
-			if oid, ok := val.(primitive.ObjectID); ok {
-				doc[field] = oid.Hex()
-			}
-		}
-	}
 }
 
 // ObjectIDConverter for auto-generated MongoDB ObjectIDs
@@ -203,7 +191,7 @@ func (c *ObjectIDConverter) FromStorageID(storageID interface{}) (any, error) {
 }
 
 func (c *ObjectIDConverter) GenerateNewID() any {
-	return primitive.NewObjectID().Hex()
+	return primitive.NewObjectID()
 }
 
 // StringIDConverter for custom string IDs
@@ -359,7 +347,7 @@ func (c *DocumentConverter[T]) ToDocument(model T, metadata map[string]interface
 	idPtr := model.GetID()
 	idStr := idToString(idPtr)
 	if idStr != "" {
-		storageID, err := idConverter.ToStorageID(idPtr)
+		storageID, err := idConverter.ToStorageID(idStr)
 		if err != nil {
 			return nil, err
 		}
@@ -370,4 +358,190 @@ func (c *DocumentConverter[T]) ToDocument(model T, metadata map[string]interface
 	entityMap["metadata"] = metadata
 
 	return entityMap, nil
+}
+
+// mongoBaseRepository contains common MongoDB operations used by both repository implementations
+// This eliminates duplication while allowing each repository to maintain its specific storage format
+type mongoBaseRepository[T sdk.EntityInstanceInterface] struct {
+	collection     *mongo.Collection
+	idConverter    IDConverter
+	autoGenerateID bool
+	objectIDFields map[string]struct{}
+}
+
+func newMongoBaseRepository[T sdk.EntityInstanceInterface](
+	collection *mongo.Collection,
+	autoGenerateID bool,
+) *mongoBaseRepository[T] {
+	idType := detectIDType[T]()
+
+	var idConverter IDConverter
+	if idType == "objectid" {
+		idConverter = &ObjectIDConverter{}
+	} else {
+		idConverter = &StringIDConverter{}
+	}
+
+	return &mongoBaseRepository[T]{
+		collection:     collection,
+		idConverter:    idConverter,
+		autoGenerateID: autoGenerateID,
+		objectIDFields: getObjectIDFields[T](),
+	}
+}
+
+// findOne retrieves a single document by ID
+func (r *mongoBaseRepository[T]) findOne(ctx context.Context, id string) (bson.M, error) {
+	filter, err := r.idConverter.ToFilter(id)
+	if err != nil {
+		return nil, sdk.NewBadRequestError(err)
+	}
+
+	var result bson.M
+	err = r.collection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+		}
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
+	}
+
+	return result, nil
+}
+
+// find retrieves multiple documents with filter and projection
+func (r *mongoBaseRepository[T]) find(ctx context.Context, filter bson.M, projection bson.M) ([]bson.M, error) {
+	mongoFilter := filter
+	if mongoFilter == nil {
+		mongoFilter = bson.M{}
+	} else {
+		mongoFilter = cloneBsonM(mongoFilter)
+	}
+
+	// Convert ObjectID fields in filter to primitive.ObjectID
+	if err := convertObjectIDsToStorage(mongoFilter, r.objectIDFields); err != nil {
+		return nil, sdk.NewBadRequestError(err)
+	}
+
+	var opts *options.FindOptions
+	if projection != nil {
+		opts = options.Find().SetProjection(projection)
+	}
+
+	cursor, err := r.collection.Find(ctx, mongoFilter, opts)
+	if err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list entities: %w", err))
+	}
+	defer cursor.Close(ctx)
+
+	var results []bson.M
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode entities: %w", err))
+	}
+
+	return results, nil
+}
+
+// insertOne inserts a document with optional auto-generated ID
+func (r *mongoBaseRepository[T]) insertOne(ctx context.Context, doc bson.M, providedID any) (string, error) {
+	var idStr string
+
+	if r.autoGenerateID {
+		doc["_id"] = r.idConverter.GenerateNewID()
+	} else {
+		if providedID == "" {
+			return "", sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
+		}
+		idStr, ok := providedID.(string)
+		if !ok {
+			return "", sdk.NewBadRequestError(fmt.Errorf("provided ID must be a string"))
+		}
+
+		// Check if exists
+		_, err := r.findOne(ctx, idStr)
+		if err == nil {
+			return "", sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idStr))
+		}
+		var endorErr *sdk.EndorError
+		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
+			return "", err
+		}
+
+		storageID, err := r.idConverter.ToStorageID(idStr)
+		if err != nil {
+			return "", sdk.NewBadRequestError(err)
+		}
+		doc["_id"] = storageID
+	}
+
+	_, err := r.collection.InsertOne(ctx, doc)
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return "", sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
+		}
+		return "", sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
+	}
+
+	return idStr, nil
+}
+
+// updateOne updates a document by ID with the provided update document
+func (r *mongoBaseRepository[T]) updateOne(ctx context.Context, id string, updateData bson.M) error {
+	// Verify the instance exists
+	_, err := r.findOne(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	filter, err := r.idConverter.ToFilter(id)
+	if err != nil {
+		return sdk.NewBadRequestError(err)
+	}
+
+	if len(updateData) == 0 {
+		return sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
+	}
+
+	// Clone update data and convert ObjectID fields
+	data := cloneBsonM(updateData)
+	if err := convertObjectIDsToStorage(data, r.objectIDFields); err != nil {
+		return sdk.NewBadRequestError(err)
+	}
+
+	// Perform the update with $set
+	update := bson.M{"$set": data}
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
+	}
+	if result.MatchedCount == 0 {
+		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+	}
+
+	return nil
+}
+
+// deleteOne deletes a document by ID
+func (r *mongoBaseRepository[T]) deleteOne(ctx context.Context, id string) error {
+	// Verify the instance exists
+	_, err := r.findOne(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	filter, err := r.idConverter.ToFilter(id)
+	if err != nil {
+		return sdk.NewBadRequestError(err)
+	}
+
+	result, err := r.collection.DeleteOne(ctx, filter)
+	if err != nil {
+		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity instance: %w", err))
+	}
+
+	if result.DeletedCount == 0 {
+		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", id))
+	}
+
+	return nil
 }

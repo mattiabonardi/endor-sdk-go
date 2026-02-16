@@ -503,7 +503,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 	}
 }
 
-func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[map[string]interface{}]) (*sdk.EntityInterface, error) {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
 		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
 		var instance *sdk.EntityInterface
@@ -515,7 +515,7 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 		}
 		updateBson, err := bson.Marshal(dto.Data)
 		if err != nil {
-			return &dto.Data, err
+			return nil, err
 		}
 		update := bson.M{"$set": bson.Raw(updateBson)}
 		filter := bson.M{"_id": dto.Id}
@@ -527,7 +527,14 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 		h.invalidateCache()
 		h.reloadRouteConfiguration(h.microServiceId)
 
-		return &dto.Data, nil
+		instance, err = h.Instance(entityType, sdk.ReadInstanceDTO{
+			Id: dto.Id,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update entity %s", dto.Id)
+		}
+
+		return instance, nil
 	} else {
 		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
 	}
