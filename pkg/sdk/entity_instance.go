@@ -17,7 +17,7 @@ type EntityInstanceSpecializedInterface interface {
 
 type EntityInstance[T EntityInstanceInterface] struct {
 	This     T              `bson:",inline"`
-	Metadata map[string]any `bson:"metadata,omitempty"`
+	Metadata map[string]any `bson:",inline"`
 }
 
 func (d EntityInstance[T]) MarshalJSON() ([]byte, error) {
@@ -124,7 +124,7 @@ func (d *EntityInstance[T]) GetID() any {
 // Similar to EntityInstance but uses map[string]any for This to allow partial updates
 type PartialEntityInstance[T EntityInstanceInterface] struct {
 	This     map[string]any `bson:",inline"`
-	Metadata map[string]any `bson:"metadata,omitempty"`
+	Metadata map[string]any `bson:",inline"`
 }
 
 // UnmarshalJSON implements custom unmarshaling for PartialEntityInstance

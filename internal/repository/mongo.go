@@ -360,93 +360,72 @@ func (r *ObjectIDFieldRegistry) ConvertToStorage(doc bson.M) error {
 }
 
 // ConvertFilterToStorage converts sdk.ObjectID string values to primitive.ObjectID
-// in MongoDB query filters. Unlike ConvertToStorage, this method handles query
-// operators like $in, $gt, $eq, etc., and nested conditions like $or, $and.
+// in MongoDB query filters. Handles query operators like $in, $gt, $eq, etc.,
+// and nested conditions like $or, $and.
 func (r *ObjectIDFieldRegistry) ConvertFilterToStorage(filter bson.M) error {
 	for key, val := range filter {
 		if val == nil {
 			continue
 		}
 
-		// Handle logical operators: $or, $and, $nor
+		// Logical operators: recurse into sub-documents
 		if key == "$or" || key == "$and" || key == "$nor" {
-			conditions, ok := val.([]interface{})
-			if !ok {
-				// Try []bson.M
-				if bsonConditions, ok := val.([]bson.M); ok {
-					for _, condition := range bsonConditions {
-						if err := r.ConvertFilterToStorage(condition); err != nil {
-							return err
-						}
-					}
-					continue
-				}
-				continue
-			}
-			for i, cond := range conditions {
-				if condMap, ok := cond.(bson.M); ok {
-					if err := r.ConvertFilterToStorage(condMap); err != nil {
-						return err
-					}
-					conditions[i] = condMap
-				} else if condMap, ok := cond.(map[string]interface{}); ok {
-					bsonCond := bson.M(condMap)
-					if err := r.ConvertFilterToStorage(bsonCond); err != nil {
-						return err
-					}
-					conditions[i] = bsonCond
-				}
+			if err := r.convertInConditions(val); err != nil {
+				return err
 			}
 			continue
 		}
 
-		// Handle $not operator
-		if key == "$not" {
-			if notFilter, ok := val.(bson.M); ok {
-				if err := r.ConvertFilterToStorage(notFilter); err != nil {
-					return err
-				}
-			} else if notFilter, ok := val.(map[string]interface{}); ok {
-				bsonNotFilter := bson.M(notFilter)
-				if err := r.ConvertFilterToStorage(bsonNotFilter); err != nil {
-					return err
-				}
-				filter[key] = bsonNotFilter
+		// ObjectID field: convert value recursively
+		if r.IsObjectIDField(key) {
+			converted, err := r.convertAny(val)
+			if err != nil {
+				return fmt.Errorf("field %s: %w", key, err)
 			}
-			continue
-		}
-
-		// Check if this is an ObjectID field
-		if !r.IsObjectIDField(key) {
-			continue
-		}
-
-		// Convert the value based on its type
-		converted, err := r.convertFilterValue(val)
-		if err != nil {
-			return fmt.Errorf("field %s: %w", key, err)
-		}
-		if converted != nil {
 			filter[key] = converted
 		}
 	}
 	return nil
 }
 
-// convertFilterValue recursively converts ObjectID values in various filter structures:
-// - Direct values: "507f..." -> primitive.ObjectID
-// - Operators: {"$gt": "507f..."} -> {"$gt": primitive.ObjectID}
-// - Arrays: {"$in": ["507f...", "507f..."]} -> {"$in": [primitive.ObjectID, primitive.ObjectID]}
-func (r *ObjectIDFieldRegistry) convertFilterValue(val interface{}) (interface{}, error) {
+// convertInConditions recursively processes $or/$and/$nor arrays
+func (r *ObjectIDFieldRegistry) convertInConditions(val interface{}) error {
+	switch conditions := val.(type) {
+	case []interface{}:
+		for i, cond := range conditions {
+			switch c := cond.(type) {
+			case bson.M:
+				if err := r.ConvertFilterToStorage(c); err != nil {
+					return err
+				}
+			case map[string]interface{}:
+				bsonCond := bson.M(c)
+				if err := r.ConvertFilterToStorage(bsonCond); err != nil {
+					return err
+				}
+				conditions[i] = bsonCond
+			}
+		}
+	case []bson.M:
+		for _, cond := range conditions {
+			if err := r.ConvertFilterToStorage(cond); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// convertAny recursively converts any value that might contain ObjectID strings
+func (r *ObjectIDFieldRegistry) convertAny(val interface{}) (interface{}, error) {
 	if val == nil {
 		return nil, nil
 	}
 
 	switch v := val.(type) {
 	case string:
-		// Direct string value
 		if v == "" {
-			return nil, nil
+			return v, nil
 		}
 		oid, err := primitive.ObjectIDFromHex(v)
 		if err != nil {
@@ -455,77 +434,54 @@ func (r *ObjectIDFieldRegistry) convertFilterValue(val interface{}) (interface{}
 		return oid, nil
 
 	case sdk.ObjectID:
-		// Direct sdk.ObjectID value
-		hexStr := v.String()
-		if hexStr == "" {
-			return nil, nil
+		if v.IsEmpty() {
+			return v, nil
 		}
-		oid, err := primitive.ObjectIDFromHex(hexStr)
+		oid, err := primitive.ObjectIDFromHex(v.String())
 		if err != nil {
 			return nil, fmt.Errorf("invalid ObjectID format: %w", err)
 		}
 		return oid, nil
 
-	case bson.M:
-		// Operator map like {"$gt": "507f...", "$lt": "507f..."}
-		result := bson.M{}
-		for op, opVal := range v {
-			converted, err := r.convertFilterValue(opVal)
-			if err != nil {
-				return nil, fmt.Errorf("operator %s: %w", op, err)
-			}
-			if converted != nil {
-				result[op] = converted
-			} else {
-				result[op] = opVal
-			}
-		}
-		return result, nil
-
-	case map[string]interface{}:
-		// Convert to bson.M and process
-		bsonMap := bson.M(v)
-		return r.convertFilterValue(bsonMap)
-
-	case []interface{}:
-		// Array of values (for $in, $nin, $all, etc.)
-		result := make([]interface{}, len(v))
-		for i, item := range v {
-			converted, err := r.convertFilterValue(item)
-			if err != nil {
-				return nil, fmt.Errorf("array index %d: %w", i, err)
-			}
-			if converted != nil {
-				result[i] = converted
-			} else {
-				result[i] = item
-			}
-		}
-		return result, nil
-
-	case []string:
-		// Array of strings
-		result := make([]interface{}, len(v))
-		for i, str := range v {
-			if str == "" {
-				result[i] = str
-				continue
-			}
-			oid, err := primitive.ObjectIDFromHex(str)
-			if err != nil {
-				return nil, fmt.Errorf("array index %d: invalid ObjectID format: %w", i, err)
-			}
-			result[i] = oid
-		}
-		return result, nil
-
 	case primitive.ObjectID:
-		// Already converted, return as-is
 		return v, nil
 
+	case bson.M:
+		for k, inner := range v {
+			converted, err := r.convertAny(inner)
+			if err != nil {
+				return nil, fmt.Errorf("operator %s: %w", k, err)
+			}
+			v[k] = converted
+		}
+		return v, nil
+
+	case map[string]interface{}:
+		return r.convertAny(bson.M(v))
+
+	case []interface{}:
+		for i, item := range v {
+			converted, err := r.convertAny(item)
+			if err != nil {
+				return nil, fmt.Errorf("index %d: %w", i, err)
+			}
+			v[i] = converted
+		}
+		return v, nil
+
+	case []string:
+		result := make([]interface{}, len(v))
+		for i, s := range v {
+			converted, err := r.convertAny(s)
+			if err != nil {
+				return nil, fmt.Errorf("index %d: %w", i, err)
+			}
+			result[i] = converted
+		}
+		return result, nil
+
 	default:
-		// Unknown type, return nil to keep original value
-		return nil, nil
+		return val, nil
 	}
 }
 
@@ -536,141 +492,22 @@ func (r *ObjectIDFieldRegistry) IsObjectIDField(fieldName string) bool {
 }
 
 // ============================================================================
-// SECTION 4: Model Field Registry
-// ============================================================================
-// To properly separate entity fields from metadata fields when querying,
-// we need to know which fields belong to the model struct.
-
-// ModelFieldRegistry tracks which JSON field names belong to the model struct.
-type ModelFieldRegistry struct {
-	fields map[string]struct{}
-}
-
-// NewModelFieldRegistry creates a registry by inspecting the model's struct fields.
-// It uses JSON tags to determine field names since filters/projections use JSON field names.
-func NewModelFieldRegistry[T any]() *ModelFieldRegistry {
-	registry := &ModelFieldRegistry{
-		fields: make(map[string]struct{}),
-	}
-
-	var zero T
-	t := reflect.TypeOf(zero)
-	if t == nil {
-		return registry
-	}
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	if t.Kind() != reflect.Struct {
-		return registry
-	}
-
-	registry.collectFields(t)
-	return registry
-}
-
-func (r *ModelFieldRegistry) collectFields(t reflect.Type) {
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		jsonTag := field.Tag.Get("json")
-
-		// Handle embedded structs with inline tag
-		isInline := field.Anonymous || jsonTag == ",inline" ||
-			strings.HasSuffix(jsonTag, ",inline")
-
-		if isInline {
-			embeddedType := field.Type
-			if embeddedType.Kind() == reflect.Ptr {
-				embeddedType = embeddedType.Elem()
-			}
-			if embeddedType.Kind() == reflect.Struct {
-				r.collectFields(embeddedType)
-			}
-			continue
-		}
-
-		tagName := extractTagName(jsonTag, field.Name)
-		if tagName != "" && tagName != "-" {
-			r.fields[tagName] = struct{}{}
-		}
-	}
-}
-
-// IsModelField returns true if the given JSON field name belongs to the model.
-func (r *ModelFieldRegistry) IsModelField(fieldName string) bool {
-	_, exists := r.fields[fieldName]
-	return exists
-}
-
-// PrepareFilter transforms a filter map by prefixing metadata fields with "metadata.".
-// Model fields remain at the root level, metadata fields become "metadata.<field>".
-func (r *ModelFieldRegistry) PrepareFilter(filter map[string]interface{}) bson.M {
-	result := bson.M{}
-	for k, v := range filter {
-		if r.IsModelField(k) {
-			result[k] = v
-		} else {
-			result["metadata."+k] = v
-		}
-	}
-	return result
-}
-
-// PrepareProjection transforms a projection map by prefixing metadata fields.
-func (r *ModelFieldRegistry) PrepareProjection(projection map[string]interface{}) bson.M {
-	result := bson.M{}
-	for k, v := range projection {
-		if r.IsModelField(k) {
-			result[k] = v
-		} else {
-			result["metadata."+k] = v
-		}
-	}
-	return result
-}
-
-// ============================================================================
-// SECTION 5: Document Mapper
+// SECTION 4: Document Mapper
 // ============================================================================
 // DocumentMapper handles conversion between Go structs and MongoDB documents.
-// It manages the separation between entity data and metadata.
 
 // DocumentMapper converts between model types and MongoDB documents.
 // It handles:
 // - Embedded structs with bson:",inline" tags
 // - Automatic ObjectID conversion via the model's MarshalBSONValue/UnmarshalBSONValue
-// - Metadata extraction and injection
 type DocumentMapper[T sdk.EntityInstanceInterface] struct{}
 
-// ExtractMetadata extracts the metadata field from a raw MongoDB document.
-func (m *DocumentMapper[T]) ExtractMetadata(doc bson.M) (map[string]interface{}, error) {
-	metadata := make(map[string]interface{})
-	rawMeta, ok := doc["metadata"]
-	if !ok || rawMeta == nil {
-		return metadata, nil
-	}
-
-	metaBytes, err := bson.Marshal(rawMeta)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-	if err := bson.Unmarshal(metaBytes, &metadata); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-	}
-	return metadata, nil
-}
-
 // ToModel converts a raw MongoDB document to the model type T.
-// The document should contain entity fields at root level.
 // ObjectID fields are automatically converted via UnmarshalBSONValue.
 func (m *DocumentMapper[T]) ToModel(doc bson.M) (T, error) {
 	var model T
 
-	// Create a copy without metadata for clean unmarshaling
-	docCopy := cloneBsonM(doc)
-	delete(docCopy, "metadata")
-
-	entityBytes, err := bson.Marshal(docCopy)
+	entityBytes, err := bson.Marshal(doc)
 	if err != nil {
 		return model, fmt.Errorf("failed to marshal document: %w", err)
 	}
@@ -682,9 +519,9 @@ func (m *DocumentMapper[T]) ToModel(doc bson.M) (T, error) {
 	return model, nil
 }
 
-// ToDocument converts a model to a MongoDB document, adding metadata.
+// ToDocument converts a model with metadata to a MongoDB document.
+// All fields (model + metadata) are stored at root level.
 // The idStrategy is used to ensure proper _id storage format.
-// ObjectID fields are automatically converted via MarshalBSONValue.
 func (m *DocumentMapper[T]) ToDocument(model T, metadata map[string]interface{}, idStrategy IDStrategy) (bson.M, error) {
 	// Marshal model - ObjectID fields auto-convert via MarshalBSONValue
 	entityBytes, err := bson.Marshal(model)
@@ -707,8 +544,10 @@ func (m *DocumentMapper[T]) ToDocument(model T, metadata map[string]interface{},
 		doc["_id"] = storageID
 	}
 
-	// Add metadata
-	doc["metadata"] = metadata
+	// Add metadata fields at root level (inline)
+	for k, v := range metadata {
+		doc[k] = v
+	}
 
 	return doc, nil
 }

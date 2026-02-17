@@ -17,19 +17,15 @@ import (
 //	    "_id": "...",
 //	    "field1": "...",      // Model fields at root level
 //	    "field2": "...",
-//	    "metadata": {         // Runtime metadata in nested object
-//	        "metaField1": "...",
-//	        "metaField2": "..."
-//	    }
+//	    "metaField1": "...",  // Metadata fields also at root level (inline)
+//	    "metaField2": "..."
 //	}
 //
 // The repository automatically:
-// - Separates model fields from metadata when reading/writing
 // - Converts sdk.ObjectID fields to primitive.ObjectID in MongoDB
 // - Handles embedded structs with bson:",inline" tags
 type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	base        *mongoBaseRepository[T]
-	modelFields *ModelFieldRegistry
+	base *mongoBaseRepository[T]
 }
 
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
@@ -40,15 +36,13 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	client, err := sdk.GetMongoClient()
 	if client == nil || err != nil {
 		return &MongoEntityInstanceRepository[T]{
-			base:        nil,
-			modelFields: NewModelFieldRegistry[T](),
+			base: nil,
 		}
 	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(collectionName)
 
 	return &MongoEntityInstanceRepository[T]{
-		base:        newMongoBaseRepository[T](collection, *options.AutoGenerateID),
-		modelFields: NewModelFieldRegistry[T](),
+		base: newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 	}
 }
 
@@ -64,9 +58,16 @@ func (r *MongoEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk
 
 // List retrieves entities matching the filter.
 func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
-	// Prepare filter and projection - prefix metadata fields appropriately
-	filter := r.modelFields.PrepareFilter(dto.Filter)
-	projection := r.modelFields.PrepareProjection(dto.Projection)
+	// Filter and projection work directly since all fields are at root level
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
 
 	rawDocs, err := r.base.Find(ctx, filter, projection)
 	if err != nil {
@@ -111,17 +112,17 @@ func (r *MongoEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.C
 
 // Update modifies an existing entity by ID.
 func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
-	// Build the $set document with model fields at root and metadata fields prefixed
+	// Build the $set document - all fields at root level
 	setDoc := bson.M{}
 
-	// Model fields go at root level
+	// Model fields
 	for k, v := range dto.Data.This {
 		setDoc[k] = v
 	}
 
-	// Metadata fields are prefixed with "metadata."
+	// Metadata fields (also at root level now)
 	for k, v := range dto.Data.Metadata {
-		setDoc["metadata."+k] = v
+		setDoc[k] = v
 	}
 
 	if err := r.base.Update(ctx, dto.Id, setDoc); err != nil {
@@ -137,21 +138,17 @@ func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.R
 }
 
 // toEntityInstance converts a raw MongoDB document to EntityInstance[T].
+// Since both This and Metadata use bson:",inline", BSON handles the separation automatically.
 func (r *MongoEntityInstanceRepository[T]) toEntityInstance(rawDoc bson.M) (*sdk.EntityInstance[T], error) {
-	mapper := r.base.GetDocumentMapper()
-
-	metadata, err := mapper.ExtractMetadata(rawDoc)
+	entityBytes, err := bson.Marshal(rawDoc)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to extract metadata: %w", err))
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to marshal document: %w", err))
 	}
 
-	model, err := mapper.ToModel(rawDoc)
-	if err != nil {
-		return nil, sdk.NewInternalServerError(err)
+	var instance sdk.EntityInstance[T]
+	if err := bson.Unmarshal(entityBytes, &instance); err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal to EntityInstance: %w", err))
 	}
 
-	return &sdk.EntityInstance[T]{
-		This:     model,
-		Metadata: metadata,
-	}, nil
+	return &instance, nil
 }

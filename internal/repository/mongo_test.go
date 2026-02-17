@@ -117,37 +117,6 @@ func TestStringIDStrategy_FromStorageFormat(t *testing.T) {
 }
 
 // Tests for DocumentMapper
-func TestDocumentMapper_ExtractMetadata(t *testing.T) {
-	mapper := &DocumentMapper[*TestEntity]{}
-
-	t.Run("with metadata", func(t *testing.T) {
-		raw := bson.M{
-			"_id":  "123",
-			"name": "Test",
-			"metadata": bson.M{
-				"key1": "value1",
-				"key2": 42,
-			},
-		}
-
-		metadata, err := mapper.ExtractMetadata(raw)
-		assert.NoError(t, err)
-		assert.Equal(t, "value1", metadata["key1"])
-		assert.Equal(t, int32(42), metadata["key2"])
-	})
-
-	t.Run("without metadata", func(t *testing.T) {
-		raw := bson.M{
-			"_id":  "123",
-			"name": "Test",
-		}
-
-		metadata, err := mapper.ExtractMetadata(raw)
-		assert.NoError(t, err)
-		assert.Empty(t, metadata)
-	})
-}
-
 func TestDocumentMapper_ToModel(t *testing.T) {
 	mapper := &DocumentMapper[*TestEntity]{}
 	testID := primitive.NewObjectID()
@@ -156,9 +125,6 @@ func TestDocumentMapper_ToModel(t *testing.T) {
 		"_id":  testID,
 		"name": "TestModel",
 		"age":  25,
-		"metadata": bson.M{
-			"extra": "data",
-		},
 	}
 
 	model, err := mapper.ToModel(raw)
@@ -188,7 +154,8 @@ func TestDocumentMapper_ToDocument(t *testing.T) {
 	assert.Equal(t, "test-123", doc["_id"])
 	assert.Equal(t, "TestDoc", doc["name"])
 	assert.Equal(t, int32(30), doc["age"])
-	assert.Equal(t, metadata, doc["metadata"])
+	// Metadata fields are now inline at root level
+	assert.Equal(t, 1, doc["version"])
 }
 
 func TestDocumentMapper_WithEmbeddedStruct_ToModel(t *testing.T) {
@@ -200,9 +167,6 @@ func TestDocumentMapper_WithEmbeddedStruct_ToModel(t *testing.T) {
 		"name":  "TestEmbedded",
 		"age":   35,
 		"email": "test@example.com",
-		"metadata": bson.M{
-			"extra": "data",
-		},
 	}
 
 	model, err := mapper.ToModel(raw)
@@ -237,7 +201,8 @@ func TestDocumentMapper_WithEmbeddedStruct_ToDocument(t *testing.T) {
 	assert.Equal(t, "TestEmbedded", doc["name"])
 	assert.Equal(t, int32(35), doc["age"])
 	assert.Equal(t, "test@example.com", doc["email"])
-	assert.Equal(t, metadata, doc["metadata"])
+	// Metadata fields are now inline at root level
+	assert.Equal(t, 1, doc["version"])
 
 	// Verify that embedded struct fields are at the top level, not nested
 	_, hasNestedStruct := doc["testbasemodel"]
@@ -369,7 +334,8 @@ func TestDocumentMapper_EmbeddedStructWithNonPointerID_ToDocument(t *testing.T) 
 	assert.Equal(t, "test-type", doc["type"])
 	assert.Equal(t, "base-attribute", doc["attribute"])
 	assert.Equal(t, "extra-value", doc["extraField"])
-	assert.Equal(t, metadata, doc["metadata"])
+	// Metadata fields are now inline at root level
+	assert.Equal(t, 2, doc["version"])
 }
 
 func TestDocumentMapper_EmbeddedStructWithNonPointerID_RoundTrip(t *testing.T) {
@@ -648,90 +614,6 @@ type TestEntityNoBsonTag struct {
 
 func (t *TestEntityNoBsonTag) GetID() any {
 	return t.ID
-}
-
-func TestModelFieldRegistry_PrepareFilter(t *testing.T) {
-	t.Run("model fields stay at root level", func(t *testing.T) {
-		registry := NewModelFieldRegistry[*TestEntity]()
-
-		filter := map[string]interface{}{
-			"name": "Test",
-			"age":  25,
-		}
-
-		result := registry.PrepareFilter(filter)
-
-		// Model fields should remain at root level
-		assert.Equal(t, "Test", result["name"])
-		assert.Equal(t, 25, result["age"])
-		// No metadata prefix for model fields
-		_, hasMetadataName := result["metadata.name"]
-		assert.False(t, hasMetadataName)
-	})
-
-	t.Run("non-model fields get metadata prefix", func(t *testing.T) {
-		registry := NewModelFieldRegistry[*TestEntity]()
-
-		filter := map[string]interface{}{
-			"name":           "Test",
-			"customMetadata": "value",
-		}
-
-		result := registry.PrepareFilter(filter)
-
-		// Model field at root
-		assert.Equal(t, "Test", result["name"])
-		// Non-model field should be prefixed with metadata.
-		assert.Equal(t, "value", result["metadata.customMetadata"])
-		_, hasRootCustom := result["customMetadata"]
-		assert.False(t, hasRootCustom)
-	})
-
-	t.Run("fields without json tags are recognized as model fields", func(t *testing.T) {
-		registry := NewModelFieldRegistry[*TestEntityNoBsonTag]()
-
-		// Verify the registry includes the field without json tag (uses Go field name)
-		assert.True(t, registry.IsModelField("Description"), "Field without json tag should use field name")
-		assert.True(t, registry.IsModelField("name"))
-		assert.True(t, registry.IsModelField("id"))
-
-		filter := map[string]interface{}{
-			"name":          "Test",
-			"Description":   "A description",
-			"metadataField": "meta",
-		}
-
-		result := registry.PrepareFilter(filter)
-
-		// Both model fields should be at root
-		assert.Equal(t, "Test", result["name"])
-		assert.Equal(t, "A description", result["Description"])
-		// Non-model field should get metadata prefix
-		assert.Equal(t, "meta", result["metadata.metadataField"])
-	})
-
-	t.Run("embedded struct fields are recognized", func(t *testing.T) {
-		registry := NewModelFieldRegistry[*TestEmbeddedEntity]()
-
-		// Fields from embedded struct should be recognized (using JSON tag names)
-		assert.True(t, registry.IsModelField("id"))
-		assert.True(t, registry.IsModelField("name"))
-		// Fields from the outer struct
-		assert.True(t, registry.IsModelField("age"))
-		assert.True(t, registry.IsModelField("email"))
-
-		filter := map[string]interface{}{
-			"name":      "Test",
-			"email":     "test@example.com",
-			"extraMeta": "value",
-		}
-
-		result := registry.PrepareFilter(filter)
-
-		assert.Equal(t, "Test", result["name"])
-		assert.Equal(t, "test@example.com", result["email"])
-		assert.Equal(t, "value", result["metadata.extraMeta"])
-	})
 }
 
 // Test model with ObjectID fields for filter conversion
