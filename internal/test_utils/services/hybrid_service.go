@@ -10,12 +10,8 @@ type HybridServiceModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h HybridServiceModel) GetID() string {
+func (h HybridServiceModel) GetID() any {
 	return h.ID
-}
-
-func (h *HybridServiceModel) SetID(id string) {
-	h.ID = id
 }
 
 type HybridServiceModelAction1Payload struct {

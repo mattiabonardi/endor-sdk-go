@@ -10,12 +10,8 @@ type BaseServiceModel struct {
 	Attribute string `json:"attribute"`
 }
 
-func (h BaseServiceModel) GetID() string {
+func (h BaseServiceModel) GetID() any {
 	return h.ID
-}
-
-func (h *BaseServiceModel) SetID(id string) {
-	h.ID = id
 }
 
 type BaseServiceAction1Payload struct {
@@ -52,9 +48,8 @@ func NewBaseServiceService() sdk.EndorBaseServiceInterface {
 			),
 			"public-action": sdk.NewConfigurableAction(
 				sdk.EndorServiceActionOptions{
-					Description:     "Public Action",
-					Public:          true,
-					ValidatePayload: true,
+					Description: "Public Action",
+					Public:      true,
 				},
 				baseService.publicAction,
 			),

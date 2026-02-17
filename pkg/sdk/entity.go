@@ -44,8 +44,7 @@ func (c *DynamicCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 }
 
 type EntityInterface interface {
-	GetID() string
-	SetID(id string)
+	GetID() any
 	GetCategoryType() string
 	SetCategoryType(entityType string)
 	GetService() string
@@ -67,18 +66,14 @@ const (
 
 type Entity struct {
 	ID          string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
-	Description string `json:"description" schema:"title=Description"`
+	Description string `json:"description" schema:"title=Description,readOnly=true"`
 	Type        string `json:"type" schema:"title=Type,readOnly=true"`
 	Service     string `json:"service" schema:"title=Service,readOnly=true" ui-schema:"entity=microservice"`
 	Schema      string `json:"schema" bson:"-" schema:"title=Schema,format=yaml,readOnly=true"`
 }
 
-func (h *Entity) GetID() string {
+func (h *Entity) GetID() any {
 	return h.ID
-}
-
-func (h *Entity) SetID(id string) {
-	h.ID = id
 }
 
 func (h *Entity) GetCategoryType() string {
@@ -153,24 +148,16 @@ type EntityAction struct {
 	InputSchema string `json:"inputSchema" schema:"title=Input schema,format=yaml"`
 }
 
-func (h *EntityAction) GetID() string {
+func (h *EntityAction) GetID() any {
 	return h.ID
-}
-
-func (h *EntityAction) SetID(id string) {
-	h.ID = id
 }
 
 type DynamicEntity struct {
 	Id string `json:"id" bson:"_id" schema:"title=Id,readOnly=true" ui-schema:"hidden=true"`
 }
 
-func (h *DynamicEntity) GetID() string {
+func (h *DynamicEntity) GetID() any {
 	return h.Id
-}
-
-func (h *DynamicEntity) SetID(id string) {
-	h.Id = id
 }
 
 type DynamicEntitySpecialized struct {
@@ -178,12 +165,8 @@ type DynamicEntitySpecialized struct {
 	Type string `json:"type" bson:"type" schema:"title=Type,readOnly=true"`
 }
 
-func (h *DynamicEntitySpecialized) GetID() string {
+func (h *DynamicEntitySpecialized) GetID() any {
 	return h.Id
-}
-
-func (h *DynamicEntitySpecialized) SetID(id string) {
-	h.Id = id
 }
 
 func (h *DynamicEntitySpecialized) GetCategoryType() string {
@@ -198,6 +181,6 @@ type EntityRepositoryInterface interface {
 	List(*EntityType) ([]EntityInterface, error)
 	Instance(*EntityType, ReadInstanceDTO) (*EntityInterface, error)
 	Create(*EntityType, CreateDTO[EntityInterface]) (*EntityInterface, error)
-	Update(*EntityType, UpdateByIdDTO[EntityInterface]) (*EntityInterface, error)
+	Update(*EntityType, UpdateByIdDTO[map[string]interface{}]) (*EntityInterface, error)
 	Delete(*EntityType, ReadInstanceDTO) error
 }

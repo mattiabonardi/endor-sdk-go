@@ -204,9 +204,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 		),
 		categoryID + "/create": sdk.NewConfigurableAction(
 			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Create the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
-				Public:          false,
-				ValidatePayload: true,
+				Description: fmt.Sprintf("Create the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -228,9 +226,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 		),
 		categoryID + "/update": sdk.NewConfigurableAction(
 			sdk.EndorServiceActionOptions{
-				Description:     fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
-				Public:          false,
-				ValidatePayload: true,
+				Description: fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,

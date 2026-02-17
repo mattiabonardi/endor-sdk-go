@@ -16,6 +16,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// idToString converts an ID of any type (string, ObjectID) to a string
+// This helper is used to handle GetID() which now returns any
+func idToString(id any) string {
+	if id == nil {
+		return ""
+	}
+	switch v := id.(type) {
+	case string:
+		return v
+	case sdk.ObjectID:
+		return v.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 // COLLECTION_ENTITIES is the MongoDB collection name for entities
 const COLLECTION_ENTITIES = "entities"
 
@@ -44,9 +60,11 @@ func InitEndorServiceRepository(microServiceId string, internalEndorServices *[]
 			mu:                    &sync.RWMutex{},
 		}
 		if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-			client, _ := sdk.GetMongoClient()
-			database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
-			endorServiceRepositoryInstance.collection = database.Collection(COLLECTION_ENTITIES)
+			client, err := sdk.GetMongoClient()
+			if client != nil && err == nil {
+				database := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName)
+				endorServiceRepositoryInstance.collection = database.Collection(COLLECTION_ENTITIES)
+			}
 		}
 	})
 	return endorServiceRepositoryInstance
@@ -193,7 +211,8 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 		for _, entity := range dynamicEntities {
 			// check if service is already defined
 			// search service
-			if v, ok := entities[entity.GetID()]; ok {
+			entityID := idToString(entity.GetID())
+			if v, ok := entities[entityID]; ok {
 				// check entity hybrid
 				if entityHybrid, ok := entity.(*sdk.EntityHybrid); ok {
 					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
@@ -206,7 +225,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						if originalEntity, ok := v.entity.(*sdk.EntityHybrid); ok {
 							originalEntity.AdditionalSchema = entityHybrid.AdditionalSchema
 						}
-						entities[entity.GetID()] = v
+						entities[entityID] = v
 					}
 				}
 
@@ -233,7 +252,7 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 							originalEntity.AdditionalCategories = entitySpecialized.AdditionalCategories
 							originalEntity.AdditionalSchema = entitySpecialized.AdditionalSchema
 						}
-						entities[entity.GetID()] = v
+						entities[entityID] = v
 					}
 				}
 			} else {
@@ -467,7 +486,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 		dto.Data.SetCategoryType(string(*entityType))
 		dto.Data.SetService(h.microServiceId)
 		_, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
-			Id: dto.Data.GetID(),
+			Id: idToString(dto.Data.GetID()),
 		})
 		var endorError *sdk.EndorError
 		if errors.As(err, &endorError) && endorError.StatusCode == 404 {
@@ -486,7 +505,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 	}
 }
 
-func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[map[string]interface{}]) (*sdk.EntityInterface, error) {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
 		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
 		var instance *sdk.EntityInterface
@@ -498,7 +517,7 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 		}
 		updateBson, err := bson.Marshal(dto.Data)
 		if err != nil {
-			return &dto.Data, err
+			return nil, err
 		}
 		update := bson.M{"$set": bson.Raw(updateBson)}
 		filter := bson.M{"_id": dto.Id}
@@ -510,7 +529,14 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 		h.invalidateCache()
 		h.reloadRouteConfiguration(h.microServiceId)
 
-		return &dto.Data, nil
+		instance, err = h.Instance(entityType, sdk.ReadInstanceDTO{
+			Id: dto.Id,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update entity %s", dto.Id)
+		}
+
+		return instance, nil
 	} else {
 		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
 	}

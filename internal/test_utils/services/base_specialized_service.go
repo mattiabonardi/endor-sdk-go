@@ -11,12 +11,8 @@ type BaseSpecializedModel struct {
 	Attribute string `json:"attribute" bson:"attribute"`
 }
 
-func (h *BaseSpecializedModel) GetID() string {
+func (h *BaseSpecializedModel) GetID() any {
 	return h.ID
-}
-
-func (h *BaseSpecializedModel) SetID(id string) {
-	h.ID = id
 }
 
 func (h BaseSpecializedModel) GetCategoryType() string {

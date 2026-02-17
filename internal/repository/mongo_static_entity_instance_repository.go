@@ -2,226 +2,143 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// MongoStaticEntityInstanceRepository provides MongoDB implementation for StaticEntityInstanceRepositoryInterface.
-// This implementation works directly with the model type T without the EntityInstance[T] wrapper,
-// offering a simpler interface for cases where metadata functionality is not required.
+// MongoStaticEntityInstanceRepository handles entities defined entirely at compile time.
+//
+// Document structure in MongoDB:
+//
+//	{
+//	    "_id": "...",
+//	    "field1": "...",      // All model fields at root level
+//	    "field2": "...",
+//	}
+//
+// Unlike MongoEntityInstanceRepository, this repository:
+// - Does NOT have a metadata field
+// - Stores entities directly as they are defined in the struct
+// - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	collection *mongo.Collection
-	options    sdk.StaticEntityInstanceRepositoryOptions
+	base *mongoBaseRepository[T]
 }
 
-// NewMongoStaticEntityInstanceRepository creates a new MongoDB-based static repository
-func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions) *MongoStaticEntityInstanceRepository[T] {
-	client, _ := sdk.GetMongoClient()
-
+// NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
+func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
+	entityId string,
+	options sdk.StaticEntityInstanceRepositoryOptions,
+) *MongoStaticEntityInstanceRepository[T] {
+	client, err := sdk.GetMongoClient()
+	if client == nil || err != nil {
+		// Return a repository with nil base - operations will fail at runtime
+		// This allows the service to be constructed without a DB connection (useful for tests)
+		return &MongoStaticEntityInstanceRepository[T]{
+			base: nil,
+		}
+	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
+
 	return &MongoStaticEntityInstanceRepository[T]{
-		collection: collection,
-		options:    options,
+		base: newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 	}
 }
 
+// Instance retrieves a single entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	var zero T
-	var result T
 
-	// Preparazione del filtro
-	var filter bson.M
-	if *r.options.AutoGenerateID {
-		objectID, err := primitive.ObjectIDFromHex(dto.Id)
-		if err != nil {
-			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
-		}
-		filter = bson.M{"_id": objectID}
-	} else {
-		filter = bson.M{"_id": dto.Id}
-	}
-
-	// Esegui la query e fai decode diretto nella struct T
-	err := r.collection.FindOne(ctx, filter).Decode(&result)
+	rawDoc, err := r.base.FindByID(ctx, dto.Id)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-		}
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to find entity instance: %w", err))
+		return zero, err
 	}
 
-	// Imposta l'ID string nel modello (già convertito da BSON)
-	result.SetID(dto.Id)
-
-	return result, nil
+	return r.toModel(rawDoc)
 }
 
+// List retrieves entities matching the filter.
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	// Usa filtro e projezione direttamente dai DTO (semplificati)
-	mongoFilter := dto.Filter
-	if mongoFilter == nil {
-		mongoFilter = bson.M{}
+	// For static entities, filter and projection are used directly (no metadata separation)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
 	}
 
-	var opts *options.FindOptions
+	var projection bson.M
 	if dto.Projection != nil {
-		opts = options.Find().SetProjection(dto.Projection)
+		projection = cloneBsonM(dto.Projection)
 	}
 
-	cursor, err := r.collection.Find(ctx, mongoFilter, opts)
+	rawDocs, err := r.base.Find(ctx, filter, projection)
 	if err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to list entities: %w", err))
-	}
-	defer cursor.Close(ctx)
-
-	var results []T
-	if err := cursor.All(ctx, &results); err != nil {
-		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode entities: %w", err))
+		return nil, err
 	}
 
-	// Imposta gli ID per ogni risultato
-	for i := range results {
-		if *r.options.AutoGenerateID {
-			// L'ID sarà già presente come ObjectID, ma dobbiamo convertirlo in stringa per SetID
-			if idPtr := results[i].GetID(); idPtr != "" {
-				results[i].SetID(idPtr)
-			}
+	results := make([]T, 0, len(rawDocs))
+	for _, rawDoc := range rawDocs {
+		model, err := r.toModel(rawDoc)
+		if err != nil {
+			return nil, err
 		}
+		results = append(results, model)
 	}
 
 	return results, nil
 }
 
+// Create inserts a new entity.
 func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[T]) (T, error) {
 	var zero T
-	idPtr := dto.Data.GetID()
 
-	if *r.options.AutoGenerateID {
-		oid := primitive.NewObjectID()
-		idStr := oid.Hex()
-		dto.Data.SetID(idStr)
-
-		// Serializza la struct e imposta l'_id come ObjectID
-		docBytes, err := bson.Marshal(dto.Data)
-		if err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
-		}
-		var doc bson.M
-		if err := bson.Unmarshal(docBytes, &doc); err != nil {
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
-		}
-		doc["_id"] = oid // Sostituisci l'ID stringa con ObjectID
-
-		_, err = r.collection.InsertOne(ctx, doc)
-		if err != nil {
-			if mongo.IsDuplicateKeyError(err) {
-				return zero, sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
-			}
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
-		}
-	} else {
-		if idPtr == "" {
-			return zero, sdk.NewBadRequestError(fmt.Errorf("ID is required when auto-generation is disabled"))
-		}
-
-		// Verifica che l'ID non esista già
-		_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: idPtr})
-		if err == nil {
-			return zero, sdk.NewConflictError(fmt.Errorf("entity instance with id %v already exists", idPtr))
-		}
-		var endorErr *sdk.EndorError
-		if errors.As(err, &endorErr) && endorErr.StatusCode != 404 {
-			return zero, err
-		}
-
-		// Per ID manuali, inserisci direttamente la struct (l'ID rimane stringa)
-		_, err = r.collection.InsertOne(ctx, dto.Data)
-		if err != nil {
-			if mongo.IsDuplicateKeyError(err) {
-				return zero, sdk.NewConflictError(fmt.Errorf("entity instance already exists: %w", err))
-			}
-			return zero, sdk.NewInternalServerError(fmt.Errorf("failed to create entity instance: %w", err))
-		}
-	}
-
-	return dto.Data, nil
-}
-
-func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
-	// Verifica che l'istanza esista
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+	mapper := r.base.GetDocumentMapper()
+	doc, err := mapper.ToDocumentWithoutMetadata(dto.Data, r.base.GetIDStrategy())
 	if err != nil {
-		return err
+		return zero, sdk.NewInternalServerError(err)
 	}
 
-	// Prepara il filtro
-	var filter bson.M
-	if *r.options.AutoGenerateID {
-		objectID, err := primitive.ObjectIDFromHex(dto.Id)
-		if err != nil {
-			return sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
-		}
-		filter = bson.M{"_id": objectID}
-	} else {
-		filter = bson.M{"_id": dto.Id}
-	}
+	// Get provided ID
+	providedID := dto.Data.GetID()
 
-	// Elimina il documento
-	result, err := r.collection.DeleteOne(ctx, filter)
-	if err != nil {
-		return sdk.NewInternalServerError(fmt.Errorf("failed to delete entity instance: %w", err))
-	}
-
-	if result.DeletedCount == 0 {
-		return sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-	}
-
-	return nil
-}
-
-func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
-	var zero T
-
-	// Verify the instance exists
-	_, err := r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+	idStr, err := r.base.Insert(ctx, doc, providedID)
 	if err != nil {
 		return zero, err
 	}
 
-	// Prepare the filter
-	var filter bson.M
-	if *r.options.AutoGenerateID {
-		objectID, err := primitive.ObjectIDFromHex(dto.Id)
-		if err != nil {
-			return zero, sdk.NewBadRequestError(fmt.Errorf("invalid ObjectID format: %w", err))
-		}
-		filter = bson.M{"_id": objectID}
-	} else {
-		filter = bson.M{"_id": dto.Id}
+	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: idStr})
+}
+
+// Update modifies an existing entity by ID.
+func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
+	var zero T
+
+	if err := r.base.Update(ctx, dto.Id, dto.Data); err != nil {
+		return zero, err
 	}
 
-	// If no fields to update, return error
-	if len(dto.Data) == 0 {
-		return zero, sdk.NewBadRequestError(fmt.Errorf("no fields to update"))
-	}
-
-	// Perform the update with $set
-	update := bson.M{"$set": dto.Data}
-	result, err := r.collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to update entity instance: %w", err))
-	}
-	if result.MatchedCount == 0 {
-		return zero, sdk.NewNotFoundError(fmt.Errorf("entity instance with id %v not found", dto.Id))
-	}
-
-	// Retrieve and return the updated document
 	return r.Instance(ctx, sdk.ReadInstanceDTO{Id: dto.Id})
+}
+
+// Delete removes an entity by ID.
+func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
+	return r.base.Delete(ctx, dto.Id)
+}
+
+// toModel converts a raw MongoDB document to the model type T.
+func (r *MongoStaticEntityInstanceRepository[T]) toModel(rawDoc bson.M) (T, error) {
+	var zero T
+
+	entityBytes, err := bson.Marshal(rawDoc)
+	if err != nil {
+		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to marshal entity: %w", err))
+	}
+
+	var result T
+	if err := bson.Unmarshal(entityBytes, &result); err != nil {
+		return zero, sdk.NewInternalServerError(fmt.Errorf("failed to unmarshal entity: %w", err))
+	}
+
+	return result, nil
 }
