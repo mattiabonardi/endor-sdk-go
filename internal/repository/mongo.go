@@ -329,34 +329,118 @@ func extractTagName(tag, defaultName string) string {
 // ConvertToStorage converts sdk.ObjectID string values to primitive.ObjectID
 // for fields registered in this registry. This should be called before
 // inserting/updating documents in MongoDB.
+// Handles nested objects and arrays (e.g., "lines.productId").
 func (r *ObjectIDFieldRegistry) ConvertToStorage(doc bson.M) error {
 	for field := range r.fields {
-		val, exists := doc[field]
-		if !exists || val == nil {
-			continue
+		if err := r.convertFieldPath(doc, field); err != nil {
+			return err
 		}
-
-		var hexStr string
-		switch v := val.(type) {
-		case string:
-			hexStr = v
-		case sdk.ObjectID:
-			hexStr = v.String()
-		default:
-			continue
-		}
-
-		if hexStr == "" {
-			continue
-		}
-
-		oid, err := primitive.ObjectIDFromHex(hexStr)
-		if err != nil {
-			return fmt.Errorf("field %s: invalid ObjectID format: %w", field, err)
-		}
-		doc[field] = oid
 	}
 	return nil
+}
+
+// convertFieldPath navigates a dot-separated path and converts ObjectID values.
+// Handles arrays by converting the field in each array element.
+func (r *ObjectIDFieldRegistry) convertFieldPath(data interface{}, path string) error {
+	parts := strings.Split(path, ".")
+	return r.traverseAndConvert(data, parts, 0, path)
+}
+
+// traverseAndConvert recursively traverses the document structure to find and convert ObjectID fields.
+func (r *ObjectIDFieldRegistry) traverseAndConvert(data interface{}, parts []string, index int, fullPath string) error {
+	if data == nil || index >= len(parts) {
+		return nil
+	}
+
+	currentPart := parts[index]
+	isLastPart := index == len(parts)-1
+
+	switch v := data.(type) {
+	case bson.M:
+		return r.handleMapTraversal(v, currentPart, parts, index, isLastPart, fullPath)
+
+	case map[string]interface{}:
+		return r.handleMapTraversal(bson.M(v), currentPart, parts, index, isLastPart, fullPath)
+
+	case []interface{}:
+		// For arrays, traverse each element with the same path parts
+		for i, elem := range v {
+			if err := r.traverseAndConvert(elem, parts, index, fullPath); err != nil {
+				return fmt.Errorf("array index %d: %w", i, err)
+			}
+		}
+
+	case []bson.M:
+		for i, elem := range v {
+			if err := r.traverseAndConvert(elem, parts, index, fullPath); err != nil {
+				return fmt.Errorf("array index %d: %w", i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// handleMapTraversal handles traversal through map-like structures.
+func (r *ObjectIDFieldRegistry) handleMapTraversal(m bson.M, currentPart string, parts []string, index int, isLastPart bool, fullPath string) error {
+	val, exists := m[currentPart]
+	if !exists {
+		return nil
+	}
+
+	if isLastPart {
+		// Check for empty string and remove the field
+		if str, ok := val.(string); ok && str == "" {
+			delete(m, currentPart)
+			return nil
+		}
+		if oid, ok := val.(sdk.ObjectID); ok && oid.IsEmpty() {
+			delete(m, currentPart)
+			return nil
+		}
+
+		// Convert the value at this location
+		converted, err := r.convertObjectIDValue(val, fullPath)
+		if err != nil {
+			return err
+		}
+		m[currentPart] = converted
+	} else {
+		// Continue traversing deeper
+		return r.traverseAndConvert(val, parts, index+1, fullPath)
+	}
+
+	return nil
+}
+
+// convertObjectIDValue converts a single value to primitive.ObjectID if it's a string or sdk.ObjectID.
+func (r *ObjectIDFieldRegistry) convertObjectIDValue(val interface{}, fieldPath string) (interface{}, error) {
+	if val == nil {
+		return nil, nil
+	}
+
+	var hexStr string
+	switch v := val.(type) {
+	case string:
+		hexStr = v
+	case sdk.ObjectID:
+		hexStr = v.String()
+	case primitive.ObjectID:
+		return v, nil // Already converted
+	default:
+		return val, nil // Not an ObjectID type, leave as-is
+	}
+
+	if hexStr == "" {
+		return val, nil
+	}
+
+	oid, err := primitive.ObjectIDFromHex(hexStr)
+	if err != nil {
+		return nil, fmt.Errorf("field %s: invalid ObjectID format: %w", fieldPath, err)
+	}
+
+	return oid, nil
 }
 
 // ConvertFilterToStorage converts sdk.ObjectID string values to primitive.ObjectID
