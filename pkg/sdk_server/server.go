@@ -16,7 +16,7 @@ import (
 )
 
 type Endor struct {
-	endorServices *[]sdk.EndorHandlerInterface
+	endorHandlers *[]sdk.EndorHandlerInterface
 	postInitFunc  func()
 }
 
@@ -30,8 +30,8 @@ func NewEndorInitializer() *EndorInitializer {
 	}
 }
 
-func (b *EndorInitializer) WithEndorHandlers(services *[]sdk.EndorHandlerInterface) *EndorInitializer {
-	b.endor.endorServices = services
+func (b *EndorInitializer) WithEndorHandlers(handlers *[]sdk.EndorHandlerInterface) *EndorInitializer {
+	b.endor.endorHandlers = handlers
 	return b
 }
 
@@ -70,8 +70,8 @@ func (h *Endor) Init(microserviceId string) {
 
 	// Check if an EndorHandler with entity == "entity" is already defined
 	entityServiceExists := false
-	if h.endorServices != nil {
-		for _, svc := range *h.endorServices {
+	if h.endorHandlers != nil {
+		for _, svc := range *h.endorHandlers {
 			if svc.GetEntity() == "entity" {
 				entityServiceExists = true
 				break
@@ -79,12 +79,12 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityHandler(microserviceId, h.endorServices, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionHandler(microserviceId, h.endorServices))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(microserviceId, h.endorHandlers, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(microserviceId, h.endorHandlers))
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microserviceId, h.endorServices, logger)
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microserviceId, h.endorHandlers, logger)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
