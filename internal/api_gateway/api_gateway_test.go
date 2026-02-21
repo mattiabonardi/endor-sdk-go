@@ -8,22 +8,22 @@ import (
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
-	test_utils_services "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/services"
+	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"gopkg.in/yaml.v3"
 )
 
 func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	// Setup test data
-	microServiceId := "test-service"
-	microServiceAddress := "http://localhost:8080"
+	microHandlerId := "test-service"
+	microHandlerAddress := "http://localhost:8080"
 
-	// Use BaseService as test EndorService
-	baseService := test_utils_services.NewBaseServiceService()
-	services := []sdk.EndorService{baseService.ToEndorService()}
+	// Use BaseHandler as test EndorHandler
+	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
+	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
-	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(microHandlerId, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microHandlerId))
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -69,8 +69,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 			}
 
 			// Verify router properties
-			if router.Service != microServiceId {
-				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, microServiceId)
+			if router.Service != microHandlerId {
+				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, microHandlerId)
 			}
 
 			if len(router.EntryPoints) != 1 || router.EntryPoints[0] != "web" {
@@ -99,18 +99,18 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 		}
 	})
 
-	t.Run("VerifyServices", func(t *testing.T) {
-		service, exists := config.HTTP.Services[microServiceId]
+	t.Run("VerifyHandlers", func(t *testing.T) {
+		service, exists := config.HTTP.Services[microHandlerId]
 		if !exists {
-			t.Fatalf("Expected service %s not found", microServiceId)
+			t.Fatalf("Expected service %s not found", microHandlerId)
 		}
 
 		if len(service.LoadBalancer.Servers) != 1 {
 			t.Errorf("Expected 1 server, got %d", len(service.LoadBalancer.Servers))
 		}
 
-		if service.LoadBalancer.Servers[0].URL != microServiceAddress {
-			t.Errorf("Expected server URL %s, got %s", microServiceAddress, service.LoadBalancer.Servers[0].URL)
+		if service.LoadBalancer.Servers[0].URL != microHandlerAddress {
+			t.Errorf("Expected server URL %s, got %s", microHandlerAddress, service.LoadBalancer.Servers[0].URL)
 		}
 	})
 
@@ -145,16 +145,16 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 
 func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 	// Test with a custom version
-	microServiceId := "test-service-v2"
-	microServiceAddress := "http://localhost:8081"
+	microHandlerId := "test-service-v2"
+	microHandlerAddress := "http://localhost:8081"
 
 	// Create a service with custom version
-	baseService := test_utils_services.NewBaseServiceService()
-	endorService := baseService.ToEndorService()
-	endorService.Version = "v2"
-	services := []sdk.EndorService{endorService}
+	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
+	endorHandler := baseHandler.ToEndorHandler()
+	endorHandler.Version = "v2"
+	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(microHandlerId, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microHandlerId))
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read configuration file: %v", err)
@@ -193,16 +193,16 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 
 func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	// Test with priority setting
-	microServiceId := "test-service-priority"
-	microServiceAddress := "http://localhost:8082"
+	microHandlerId := "test-service-priority"
+	microHandlerAddress := "http://localhost:8082"
 
-	baseService := test_utils_services.NewBaseServiceService()
-	endorService := baseService.ToEndorService()
+	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
+	endorHandler := baseHandler.ToEndorHandler()
 	priority := 100
-	endorService.Priority = &priority
-	services := []sdk.EndorService{endorService}
+	endorHandler.Priority = &priority
+	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, microServiceAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(microHandlerId, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microHandlerId))
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read configuration file: %v", err)

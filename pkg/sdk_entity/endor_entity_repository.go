@@ -37,24 +37,24 @@ const COLLECTION_ENTITIES = "entities"
 
 // Singleton instance and initialization sync
 var (
-	endorServiceRepositoryInstance *EndorServiceRepository
+	endorServiceRepositoryInstance *EndorHandlerRepository
 	endorServiceRepositoryOnce     sync.Once
 )
 
-// GetEndorServiceRepository returns the singleton instance of EndorServiceRepository.
-// It must be initialized first by calling InitEndorServiceRepository.
-func GetEndorServiceRepository() *EndorServiceRepository {
+// GetEndorHandlerRepository returns the singleton instance of EndorHandlerRepository.
+// It must be initialized first by calling InitEndorHandlerRepository.
+func GetEndorHandlerRepository() *EndorHandlerRepository {
 	return endorServiceRepositoryInstance
 }
 
-// InitEndorServiceRepository initializes the singleton EndorServiceRepository instance.
+// InitEndorHandlerRepository initializes the singleton EndorHandlerRepository instance.
 // This should be called once during application startup.
 // Subsequent calls will return the existing instance without reinitializing.
-func InitEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
+func InitEndorHandlerRepository(microServiceId string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
 	endorServiceRepositoryOnce.Do(func() {
-		endorServiceRepositoryInstance = &EndorServiceRepository{
+		endorServiceRepositoryInstance = &EndorHandlerRepository{
 			microServiceId:        microServiceId,
-			internalEndorServices: internalEndorServices,
+			internalEndorHandlers: internalEndorHandlers,
 			context:               context.TODO(),
 			logger:                logger,
 			mu:                    &sync.RWMutex{},
@@ -70,43 +70,43 @@ func InitEndorServiceRepository(microServiceId string, internalEndorServices *[]
 	return endorServiceRepositoryInstance
 }
 
-// NewEndorServiceRepository returns the singleton instance of EndorServiceRepository.
+// NewEndorHandlerRepository returns the singleton instance of EndorHandlerRepository.
 // If the singleton hasn't been initialized yet, it initializes it with the provided parameters.
-// Deprecated: Use InitEndorServiceRepository for explicit initialization or GetEndorServiceRepository to get the instance.
-func NewEndorServiceRepository(microServiceId string, internalEndorServices *[]sdk.EndorServiceInterface, logger *sdk.Logger) *EndorServiceRepository {
-	return InitEndorServiceRepository(microServiceId, internalEndorServices, logger)
+// Deprecated: Use InitEndorHandlerRepository for explicit initialization or GetEndorHandlerRepository to get the instance.
+func NewEndorHandlerRepository(microServiceId string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+	return InitEndorHandlerRepository(microServiceId, internalEndorHandlers, logger)
 }
 
-type EndorServiceRepository struct {
+type EndorHandlerRepository struct {
 	microServiceId        string
-	internalEndorServices *[]sdk.EndorServiceInterface
+	internalEndorHandlers *[]sdk.EndorHandlerInterface
 	collection            *mongo.Collection
 	context               context.Context
 	logger                *sdk.Logger
 	mu                    *sync.RWMutex
-	cachedDictionary      map[string]EndorServiceDictionary
+	cachedDictionary      map[string]EndorHandlerDictionary
 	cacheInitialized      bool
 }
 
-type EndorServiceDictionary struct {
-	OriginalInstance *sdk.EndorServiceInterface
-	EndorService     sdk.EndorService
+type EndorHandlerDictionary struct {
+	OriginalInstance *sdk.EndorHandlerInterface
+	EndorHandler     sdk.EndorHandler
 	entity           sdk.EntityInterface
 }
 
-type EndorServiceActionDictionary struct {
-	EndorServiceAction sdk.EndorServiceActionInterface
+type EndorHandlerActionDictionary struct {
+	EndorHandlerAction sdk.EndorHandlerActionInterface
 	entityAction       sdk.EntityAction
 }
 
 // #region Framework CRUD
 
-func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDictionary, error) {
+func (h *EndorHandlerRepository) DictionaryMap() (map[string]EndorHandlerDictionary, error) {
 	// Check cache first with read lock
 	h.mu.RLock()
 	if h.cacheInitialized {
 		// Return a copy of the cached dictionary to prevent external modifications
-		result := make(map[string]EndorServiceDictionary, len(h.cachedDictionary))
+		result := make(map[string]EndorHandlerDictionary, len(h.cachedDictionary))
 		for k, v := range h.cachedDictionary {
 			result[k] = v
 		}
@@ -122,35 +122,35 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 	// Double-check after acquiring write lock
 	if h.cacheInitialized {
 		// Return a copy of the cached dictionary
-		result := make(map[string]EndorServiceDictionary, len(h.cachedDictionary))
+		result := make(map[string]EndorHandlerDictionary, len(h.cachedDictionary))
 		for k, v := range h.cachedDictionary {
 			result[k] = v
 		}
 		return result, nil
 	}
 
-	entities := map[string]EndorServiceDictionary{}
+	entities := map[string]EndorHandlerDictionary{}
 
-	// internal EndorServices
-	if h.internalEndorServices != nil {
-		for _, internalEndorService := range *h.internalEndorServices {
-			schema, err := internalEndorService.GetSchema().ToYAML()
+	// internal EndorHandlers
+	if h.internalEndorHandlers != nil {
+		for _, internalEndorHandler := range *h.internalEndorHandlers {
+			schema, err := internalEndorHandler.GetSchema().ToYAML()
 			if err != nil {
-				h.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", internalEndorService.GetEntity()))
+				h.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", internalEndorHandler.GetEntity()))
 			}
 			baseEntity := sdk.Entity{
-				ID:          internalEndorService.GetEntity(),
-				Description: internalEndorService.GetEntityDescription(),
+				ID:          internalEndorHandler.GetEntity(),
+				Description: internalEndorHandler.GetEntityDescription(),
 				Service:     h.microServiceId,
 				Type:        string(sdk.EntityTypeBase),
 				Schema:      schema,
 			}
 
-			var endorService sdk.EndorService
+			var endorService sdk.EndorHandler
 			var entity sdk.EntityInterface = &baseEntity
 
 			// hybrid specialized
-			if hybridSpecializedService, ok := internalEndorService.(sdk.EndorHybridSpecializedServiceInterface); ok {
+			if hybridSpecializedService, ok := internalEndorHandler.(sdk.EndorHybridSpecializedHandlerInterface); ok {
 				baseEntity.Type = string(sdk.EntityTypeHybridSpecialized)
 				hybridSpecializedEntity := sdk.EntityHybridSpecialized{
 					EntityHybrid: sdk.EntityHybrid{
@@ -161,51 +161,51 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 				}
 				h.ensureEntityDocumentOfInternalService(&hybridSpecializedEntity)
 				entity = &hybridSpecializedEntity
-				endorService = hybridSpecializedService.ToEndorService(sdk.RootSchema{}, map[string]sdk.RootSchema{}, []sdk.DynamicCategory{})
+				endorService = hybridSpecializedService.ToEndorHandler(sdk.RootSchema{}, map[string]sdk.RootSchema{}, []sdk.DynamicCategory{})
 			} else {
 				// hybrid
-				if hybridService, ok := internalEndorService.(sdk.EndorHybridServiceInterface); ok {
+				if hybridService, ok := internalEndorHandler.(sdk.EndorHybridHandlerInterface); ok {
 					baseEntity.Type = string(sdk.EntityTypeHybrid)
 					h.ensureEntityDocumentOfInternalService(&baseEntity)
-					endorService = hybridService.ToEndorService(sdk.RootSchema{})
+					endorService = hybridService.ToEndorHandler(sdk.RootSchema{})
 					hybridEntity := sdk.EntityHybrid{
 						Entity: baseEntity,
 					}
 					entity = &hybridEntity
 				} else {
 					// base specialized
-					if baseSpecializedService, ok := internalEndorService.(sdk.EndorBaseSpecializedServiceInterface); ok {
+					if baseSpecializedService, ok := internalEndorHandler.(sdk.EndorBaseSpecializedHandlerInterface); ok {
 						baseEntity.Type = string(sdk.EntityTypeBaseSpecialized)
 						baseSpecializedEntity := sdk.EntitySpecialized{
 							Entity:     baseEntity,
 							Categories: baseSpecializedService.GetCategories(),
 						}
 						entity = &baseSpecializedEntity
-						endorService = baseSpecializedService.ToEndorService()
+						endorService = baseSpecializedService.ToEndorHandler()
 					} else {
 						// base
-						if baseService, ok := internalEndorService.(sdk.EndorBaseServiceInterface); ok {
-							endorService = baseService.ToEndorService()
+						if baseService, ok := internalEndorHandler.(sdk.EndorBaseHandlerInterface); ok {
+							endorService = baseService.ToEndorHandler()
 						} else {
-							h.logger.Warn(fmt.Sprintf("unable to create entity %s from service", internalEndorService.GetEntity()))
+							h.logger.Warn(fmt.Sprintf("unable to create entity %s from service", internalEndorHandler.GetEntity()))
 						}
 					}
 				}
 			}
 
-			entities[internalEndorService.GetEntity()] = EndorServiceDictionary{
-				OriginalInstance: &internalEndorService,
-				EndorService:     endorService,
+			entities[internalEndorHandler.GetEntity()] = EndorHandlerDictionary{
+				OriginalInstance: &internalEndorHandler,
+				EndorHandler:     endorService,
 				entity:           entity,
 			}
 		}
 	}
 
-	// dynamic EndorServices
+	// dynamic EndorHandlers
 	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		dynamicEntities, err := h.DynamicEntityList()
 		if err != nil {
-			return map[string]EndorServiceDictionary{}, nil
+			return map[string]EndorHandlerDictionary{}, nil
 		}
 
 		for _, entity := range dynamicEntities {
@@ -215,13 +215,13 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 			if v, ok := entities[entityID]; ok {
 				// check entity hybrid
 				if entityHybrid, ok := entity.(*sdk.EntityHybrid); ok {
-					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridServiceInterface); ok {
+					if hybridInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
 						defintion, err := entityHybrid.UnmarshalAdditionalAttributes()
 						if err != nil {
 							h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for hybrid entity %s: %s", entityHybrid.ID, err.Error()))
 						}
 						// inject dynamic schema
-						v.EndorService = hybridInstance.ToEndorService(*defintion)
+						v.EndorHandler = hybridInstance.ToEndorHandler(*defintion)
 						if originalEntity, ok := v.entity.(*sdk.EntityHybrid); ok {
 							originalEntity.AdditionalSchema = entityHybrid.AdditionalSchema
 						}
@@ -231,23 +231,23 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 
 				// check entity specialized
 				if entitySpecialized, ok := entity.(*sdk.EntityHybridSpecialized); ok {
-					if specializedInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridSpecializedServiceInterface); ok {
+					if specializedInstance, ok := (*v.OriginalInstance).(sdk.EndorHybridSpecializedHandlerInterface); ok {
 						defintion, err := entitySpecialized.UnmarshalAdditionalAttributes()
 						if err != nil {
 							h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for hybrid specialized entity %s: %s", entitySpecialized.ID, err.Error()))
 						}
 						// inject categories and schema
-						categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
+						categories := []sdk.EndorHybridSpecializedHandlerCategoryInterface{}
 						categoriesAdditionalSchema := map[string]sdk.RootSchema{}
 						for _, c := range entitySpecialized.Categories {
-							categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
+							categories = append(categories, NewEndorHybridSpecializedHandlerCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 							categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 							if err != nil {
 								h.logger.Warn(fmt.Sprintf("unable to unmarshal category definition %s for hybrid entity %s: %s", c.ID, entitySpecialized.ID, err.Error()))
 							}
 							categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 						}
-						v.EndorService = specializedInstance.WithHybridCategories(categories).ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories)
+						v.EndorHandler = specializedInstance.WithHybridCategories(categories).ToEndorHandler(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories)
 						if originalEntity, ok := v.entity.(*sdk.EntityHybridSpecialized); ok {
 							originalEntity.AdditionalCategories = entitySpecialized.AdditionalCategories
 							originalEntity.AdditionalSchema = entitySpecialized.AdditionalSchema
@@ -262,11 +262,11 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for dynamic entity %s: %s", entityHybrid.ID, err.Error()))
 					}
 					// create a new hybrid service
-					hybridService := NewEndorHybridService[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
+					hybridService := NewEndorHybridHandler[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
 					schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
 					entityHybrid.Schema = schema
-					entities[entityHybrid.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(*defintion),
+					entities[entityHybrid.ID] = EndorHandlerDictionary{
+						EndorHandler: hybridService.ToEndorHandler(*defintion),
 						entity:       entityHybrid,
 					}
 				}
@@ -276,10 +276,10 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						h.logger.Warn(fmt.Sprintf("unable to unmarshal definition for dynamic specialized entity %s: %s", entitySpecialized.ID, err.Error()))
 					}
 					// create categories
-					categories := []sdk.EndorHybridSpecializedServiceCategoryInterface{}
+					categories := []sdk.EndorHybridSpecializedHandlerCategoryInterface{}
 					categoriesAdditionalSchema := map[string]sdk.RootSchema{}
 					for _, c := range entitySpecialized.Categories {
-						categories = append(categories, NewEndorHybridSpecializedServiceCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
+						categories = append(categories, NewEndorHybridSpecializedHandlerCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 						categoryAdditionalSchema, err := c.UnmarshalAdditionalAttributes()
 						if err != nil {
 							h.logger.Warn(fmt.Sprintf("unable to unmarshal category definition %s for dynamic specialized entity %s: %s", c.ID, entitySpecialized.ID, err.Error()))
@@ -287,11 +287,11 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 						categoriesAdditionalSchema[c.ID] = *categoryAdditionalSchema
 					}
 					// create a new specilized service
-					hybridService := NewEndorHybridSpecializedService[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
+					hybridService := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
 					schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
 					entitySpecialized.Schema = schema
-					entities[entitySpecialized.ID] = EndorServiceDictionary{
-						EndorService: hybridService.ToEndorService(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories),
+					entities[entitySpecialized.ID] = EndorHandlerDictionary{
+						EndorHandler: hybridService.ToEndorHandler(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories),
 						entity:       entitySpecialized,
 					}
 				}
@@ -306,15 +306,15 @@ func (h *EndorServiceRepository) DictionaryMap() (map[string]EndorServiceDiction
 	return entities, nil
 }
 
-func (h *EndorServiceRepository) DictionaryActionMap() (map[string]EndorServiceActionDictionary, error) {
-	actions := map[string]EndorServiceActionDictionary{}
+func (h *EndorHandlerRepository) DictionaryActionMap() (map[string]EndorHandlerActionDictionary, error) {
+	actions := map[string]EndorHandlerActionDictionary{}
 	entities, err := h.DictionaryMap()
 	if err != nil {
 		return actions, err
 	}
 	for entityName, entity := range entities {
-		for actionName, EndorServiceAction := range entity.EndorService.Actions {
-			action, err := h.createAction(entityName, actionName, EndorServiceAction)
+		for actionName, EndorHandlerAction := range entity.EndorHandler.Actions {
+			action, err := h.createAction(entityName, actionName, EndorHandlerAction)
 			if err == nil {
 				actions[action.entityAction.ID] = *action
 			}
@@ -323,7 +323,7 @@ func (h *EndorServiceRepository) DictionaryActionMap() (map[string]EndorServiceA
 	return actions, nil
 }
 
-func (h *EndorServiceRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*EndorServiceDictionary, error) {
+func (h *EndorHandlerRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*EndorHandlerDictionary, error) {
 	// get all service
 	entities, err := h.DictionaryMap()
 	if err != nil {
@@ -335,7 +335,7 @@ func (h *EndorServiceRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*E
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
 }
 
-func (h *EndorServiceRepository) DictionaryActionInstance(dto sdk.ReadInstanceDTO) (*EndorServiceActionDictionary, error) {
+func (h *EndorHandlerRepository) DictionaryActionInstance(dto sdk.ReadInstanceDTO) (*EndorHandlerActionDictionary, error) {
 	idSegments := strings.Split(dto.Id, "/")
 	if len(idSegments) == 2 {
 		entityInstance, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
@@ -344,7 +344,7 @@ func (h *EndorServiceRepository) DictionaryActionInstance(dto sdk.ReadInstanceDT
 		if err != nil {
 			return nil, err
 		}
-		if entityAction, ok := entityInstance.EndorService.Actions[idSegments[1]]; ok {
+		if entityAction, ok := entityInstance.EndorHandler.Actions[idSegments[1]]; ok {
 			return h.createAction(idSegments[0], idSegments[1], entityAction)
 		} else {
 			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found"))
@@ -354,7 +354,7 @@ func (h *EndorServiceRepository) DictionaryActionInstance(dto sdk.ReadInstanceDT
 	}
 }
 
-func (h *EndorServiceRepository) EntityActionList() ([]sdk.EntityAction, error) {
+func (h *EndorHandlerRepository) EntityActionList() ([]sdk.EntityAction, error) {
 	actions, err := h.DictionaryActionMap()
 	if err != nil {
 		return []sdk.EntityAction{}, err
@@ -366,19 +366,19 @@ func (h *EndorServiceRepository) EntityActionList() ([]sdk.EntityAction, error) 
 	return actionList, nil
 }
 
-func (h *EndorServiceRepository) EndorServiceList() ([]sdk.EndorService, error) {
+func (h *EndorHandlerRepository) EndorHandlerList() ([]sdk.EndorHandler, error) {
 	entities, err := h.DictionaryMap()
 	if err != nil {
-		return []sdk.EndorService{}, err
+		return []sdk.EndorHandler{}, err
 	}
-	entityList := make([]sdk.EndorService, 0, len(entities))
+	entityList := make([]sdk.EndorHandler, 0, len(entities))
 	for _, service := range entities {
-		entityList = append(entityList, service.EndorService)
+		entityList = append(entityList, service.EndorHandler)
 	}
 	return entityList, nil
 }
 
-func (h *EndorServiceRepository) DynamicEntityList() ([]sdk.EntityInterface, error) {
+func (h *EndorHandlerRepository) DynamicEntityList() ([]sdk.EntityInterface, error) {
 	cursor, err := h.collection.Find(h.context, bson.M{})
 	if err != nil {
 		return nil, err
@@ -442,7 +442,7 @@ func (h *EndorServiceRepository) DynamicEntityList() ([]sdk.EntityInterface, err
 
 // #region Entity CRUD
 
-func (h *EndorServiceRepository) List(entityType *sdk.EntityType) ([]sdk.EntityInterface, error) {
+func (h *EndorHandlerRepository) List(entityType *sdk.EntityType) ([]sdk.EntityInterface, error) {
 	entities, err := h.DictionaryMap()
 	if err != nil {
 		return []sdk.EntityInterface{}, err
@@ -467,7 +467,7 @@ func (h *EndorServiceRepository) List(entityType *sdk.EntityType) ([]sdk.EntityI
 	return filtered, nil
 }
 
-func (h *EndorServiceRepository) Instance(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) (*sdk.EntityInterface, error) {
+func (h *EndorHandlerRepository) Instance(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) (*sdk.EntityInterface, error) {
 	entity, err := h.DictionaryInstance(dto)
 	if err != nil {
 		return nil, err
@@ -481,7 +481,7 @@ func (h *EndorServiceRepository) Instance(entityType *sdk.EntityType, dto sdk.Re
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
 }
 
-func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.CreateDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
+func (h *EndorHandlerRepository) Create(entityType *sdk.EntityType, dto sdk.CreateDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized {
 		dto.Data.SetCategoryType(string(*entityType))
 		dto.Data.SetService(h.microServiceId)
@@ -505,7 +505,7 @@ func (h *EndorServiceRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 	}
 }
 
-func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[map[string]interface{}]) (*sdk.EntityInterface, error) {
+func (h *EndorHandlerRepository) Update(entityType *sdk.EntityType, dto sdk.UpdateByIdDTO[map[string]interface{}]) (*sdk.EntityInterface, error) {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized ||
 		*entityType == sdk.EntityTypeHybrid || *entityType == sdk.EntityTypeHybridSpecialized {
 		var instance *sdk.EntityInterface
@@ -542,7 +542,7 @@ func (h *EndorServiceRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 	}
 }
 
-func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) error {
+func (h *EndorHandlerRepository) Delete(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) error {
 	if *entityType == sdk.EntityTypeDynamic || *entityType == sdk.EntityTypeDynamicSpecialized {
 		// check if entities already exist
 		_, err := h.DictionaryInstance(dto)
@@ -565,16 +565,16 @@ func (h *EndorServiceRepository) Delete(entityType *sdk.EntityType, dto sdk.Read
 // #region Utility
 
 // invalidateCache clears the cached dictionary so it will be rebuilt on next access
-func (h *EndorServiceRepository) invalidateCache() {
+func (h *EndorHandlerRepository) invalidateCache() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.cacheInitialized = false
 	h.cachedDictionary = nil
 }
 
-func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string) error {
+func (h *EndorHandlerRepository) reloadRouteConfiguration(microserviceId string) error {
 	config := sdk_configuration.GetConfig()
-	entities, err := h.EndorServiceList()
+	entities, err := h.EndorHandlerList()
 	if err != nil {
 		return err
 	}
@@ -589,7 +589,7 @@ func (h *EndorServiceRepository) reloadRouteConfiguration(microserviceId string)
 	return nil
 }
 
-func (h *EndorServiceRepository) createAction(entityName string, actionName string, endorServiceAction sdk.EndorServiceActionInterface) (*EndorServiceActionDictionary, error) {
+func (h *EndorHandlerRepository) createAction(entityName string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
 	actionId := path.Join(entityName, actionName)
 	action := sdk.EntityAction{
 		ID:          actionId,
@@ -602,13 +602,13 @@ func (h *EndorServiceRepository) createAction(entityName string, actionName stri
 			action.InputSchema = inputSchema
 		}
 	}
-	return &EndorServiceActionDictionary{
-		EndorServiceAction: endorServiceAction,
+	return &EndorHandlerActionDictionary{
+		EndorHandlerAction: endorServiceAction,
 		entityAction:       action,
 	}, nil
 }
 
-func (h *EndorServiceRepository) ensureEntityDocumentOfInternalService(entity sdk.EntityInterface) {
+func (h *EndorHandlerRepository) ensureEntityDocumentOfInternalService(entity sdk.EntityInterface) {
 	if (sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled) && h.collection != nil {
 		// Check if document exists in MongoDB
 		var existingDoc sdk.Entity

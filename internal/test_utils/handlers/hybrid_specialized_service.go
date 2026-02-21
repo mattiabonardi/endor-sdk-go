@@ -1,4 +1,4 @@
-package test_utils_services
+package test_utils_handlers
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -38,29 +38,29 @@ type HybridSpecializedAction1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type HybridSpecializedService struct {
+type HybridSpecializedHandler struct {
 }
 
-func (h *HybridSpecializedService) action1(c *sdk.EndorContext[HybridSpecializedAction1Payload]) (*sdk.Response[any], error) {
+func (h *HybridSpecializedHandler) action1(c *sdk.EndorContext[HybridSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Specialized Service")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Specialized Handler")).
 		Build(), nil
 }
 
-func NewHybridSpecializedService() sdk.EndorHybridSpecializedServiceInterface {
-	hybridSpecializedService := HybridSpecializedService{}
+func NewHybridSpecializedHandler() sdk.EndorHybridSpecializedHandlerInterface {
+	hybridSpecializedHandler := HybridSpecializedHandler{}
 
-	return sdk_entity.NewEndorHybridSpecializedService[*HybridSpecializedModel]("hybrid-specialized-service", "Hybrid Specialized Service (EndorHybridSpecializedService)").
+	return sdk_entity.NewEndorHybridSpecializedHandler[*HybridSpecializedModel]("hybrid-specialized-handler", "Hybrid Specialized Handler (EndorHybridSpecializedHandler)").
 		WithHybridCategories(
-			[]sdk.EndorHybridSpecializedServiceCategoryInterface{
-				sdk_entity.NewEndorHybridSpecializedServiceCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
-				sdk_entity.NewEndorHybridSpecializedServiceCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
+			[]sdk.EndorHybridSpecializedHandlerCategoryInterface{
+				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
+				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
 			},
 		).
-		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {
-			return map[string]sdk.EndorServiceActionInterface{
+		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
+			return map[string]sdk.EndorHandlerActionInterface{
 				"action-1": sdk.NewAction(
-					hybridSpecializedService.action1,
+					hybridSpecializedHandler.action1,
 					"Test hybrid action",
 				),
 			}

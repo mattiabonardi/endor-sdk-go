@@ -3,7 +3,7 @@ package sdk_entity_test
 import (
 	"testing"
 
-	test_utils_services "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/services"
+	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +20,7 @@ type HybridCategory3AdditionalSchema struct {
 	AdditionalAttributeCat3 string `json:"additionalAttributeCat2"`
 }
 
-func TestEndorHybridSpecializedService(t *testing.T) {
+func TestEndorHybridSpecializedHandler(t *testing.T) {
 	category1AdditionalSchema := sdk.NewSchema(HybridCategory1AdditionalSchema{})
 	category2AdditionalSchema := sdk.NewSchema(HybridCategory2AdditionalSchema{})
 	category3AdditionalSchema := sdk.NewSchema(HybridCategory3AdditionalSchema{})
@@ -33,8 +33,8 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 		AdditionalSchema: yaml,
 	}
 
-	hybridService := test_utils_services.NewHybridSpecializedService()
-	endorService := hybridService.ToEndorService(
+	hybridHandler := test_utils_handlers.NewHybridSpecializedHandler()
+	endorHandler := hybridHandler.ToEndorHandler(
 		*sdk.NewSchema(AdditionalAttributesMock{}),
 		map[string]sdk.RootSchema{
 			"cat-1": *category1AdditionalSchema,
@@ -44,33 +44,33 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	)
 
 	// check default methods
-	_, schemaExists := endorService.Actions["schema"]
-	assert.True(t, schemaExists, "method 'schema' not found in endorService methods map")
-	_, instanceExists := endorService.Actions["instance"]
-	assert.True(t, instanceExists, "method 'instance' not found in endorService methods map")
-	_, idPropertyExists := (*endorService.Actions["instance"].GetOptions().InputSchema.Properties)["id"]
+	_, schemaExists := endorHandler.Actions["schema"]
+	assert.True(t, schemaExists, "method 'schema' not found in endorHandler methods map")
+	_, instanceExists := endorHandler.Actions["instance"]
+	assert.True(t, instanceExists, "method 'instance' not found in endorHandler methods map")
+	_, idPropertyExists := (*endorHandler.Actions["instance"].GetOptions().InputSchema.Properties)["id"]
 	assert.True(t, idPropertyExists, "'id' property not found in input schema for method 'instance'")
-	_, listExists := endorService.Actions["list"]
-	assert.True(t, listExists, "method 'list' not found in endorService methods map")
-	_, createExists := endorService.Actions["create"]
-	assert.False(t, createExists, "method 'create' defined in endorService methods map")
-	_, updateExists := endorService.Actions["update"]
-	assert.False(t, updateExists, "method 'update' defined in endorService methods map")
-	_, action1Exists := endorService.Actions["action-1"]
-	assert.True(t, action1Exists, "method 'action-1' not found in endorService methods map")
+	_, listExists := endorHandler.Actions["list"]
+	assert.True(t, listExists, "method 'list' not found in endorHandler methods map")
+	_, createExists := endorHandler.Actions["create"]
+	assert.False(t, createExists, "method 'create' defined in endorHandler methods map")
+	_, updateExists := endorHandler.Actions["update"]
+	assert.False(t, updateExists, "method 'update' defined in endorHandler methods map")
+	_, action1Exists := endorHandler.Actions["action-1"]
+	assert.True(t, action1Exists, "method 'action-1' not found in endorHandler methods map")
 	// categories
 	// check categories default methods (cat-1)
-	_, cat1SchemaExists := endorService.Actions["cat-1/schema"]
-	assert.True(t, cat1SchemaExists, "method 'cat-1/schema' not found in endorService methods map")
-	_, cat1InstanceExists := endorService.Actions["cat-1/instance"]
-	assert.True(t, cat1InstanceExists, "method 'cat-1/instance' not found in endorService methods map")
-	_, cat1InstanceIdExists := (*endorService.Actions["cat-1/instance"].GetOptions().InputSchema.Properties)["id"]
+	_, cat1SchemaExists := endorHandler.Actions["cat-1/schema"]
+	assert.True(t, cat1SchemaExists, "method 'cat-1/schema' not found in endorHandler methods map")
+	_, cat1InstanceExists := endorHandler.Actions["cat-1/instance"]
+	assert.True(t, cat1InstanceExists, "method 'cat-1/instance' not found in endorHandler methods map")
+	_, cat1InstanceIdExists := (*endorHandler.Actions["cat-1/instance"].GetOptions().InputSchema.Properties)["id"]
 	assert.True(t, cat1InstanceIdExists, "'id' property not found in input schema for method 'cat-1/instance'")
-	_, cat1ListExists := endorService.Actions["cat-1/list"]
-	assert.True(t, cat1ListExists, "method 'cat-1/list' not found in endorService methods map")
-	_, cat1CreateExists := endorService.Actions["cat-1/create"]
-	assert.True(t, cat1CreateExists, "method 'cat-1/create' not found in endorService methods map")
-	if dataSchema, ok := (*endorService.Actions["cat-1/create"].GetOptions().InputSchema.Properties)["data"]; ok {
+	_, cat1ListExists := endorHandler.Actions["cat-1/list"]
+	assert.True(t, cat1ListExists, "method 'cat-1/list' not found in endorHandler methods map")
+	_, cat1CreateExists := endorHandler.Actions["cat-1/create"]
+	assert.True(t, cat1CreateExists, "method 'cat-1/create' not found in endorHandler methods map")
+	if dataSchema, ok := (*endorHandler.Actions["cat-1/create"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-1/create' missing 'id'")
 		_, typeExists := (*dataSchema.Properties)["type"]
@@ -84,7 +84,7 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	} else {
 		assert.Fail(t, "'data' property not found in input schema for method 'cat-1/create'")
 	}
-	if dataSchema, ok := (*endorService.Actions["cat-1/update"].GetOptions().InputSchema.Properties)["data"]; ok {
+	if dataSchema, ok := (*endorHandler.Actions["cat-1/update"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-1/update' missing 'id'")
 		_, typeExists := (*dataSchema.Properties)["type"]
@@ -98,12 +98,12 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 	} else {
 		assert.Fail(t, "'data' property not found in input schema for method 'cat-1/update'")
 	}
-	_, cat1UpdateIdExists := (*endorService.Actions["cat-1/update"].GetOptions().InputSchema.Properties)["id"]
+	_, cat1UpdateIdExists := (*endorHandler.Actions["cat-1/update"].GetOptions().InputSchema.Properties)["id"]
 	assert.True(t, cat1UpdateIdExists, "'id' property not found in input schema for method 'cat-1/update'")
 	// check categories default methods (cat-2)
-	_, cat2CreateExists := endorService.Actions["cat-2/create"]
-	assert.True(t, cat2CreateExists, "method 'cat-2/create' not found in endorService methods map")
-	if dataSchema, ok := (*endorService.Actions["cat-2/create"].GetOptions().InputSchema.Properties)["data"]; ok {
+	_, cat2CreateExists := endorHandler.Actions["cat-2/create"]
+	assert.True(t, cat2CreateExists, "method 'cat-2/create' not found in endorHandler methods map")
+	if dataSchema, ok := (*endorHandler.Actions["cat-2/create"].GetOptions().InputSchema.Properties)["data"]; ok {
 		_, idExists := (*dataSchema.Properties)["id"]
 		assert.True(t, idExists, "input schema for method 'cat-2/create' missing 'id'")
 		_, typeExists := (*dataSchema.Properties)["type"]
@@ -120,6 +120,6 @@ func TestEndorHybridSpecializedService(t *testing.T) {
 		assert.Fail(t, "'data' property not found in input schema for method 'cat-2/create'")
 	}
 	// dynamic categories cat-3
-	_, cat3CreateExists := endorService.Actions["cat-3/create"]
-	assert.True(t, cat3CreateExists, "method 'cat-3/create' not found in endorService methods map")
+	_, cat3CreateExists := endorHandler.Actions["cat-3/create"]
+	assert.True(t, cat3CreateExists, "method 'cat-3/create' not found in endorHandler methods map")
 }

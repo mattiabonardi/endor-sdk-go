@@ -11,22 +11,22 @@ import (
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
-type EndorServiceActionInterface interface {
+type EndorHandlerActionInterface interface {
 	CreateHTTPCallback(microserviceId string, entity string, action string, category string) func(c *gin.Context)
-	GetOptions() EndorServiceActionOptions
+	GetOptions() EndorHandlerActionOptions
 }
 
-type EndorServiceActionOptions struct {
+type EndorHandlerActionOptions struct {
 	Description           string
 	Public                bool
 	SkipPayloadValidation bool
 	InputSchema           *RootSchema
 }
 
-type EndorService struct {
+type EndorHandler struct {
 	Entity            string
 	EntityDescription string
-	Actions           map[string]EndorServiceActionInterface
+	Actions           map[string]EndorHandlerActionInterface
 	Priority          *int
 	EntitySchema      RootSchema
 
@@ -34,20 +34,20 @@ type EndorService struct {
 	Version string
 }
 
-func (h EndorService) GetEntity() string {
+func (h EndorHandler) GetEntity() string {
 	return h.Entity
 }
 
-func (h EndorService) GetEntityDescription() string {
+func (h EndorHandler) GetEntityDescription() string {
 	return h.EntityDescription
 }
 
-func (h EndorService) GetPriority() *int {
+func (h EndorHandler) GetPriority() *int {
 	return h.Priority
 }
 
-func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorServiceActionInterface {
-	options := EndorServiceActionOptions{
+func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string) EndorHandlerActionInterface {
+	options := EndorHandlerActionOptions{
 		Description:           description,
 		Public:                false,
 		SkipPayloadValidation: false,
@@ -58,19 +58,19 @@ func NewAction[T any, R any](handler EndorHandlerFunc[T, R], description string)
 	return NewConfigurableAction(options, handler)
 }
 
-func NewConfigurableAction[T any, R any](options EndorServiceActionOptions, handler EndorHandlerFunc[T, R]) EndorServiceActionInterface {
+func NewConfigurableAction[T any, R any](options EndorHandlerActionOptions, handler EndorHandlerFunc[T, R]) EndorHandlerActionInterface {
 	if options.InputSchema == nil {
 		options.InputSchema = ResolveGenericSchema[T]()
 	}
-	return &endorServiceActionImpl[T, R]{handler: handler, options: options}
+	return &endorHandlerActionImpl[T, R]{handler: handler, options: options}
 }
 
-type endorServiceActionImpl[T any, R any] struct {
+type endorHandlerActionImpl[T any, R any] struct {
 	handler EndorHandlerFunc[T, R]
-	options EndorServiceActionOptions
+	options EndorHandlerActionOptions
 }
 
-func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string) func(c *gin.Context) {
+func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		development := false
 		if c.GetHeader("x-development") == "true" {
@@ -130,12 +130,12 @@ func (m *endorServiceActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 	}
 }
 
-func (m *endorServiceActionImpl[T, R]) GetOptions() EndorServiceActionOptions {
+func (m *endorHandlerActionImpl[T, R]) GetOptions() EndorHandlerActionOptions {
 	return m.options
 }
 
 // generic
-type EndorServiceInterface interface {
+type EndorHandlerInterface interface {
 	GetEntity() string
 	GetEntityDescription() string
 	GetPriority() *int
@@ -143,54 +143,54 @@ type EndorServiceInterface interface {
 }
 
 // base
-type EndorBaseServiceInterface interface {
-	EndorServiceInterface
-	WithPriority(priority int) EndorBaseServiceInterface
-	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseServiceInterface
-	ToEndorService() EndorService
+type EndorBaseHandlerInterface interface {
+	EndorHandlerInterface
+	WithPriority(priority int) EndorBaseHandlerInterface
+	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseHandlerInterface
+	ToEndorHandler() EndorHandler
 }
 
 // base specialized
-type EndorBaseSpecializedServiceInterface interface {
-	EndorServiceInterface
-	WithPriority(priority int) EndorBaseSpecializedServiceInterface
-	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceInterface
-	WithCategories(categories []EndorBaseSpecializedServiceCategoryInterface) EndorBaseSpecializedServiceInterface
+type EndorBaseSpecializedHandlerInterface interface {
+	EndorHandlerInterface
+	WithPriority(priority int) EndorBaseSpecializedHandlerInterface
+	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerInterface
+	WithCategories(categories []EndorBaseSpecializedHandlerCategoryInterface) EndorBaseSpecializedHandlerInterface
 	GetCategories() []Category
-	ToEndorService() EndorService
+	ToEndorHandler() EndorHandler
 }
 
-type EndorBaseSpecializedServiceCategoryInterface interface {
+type EndorBaseSpecializedHandlerCategoryInterface interface {
 	GetID() string
 	GetDescription() string
 	GetSchema() string
-	GetActions() map[string]EndorServiceActionInterface
-	WithActions(actions map[string]EndorServiceActionInterface) EndorBaseSpecializedServiceCategoryInterface
+	GetActions() map[string]EndorHandlerActionInterface
+	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerCategoryInterface
 }
 
 // hybrid
-type EndorHybridServiceInterface interface {
-	EndorServiceInterface
-	WithPriority(priority int) EndorHybridServiceInterface
-	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridServiceInterface
-	ToEndorService(metadataSchema RootSchema) EndorService
+type EndorHybridHandlerInterface interface {
+	EndorHandlerInterface
+	WithPriority(priority int) EndorHybridHandlerInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridHandlerInterface
+	ToEndorHandler(metadataSchema RootSchema) EndorHandler
 }
 
 // hybrid specialized
-type EndorHybridSpecializedServiceInterface interface {
-	EndorServiceInterface
-	WithPriority(priority int) EndorHybridSpecializedServiceInterface
-	WithActions(fn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceInterface
-	WithHybridCategories(categories []EndorHybridSpecializedServiceCategoryInterface) EndorHybridSpecializedServiceInterface
+type EndorHybridSpecializedHandlerInterface interface {
+	EndorHandlerInterface
+	WithPriority(priority int) EndorHybridSpecializedHandlerInterface
+	WithActions(fn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerInterface
+	WithHybridCategories(categories []EndorHybridSpecializedHandlerCategoryInterface) EndorHybridSpecializedHandlerInterface
 	GetHybridCategories() []HybridCategory
-	ToEndorService(metadataSchema RootSchema, categoryMetadataSchemas map[string]RootSchema, additionalCategories []DynamicCategory) EndorService
+	ToEndorHandler(metadataSchema RootSchema, categoryMetadataSchemas map[string]RootSchema, additionalCategories []DynamicCategory) EndorHandler
 }
 
-type EndorHybridSpecializedServiceCategoryInterface interface {
+type EndorHybridSpecializedHandlerCategoryInterface interface {
 	GetID() string
 	GetDescription() string
 	GetSchema() string
-	GetActions() func(getSchema func() RootSchema) map[string]EndorServiceActionInterface
-	WithActions(actionFn func(getSchema func() RootSchema) map[string]EndorServiceActionInterface) EndorHybridSpecializedServiceCategoryInterface
-	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorServiceActionInterface
+	GetActions() func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface
+	WithActions(actionFn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerCategoryInterface
+	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorHandlerActionInterface
 }

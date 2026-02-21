@@ -7,54 +7,54 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-type EndorHybridService[T sdk.EntityInstanceInterface] struct {
+type EndorHybridHandler[T sdk.EntityInstanceInterface] struct {
 	Entity            string
 	EntityDescription string
 	Priority          *int
-	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface
+	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
 }
 
-func (h EndorHybridService[T]) GetEntity() string {
+func (h EndorHybridHandler[T]) GetEntity() string {
 	return h.Entity
 }
 
-func (h EndorHybridService[T]) GetEntityDescription() string {
+func (h EndorHybridHandler[T]) GetEntityDescription() string {
 	return h.EntityDescription
 }
 
-func (h EndorHybridService[T]) GetPriority() *int {
+func (h EndorHybridHandler[T]) GetPriority() *int {
 	return h.Priority
 }
 
-func (h EndorHybridService[T]) GetSchema() *sdk.RootSchema {
+func (h EndorHybridHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewEndorHybridService[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorHybridServiceInterface {
-	return EndorHybridService[T]{
+func NewEndorHybridHandler[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorHybridHandlerInterface {
+	return EndorHybridHandler[T]{
 		Entity:            entity,
 		EntityDescription: entityDescription,
 	}
 }
 
-func (h EndorHybridService[T]) WithPriority(
+func (h EndorHybridHandler[T]) WithPriority(
 	priority int,
-) sdk.EndorHybridServiceInterface {
+) sdk.EndorHybridHandlerInterface {
 	h.Priority = &priority
 	return h
 }
 
 // define methods. The params getSchema allow to inject the dynamic schema
-func (h EndorHybridService[T]) WithActions(
-	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface,
-) sdk.EndorHybridServiceInterface {
+func (h EndorHybridHandler[T]) WithActions(
+	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface,
+) sdk.EndorHybridHandlerInterface {
 	h.methodsFn = fn
 	return h
 }
 
 // create endor service instance
-func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.RootSchema) sdk.EndorService {
-	var methods = make(map[string]sdk.EndorServiceActionInterface)
+func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk.EndorHandler {
+	var methods = make(map[string]sdk.EndorHandlerActionInterface)
 
 	// schema
 	rootSchemWithMetadata := getRootSchemaWithMetadata[T](metadataSchema)
@@ -69,7 +69,7 @@ func (h EndorHybridService[T]) ToEndorService(metadataSchema sdk.RootSchema) sdk
 		}
 	}
 
-	return sdk.EndorService{
+	return sdk.EndorHandler{
 		Entity:            h.Entity,
 		EntityDescription: h.EntityDescription,
 		Priority:          h.Priority,
@@ -88,14 +88,14 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 	return rootSchema
 }
 
-func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorServiceActionInterface {
+func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorHandlerActionInterface {
 	// Crea repository usando DynamicEntity come default (per ora)
 	autogenerateID := true
 	repository := NewEntityInstanceRepository[T](entity, sdk.EntityInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
 
-	return map[string]sdk.EndorServiceActionInterface{
+	return map[string]sdk.EndorHandlerActionInterface{
 		"schema": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
@@ -115,7 +115,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			fmt.Sprintf("Search for available list of %s (%s)", entity, entityDescription),
 		),
 		"create": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
+			sdk.EndorHandlerActionOptions{
 				Description: fmt.Sprintf("Create the instance of %s (%s)", entity, entityDescription),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
@@ -131,7 +131,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			},
 		),
 		"update": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
+			sdk.EndorHandlerActionOptions{
 				Description: fmt.Sprintf("Update the existing instance of %s (%s)", entity, entityDescription),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{

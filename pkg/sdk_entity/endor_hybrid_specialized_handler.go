@@ -8,97 +8,97 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-type EndorHybridSpecializedServiceCategory[T sdk.EntityInstanceSpecializedInterface] struct {
+type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
 	ID          string
 	Description string
-	ActionFn    func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface
+	ActionFn    func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
 }
 
-func (h *EndorHybridSpecializedServiceCategory[T]) GetID() string {
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetID() string {
 	return h.ID
 }
 
-func (h *EndorHybridSpecializedServiceCategory[T]) GetDescription() string {
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetDescription() string {
 	return h.Description
 }
 
-func (h *EndorHybridSpecializedServiceCategory[T]) GetSchema() string {
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetSchema() string {
 	schema, _ := getRootSchema[T]().ToYAML()
 	return schema
 }
 
 // GetActions implements sdk.EndorHybridSpecializedServiceCategoryInterface.
-func (h *EndorHybridSpecializedServiceCategory[T]) GetActions() func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetActions() func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 	return h.ActionFn
 }
 
-func (h *EndorHybridSpecializedServiceCategory[T]) WithActions(actionFn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface) sdk.EndorHybridSpecializedServiceCategoryInterface {
+func (h *EndorHybridSpecializedHandlerCategory[T]) WithActions(actionFn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface) sdk.EndorHybridSpecializedHandlerCategoryInterface {
 	h.ActionFn = actionFn
 	return h
 }
 
-func (h *EndorHybridSpecializedServiceCategory[T]) CreateDefaultActions(entity string, entityDescription string, metadataSchema sdk.RootSchema, categoryMetadataSchema sdk.RootSchema) map[string]sdk.EndorServiceActionInterface {
+func (h *EndorHybridSpecializedHandlerCategory[T]) CreateDefaultActions(entity string, entityDescription string, metadataSchema sdk.RootSchema, categoryMetadataSchema sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 	rootSchemWithCategory := getCategorySchemaWithMetadata[T](metadataSchema, categoryMetadataSchema)
 	return getDefaultActionsForCategory[T](entity, *rootSchemWithCategory, entityDescription, h.ID)
 }
 
-func NewEndorHybridSpecializedServiceCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorHybridSpecializedServiceCategoryInterface {
-	return &EndorHybridSpecializedServiceCategory[T]{
+func NewEndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorHybridSpecializedHandlerCategoryInterface {
+	return &EndorHybridSpecializedHandlerCategory[T]{
 		ID:          categoryID,
 		Description: categoryDescription,
 	}
 }
 
-type EndorHybridSpecializedService[T sdk.EntityInstanceSpecializedInterface] struct {
+type EndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struct {
 	Entity            string
 	EntityDescription string
 	Priority          *int
-	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface
+	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
 	staticCategories  []string
-	categories        map[string]sdk.EndorHybridSpecializedServiceCategoryInterface
+	categories        map[string]sdk.EndorHybridSpecializedHandlerCategoryInterface
 }
 
-func (h EndorHybridSpecializedService[T]) GetEntity() string {
+func (h EndorHybridSpecializedHandler[T]) GetEntity() string {
 	return h.Entity
 }
 
-func (h EndorHybridSpecializedService[T]) GetEntityDescription() string {
+func (h EndorHybridSpecializedHandler[T]) GetEntityDescription() string {
 	return h.EntityDescription
 }
 
-func (h EndorHybridSpecializedService[T]) GetPriority() *int {
+func (h EndorHybridSpecializedHandler[T]) GetPriority() *int {
 	return h.Priority
 }
 
-func (h EndorHybridSpecializedService[T]) GetSchema() *sdk.RootSchema {
+func (h EndorHybridSpecializedHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewEndorHybridSpecializedService[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorHybridSpecializedServiceInterface {
-	return EndorHybridSpecializedService[T]{
+func NewEndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorHybridSpecializedHandlerInterface {
+	return EndorHybridSpecializedHandler[T]{
 		Entity:            entity,
 		EntityDescription: entityDescription,
 	}
 }
 
-func (h EndorHybridSpecializedService[T]) WithPriority(
+func (h EndorHybridSpecializedHandler[T]) WithPriority(
 	priority int,
-) sdk.EndorHybridSpecializedServiceInterface {
+) sdk.EndorHybridSpecializedHandlerInterface {
 	h.Priority = &priority
 	return h
 }
 
 // define methods. The params getSchema allow to inject the dynamic schema
-func (h EndorHybridSpecializedService[T]) WithActions(
-	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorServiceActionInterface,
-) sdk.EndorHybridSpecializedServiceInterface {
+func (h EndorHybridSpecializedHandler[T]) WithActions(
+	fn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface,
+) sdk.EndorHybridSpecializedHandlerInterface {
 	h.methodsFn = fn
 	return h
 }
 
-func (h EndorHybridSpecializedService[T]) WithHybridCategories(categories []sdk.EndorHybridSpecializedServiceCategoryInterface) sdk.EndorHybridSpecializedServiceInterface {
+func (h EndorHybridSpecializedHandler[T]) WithHybridCategories(categories []sdk.EndorHybridSpecializedHandlerCategoryInterface) sdk.EndorHybridSpecializedHandlerInterface {
 	if h.categories == nil {
-		h.categories = make(map[string]sdk.EndorHybridSpecializedServiceCategoryInterface)
+		h.categories = make(map[string]sdk.EndorHybridSpecializedHandlerCategoryInterface)
 	}
 	if h.staticCategories == nil {
 		h.staticCategories = []string{}
@@ -110,7 +110,7 @@ func (h EndorHybridSpecializedService[T]) WithHybridCategories(categories []sdk.
 	return h
 }
 
-func (h EndorHybridSpecializedService[T]) GetHybridCategories() []sdk.HybridCategory {
+func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCategory {
 	staticCategories := []sdk.HybridCategory{}
 	for _, categoryID := range h.staticCategories {
 		staticCategories = append(staticCategories, sdk.HybridCategory{
@@ -123,12 +123,12 @@ func (h EndorHybridSpecializedService[T]) GetHybridCategories() []sdk.HybridCate
 }
 
 // create endor service instance
-func (h EndorHybridSpecializedService[T]) ToEndorService(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorService {
-	var methods = make(map[string]sdk.EndorServiceActionInterface)
+func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorHandler {
+	var methods = make(map[string]sdk.EndorHandlerActionInterface)
 
 	// merge additional categories
 	for _, additionalCategory := range additionalCategories {
-		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedServiceCategory[T](additionalCategory.ID, additionalCategory.Description)
+		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedHandlerCategory[T](additionalCategory.ID, additionalCategory.Description)
 		additionalCategorySchema, _ := additionalCategory.UnmarshalAdditionalAttributes()
 		categoriesMetadataSchema[additionalCategory.ID] = *additionalCategorySchema
 	}
@@ -157,7 +157,7 @@ func (h EndorHybridSpecializedService[T]) ToEndorService(metadataSchema sdk.Root
 		}
 	}
 
-	return sdk.EndorService{
+	return sdk.EndorHandler{
 		Entity:            h.Entity,
 		EntityDescription: h.EntityDescription,
 		Priority:          h.Priority,
@@ -181,7 +181,7 @@ func getCategorySchemaWithMetadata[T sdk.EntityInstanceSpecializedInterface](met
 	return rootSchema
 }
 
-func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](entity string, schema sdk.RootSchema, entityDescription string, categoryID string) map[string]sdk.EndorServiceActionInterface {
+func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](entity string, schema sdk.RootSchema, entityDescription string, categoryID string) map[string]sdk.EndorHandlerActionInterface {
 	autogenerateID := true
 
 	repository := NewEntityInstanceRepository[T](
@@ -189,7 +189,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 		sdk.EntityInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
 	)
 
-	return map[string]sdk.EndorServiceActionInterface{
+	return map[string]sdk.EndorHandlerActionInterface{
 		categoryID + "/schema": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
@@ -203,7 +203,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			fmt.Sprintf("Search for available list of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
 		categoryID + "/create": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
+			sdk.EndorHandlerActionOptions{
 				Description: fmt.Sprintf("Create the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
@@ -225,7 +225,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
 		categoryID + "/update": sdk.NewConfigurableAction(
-			sdk.EndorServiceActionOptions{
+			sdk.EndorHandlerActionOptions{
 				Description: fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{

@@ -1,4 +1,4 @@
-package test_utils_services
+package test_utils_handlers
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -38,52 +38,52 @@ type BaseSpecializedAction1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type BaseSpecializedService struct {
+type BaseSpecializedHandler struct {
 }
 
-func (h *BaseSpecializedService) action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
+func (h *BaseSpecializedHandler) action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Service")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Handler")).
 		Build(), nil
 }
 
-func (h *BaseSpecializedService) category1Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
+func (h *BaseSpecializedHandler) category1Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
 		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from category 1 action 1")).
 		Build(), nil
 }
 
-func (h *BaseSpecializedService) category2Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
+func (h *BaseSpecializedHandler) category2Action1(c *sdk.EndorContext[BaseSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
 		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from category 2 action 1")).
 		Build(), nil
 }
 
-func NewBaseSpecializedService() sdk.EndorBaseSpecializedServiceInterface {
-	baseSpecializedService := BaseSpecializedService{}
+func NewBaseSpecializedHandler() sdk.EndorBaseSpecializedHandlerInterface {
+	baseSpecializedHandler := BaseSpecializedHandler{}
 
-	return sdk_entity.NewEndorBaseSpecializedService[*BaseSpecializedModel]("base-specialized-service", "Base Specialized Service (EndorBaseSpecializedService)").
+	return sdk_entity.NewEndorBaseSpecializedHandler[*BaseSpecializedModel]("base-specialized-handler", "Base Specialized Handler (EndorBaseSpecializedHandler)").
 		WithCategories(
-			[]sdk.EndorBaseSpecializedServiceCategoryInterface{
-				sdk_entity.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
-					WithActions(map[string]sdk.EndorServiceActionInterface{
+			[]sdk.EndorBaseSpecializedHandlerCategoryInterface{
+				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
+					WithActions(map[string]sdk.EndorHandlerActionInterface{
 						"action-1": sdk.NewAction(
-							baseSpecializedService.category1Action1,
+							baseSpecializedHandler.category1Action1,
 							"Action 1",
 						),
 					}),
-				sdk_entity.NewEndorBaseSpecializedServiceCategory[*BaseSpecializedModelCategory2]("cat-2", "Category 2").
-					WithActions(map[string]sdk.EndorServiceActionInterface{
+				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory2]("cat-2", "Category 2").
+					WithActions(map[string]sdk.EndorHandlerActionInterface{
 						"action-1": sdk.NewAction(
-							baseSpecializedService.category2Action1,
+							baseSpecializedHandler.category2Action1,
 							"Action 1",
 						),
 					}),
 			},
 		).
-		WithActions(map[string]sdk.EndorServiceActionInterface{
+		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"action-1": sdk.NewAction(
-				baseSpecializedService.action1,
+				baseSpecializedHandler.action1,
 				"Action 1",
 			),
 		},

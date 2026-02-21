@@ -16,7 +16,7 @@ import (
 )
 
 type Endor struct {
-	endorServices *[]sdk.EndorServiceInterface
+	endorServices *[]sdk.EndorHandlerInterface
 	postInitFunc  func()
 }
 
@@ -30,7 +30,7 @@ func NewEndorInitializer() *EndorInitializer {
 	}
 }
 
-func (b *EndorInitializer) WithEndorServices(services *[]sdk.EndorServiceInterface) *EndorInitializer {
+func (b *EndorInitializer) WithEndorHandlers(services *[]sdk.EndorHandlerInterface) *EndorInitializer {
 	b.endor.endorServices = services
 	return b
 }
@@ -68,7 +68,7 @@ func (h *Endor) Init(microserviceId string) {
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	// Check if an EndorService with entity == "entity" is already defined
+	// Check if an EndorHandler with entity == "entity" is already defined
 	entityServiceExists := false
 	if h.endorServices != nil {
 		for _, svc := range *h.endorServices {
@@ -79,13 +79,13 @@ func (h *Endor) Init(microserviceId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityService(microserviceId, h.endorServices, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
-		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionService(microserviceId, h.endorServices))
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityHandler(microserviceId, h.endorServices, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
+		*h.endorServices = append(*h.endorServices, sdk_entity.NewEntityActionHandler(microserviceId, h.endorServices))
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorServiceRepository := sdk_entity.InitEndorServiceRepository(microserviceId, h.endorServices, logger)
-	entities, err := EndorServiceRepository.EndorServiceList()
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microserviceId, h.endorServices, logger)
+	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,11 +99,11 @@ func (h *Endor) Init(microserviceId string) {
 			if len(pathSegments) == 6 {
 				action = pathSegments[4] + "/" + pathSegments[5]
 			}
-			endorRepositoryDictionary, err := EndorServiceRepository.DictionaryInstance(sdk.ReadInstanceDTO{
+			endorRepositoryDictionary, err := EndorHandlerRepository.DictionaryInstance(sdk.ReadInstanceDTO{
 				Id: entity,
 			})
 			if err == nil {
-				if method, ok := endorRepositoryDictionary.EndorService.Actions[action]; ok {
+				if method, ok := endorRepositoryDictionary.EndorHandler.Actions[action]; ok {
 					category := ""
 					if strings.Contains(action, "/") {
 						parts := strings.SplitN(action, "/", 2)

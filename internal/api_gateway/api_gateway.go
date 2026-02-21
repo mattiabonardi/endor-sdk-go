@@ -40,7 +40,7 @@ type ApiGatewayConfigurationServer struct {
 	URL string `yaml:"url"`
 }
 
-func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorService) error {
+func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorHandler) error {
 	// Create model
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
