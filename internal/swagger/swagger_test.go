@@ -21,7 +21,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	assert.Equal(t, "Base Handler (EndorBaseHandler)", def.Tags[0].Description, "Expected correct tag description")
 	// check paths
 	assert.Len(t, def.Paths, 3, "Expected 3 paths")
-	assert.Contains(t, def.Paths, "/api/v1/base-service/action1", "Expected '/api/v1/base-service/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/v1/base-service/cat_1/action1", "Expected '/api/v1/base-service/cat_1/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/v1/base-service/public-action", "Expected '/api/v1/base-service/public-action' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/base-handler/action1", "Expected '/api/v1/base-handler/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/base-handler/cat_1/action1", "Expected '/api/v1/base-handler/cat_1/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/base-handler/public-action", "Expected '/api/v1/base-handler/public-action' path to exist")
 }

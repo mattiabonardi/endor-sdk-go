@@ -19,7 +19,7 @@ func TestEndorHybridHandler(t *testing.T) {
 	)
 
 	// check attribute
-	assert.Equal(t, endorHandler.Entity, "hybrid-service")
+	assert.Equal(t, endorHandler.Entity, "hybrid-handler")
 	assert.Equal(t, endorHandler.EntityDescription, "Hybrid Handler (EndorHybridHandler)")
 	// check schema
 	assert.Equal(t, len(*endorHandler.EntitySchema.Properties), 3)
