@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
@@ -143,7 +145,64 @@ func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Cont
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
-	// TODO: implements it
+	// Retrieve the entity instance
+	instance, err := r.Instance(ctx, dto)
+	if err != nil {
+		return instance, nil, err
+	}
+
+	// Build schema to discover entity reference fields
+	var zero T
+	schema := sdk.NewSchema(zero)
+	if schema.Properties == nil {
+		return instance, make(sdk.EntityRefererenceGroup), nil
+	}
+
+	instanceVal := reflect.ValueOf(instance)
+	if instanceVal.Kind() == reflect.Ptr {
+		instanceVal = instanceVal.Elem()
+	}
+	instanceType := instanceVal.Type()
+
+	// Navigate schema properties: for each reference field, look up the value from the instance
+	entityIDs := make(map[string][]string)
+	for propName, propSchema := range *schema.Properties {
+		if propSchema.UISchema == nil || propSchema.UISchema.Entity == nil {
+			continue
+		}
+		id := ""
+		for i := 0; i < instanceType.NumField(); i++ {
+			if strings.Split(instanceType.Field(i).Tag.Get("json"), ",")[0] == propName {
+				id = fmt.Sprintf("%v", instanceVal.Field(i).Interface())
+				break
+			}
+		}
+		if id == "" {
+			continue
+		}
+		entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+	}
+
+	// Resolve references via RepositoryRegistry
+	registry := sdk.GetRepositoryRegistry()
+	references := make(sdk.EntityRefererenceGroup)
+	for entityName, ids := range entityIDs {
+		repo, found := registry.Get(entityName)
+		if !found {
+			continue
+		}
+		descriptions, err := repo.FindReferences(ctx, sdk.ReadInstancesDTO{Ids: ids})
+		if err != nil {
+			return instance, nil, err
+		}
+		references[entityName] = descriptions
+	}
+
+	return instance, references, nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
+	// TODO
 	return nil, nil, nil
 }
 

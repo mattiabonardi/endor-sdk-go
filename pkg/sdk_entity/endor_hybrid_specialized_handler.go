@@ -186,6 +186,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 
 	repository := NewEntityInstanceRepository[T](
 		entity,
+		schema,
 		sdk.EntityInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
 	)
 

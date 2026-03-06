@@ -32,6 +32,7 @@ type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
 func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
+	schema sdk.RootSchema,
 	options sdk.EntityInstanceRepositoryOptions,
 ) *MongoEntityInstanceRepository[T] {
 	client, err := sdk.GetMongoClient()
@@ -152,6 +153,18 @@ func (r *MongoEntityInstanceRepository[T]) FindReferences(ctx context.Context, d
 		return make(sdk.EntityReferenceGroupDescriptions), nil
 	}
 	return r.base.FindReferences(ctx, dto, *descriptionAttributeKey)
+}
+
+func (r *MongoEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
+	//TODO
+
+	return nil, nil, nil
+}
+
+func (r *MongoEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
+	//TODO
+
+	return nil, nil, nil
 }
 
 // toEntityInstance converts a raw MongoDB document to EntityInstance[T].

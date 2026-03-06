@@ -91,9 +91,11 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorHandlerActionInterface {
 	// Crea repository usando DynamicEntity come default (per ora)
 	autogenerateID := true
-	repository := NewEntityInstanceRepository[T](entity, sdk.EntityInstanceRepositoryOptions{
+	repository := NewEntityInstanceRepository[T](entity, schema, sdk.EntityInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
+	// save repository to registry
+	sdk.GetRepositoryRegistry().Register(entity, repository)
 
 	return map[string]sdk.EndorHandlerActionInterface{
 		"schema": sdk.NewAction(

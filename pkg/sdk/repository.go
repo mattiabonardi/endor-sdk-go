@@ -28,6 +28,9 @@ type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
 	Create(ctx context.Context, dto CreateDTO[EntityInstance[T]]) (*EntityInstance[T], error)
 	Delete(ctx context.Context, dto ReadInstanceDTO) error
 	Update(ctx context.Context, dto UpdateByIdDTO[PartialEntityInstance[T]]) (*EntityInstance[T], error)
+
+	InstanceWithReferences(ctx context.Context, dto ReadInstanceDTO) (*EntityInstance[T], EntityRefererenceGroup, error)
+	ListWithReferences(ctx context.Context, dto ReadDTO) ([]EntityInstance[T], EntityRefererenceGroup, error)
 }
 
 // StaticEntityInstanceRepositoryOptions defines configuration options for StaticEntityInstanceRepository
@@ -51,6 +54,7 @@ type StaticEntityInstanceRepositoryInterface[T EntityInstanceInterface] interfac
 	Update(ctx context.Context, dto UpdateByIdDTO[map[string]interface{}]) (T, error)
 
 	InstanceWithReferences(ctx context.Context, dto ReadInstanceDTO) (T, EntityRefererenceGroup, error)
+	ListWithReferences(ctx context.Context, dto ReadDTO) ([]T, EntityRefererenceGroup, error)
 }
 
 type ReadInstanceDTO struct {

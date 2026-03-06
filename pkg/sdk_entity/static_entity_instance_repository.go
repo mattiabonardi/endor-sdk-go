@@ -58,3 +58,7 @@ func (r *StaticEntityInstanceRepository[T]) GetEntity() string {
 func (r *StaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
 	return r.repository.InstanceWithReferences(ctx, dto)
 }
+
+func (r *StaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
+	return r.repository.ListWithReferences(ctx, dto)
+}

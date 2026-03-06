@@ -14,13 +14,13 @@ type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 
 // NewEntityInstanceRepository creates a new repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.EntityInstanceRepositoryOptions) *EntityInstanceRepository[T] {
+func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, schema sdk.RootSchema, options sdk.EntityInstanceRepositoryOptions) *EntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
 	return &EntityInstanceRepository[T]{
-		repository: repository.NewMongoEntityInstanceRepository[T](entityId, options),
+		repository: repository.NewMongoEntityInstanceRepository[T](entityId, schema, options),
 		entityId:   entityId,
 	}
 }
@@ -51,4 +51,12 @@ func (r *EntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sd
 
 func (r *EntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
+}
+
+func (r *EntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
+	return r.repository.InstanceWithReferences(ctx, dto)
+}
+
+func (r *EntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
+	return r.repository.ListWithReferences(ctx, dto)
 }
