@@ -9,6 +9,7 @@ import (
 
 type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	repository sdk.EntityInstanceRepositoryInterface[T]
+	entityId   string
 }
 
 // NewEntityInstanceRepository creates a new repository with default options
@@ -20,6 +21,7 @@ func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string,
 	}
 	return &EntityInstanceRepository[T]{
 		repository: repository.NewMongoEntityInstanceRepository[T](entityId, options),
+		entityId:   entityId,
 	}
 }
 
@@ -41,4 +43,12 @@ func (r *EntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadIn
 
 func (r *EntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]) (*sdk.EntityInstance[T], error) {
 	return r.repository.Update(ctx, dto)
+}
+
+func (r *EntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	return r.repository.FindReferences(ctx, dto)
+}
+
+func (r *EntityInstanceRepository[T]) GetEntity() string {
+	return r.entityId
 }

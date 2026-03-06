@@ -24,7 +24,8 @@ import (
 // - Stores entities directly as they are defined in the struct
 // - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	base *mongoBaseRepository[T]
+	base     *mongoBaseRepository[T]
+	entityId string
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
@@ -37,14 +38,20 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 		// Return a repository with nil base - operations will fail at runtime
 		// This allows the service to be constructed without a DB connection (useful for tests)
 		return &MongoStaticEntityInstanceRepository[T]{
-			base: nil,
+			base:     nil,
+			entityId: entityId,
 		}
 	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
 
 	return &MongoStaticEntityInstanceRepository[T]{
-		base: newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		entityId: entityId,
 	}
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) GetEntity() string {
+	return r.entityId
 }
 
 // Instance retrieves a single entity by ID.
@@ -124,6 +131,20 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 // Delete removes an entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	return r.base.Delete(ctx, dto.Id)
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	var zero T
+	descriptionAttributeKey := sdk.NewSchema(zero).UISchema.EntityDescriptionKey
+	if descriptionAttributeKey == nil {
+		return make(sdk.EntityReferenceGroupDescriptions), nil
+	}
+	return r.base.FindReferences(ctx, dto, *descriptionAttributeKey)
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
+	// TODO: implements it
+	return nil, nil, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.

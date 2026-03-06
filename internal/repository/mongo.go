@@ -842,3 +842,56 @@ func (r *mongoBaseRepository[T]) GetIDStrategy() IDStrategy {
 func (r *mongoBaseRepository[T]) GetDocumentMapper() *DocumentMapper[T] {
 	return r.documentMapper
 }
+
+// FindReferences retrieves id->description pairs for the given entity IDs.
+// descriptionKey specifies the document field used as the human-readable description.
+// String IDs are converted to the appropriate storage format via the ID strategy.
+func (r *mongoBaseRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO, descriptionKey string) (sdk.EntityReferenceGroupDescriptions, error) {
+	if len(dto.Ids) == 0 {
+		return make(sdk.EntityReferenceGroupDescriptions), nil
+	}
+
+	// Convert string IDs to the correct storage format (primitive.ObjectID or string).
+	storageIDs := make([]interface{}, 0, len(dto.Ids))
+	for _, id := range dto.Ids {
+		storageID, err := r.idStrategy.ToStorageFormat(id)
+		if err != nil {
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid id %s: %w", id, err))
+		}
+		storageIDs = append(storageIDs, storageID)
+	}
+
+	filter := bson.M{"_id": bson.M{"$in": storageIDs}}
+	projection := bson.M{
+		"_id":          1,
+		descriptionKey: 1,
+	}
+
+	opts := options.Find().SetProjection(projection)
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find references: %w", err))
+	}
+	defer cursor.Close(ctx)
+
+	var docs []bson.M
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode references: %w", err))
+	}
+
+	result := make(sdk.EntityReferenceGroupDescriptions, len(docs))
+	for _, doc := range docs {
+		rawID, ok := doc["_id"]
+		if !ok {
+			continue
+		}
+		idStr, err := r.idStrategy.FromStorageFormat(rawID)
+		if err != nil {
+			idStr = fmt.Sprintf("%v", rawID)
+		}
+		desc, _ := doc[descriptionKey]
+		result[idStr] = fmt.Sprintf("%v", desc)
+	}
+
+	return result, nil
+}

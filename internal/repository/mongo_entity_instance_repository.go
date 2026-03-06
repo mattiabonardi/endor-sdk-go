@@ -25,12 +25,13 @@ import (
 // - Converts sdk.ObjectID fields to primitive.ObjectID in MongoDB
 // - Handles embedded structs with bson:",inline" tags
 type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	base *mongoBaseRepository[T]
+	base     *mongoBaseRepository[T]
+	entityId string
 }
 
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
 func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
-	collectionName string,
+	entityId string,
 	options sdk.EntityInstanceRepositoryOptions,
 ) *MongoEntityInstanceRepository[T] {
 	client, err := sdk.GetMongoClient()
@@ -39,11 +40,16 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 			base: nil,
 		}
 	}
-	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(collectionName)
+	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
 
 	return &MongoEntityInstanceRepository[T]{
-		base: newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		entityId: entityId,
 	}
+}
+
+func (r *MongoEntityInstanceRepository[T]) GetEntity() string {
+	return r.entityId
 }
 
 // Instance retrieves a single entity by ID.
@@ -135,6 +141,17 @@ func (r *MongoEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.U
 // Delete removes an entity by ID.
 func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	return r.base.Delete(ctx, dto.Id)
+}
+
+// FindReferences retrieves id->description pairs for the given entity IDs.
+func (r *MongoEntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	var zero T
+	//FIXME: I think that the implementation is wrong. I think that the mothod must be check the injected schema
+	descriptionAttributeKey := sdk.NewSchema(zero).UISchema.EntityDescriptionKey
+	if descriptionAttributeKey == nil {
+		return make(sdk.EntityReferenceGroupDescriptions), nil
+	}
+	return r.base.FindReferences(ctx, dto, *descriptionAttributeKey)
 }
 
 // toEntityInstance converts a raw MongoDB document to EntityInstance[T].
