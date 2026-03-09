@@ -85,15 +85,21 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 			(*rootSchema.Properties)[k] = v
 		}
 	}
+	// merge ui schema
+	if metadataSchema.UISchema != nil {
+		rootSchema.UISchema = metadataSchema.UISchema
+	}
 	return rootSchema
 }
 
 func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorHandlerActionInterface {
 	// Crea repository usando DynamicEntity come default (per ora)
 	autogenerateID := true
-	repository := NewEntityInstanceRepository[T](entity, sdk.EntityInstanceRepositoryOptions{
+	repository := NewEntityInstanceRepository[T](entity, schema, sdk.EntityInstanceRepositoryOptions{
 		AutoGenerateID: &autogenerateID,
 	})
+	// save repository to registry
+	sdk.GetRepositoryRegistry().Register(entity, repository)
 
 	return map[string]sdk.EndorHandlerActionInterface{
 		"schema": sdk.NewAction(
@@ -163,19 +169,19 @@ func defaultSchema[T sdk.EntityInstanceInterface](_ *sdk.EndorContext[sdk.NoPayl
 }
 
 func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, err := repository.Instance(context.TODO(), c.Payload)
+	instance, references, err := repository.InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-	list, err := repository.List(context.TODO(), c.Payload)
+	list, references, err := repository.ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {

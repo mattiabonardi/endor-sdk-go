@@ -12,6 +12,7 @@ import (
 // where the metadata functionality is not required.
 type StaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	repository sdk.StaticEntityInstanceRepositoryInterface[T]
+	entityId   string
 }
 
 // NewStaticEntityInstanceRepository creates a new static repository with default options
@@ -44,4 +45,20 @@ func (r *StaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.
 
 func (r *StaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
 	return r.repository.Update(ctx, dto)
+}
+
+func (r *StaticEntityInstanceRepository[T]) FindReferences(ctx context.Context, ids sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	return r.repository.FindReferences(ctx, ids)
+}
+
+func (r *StaticEntityInstanceRepository[T]) GetEntity() string {
+	return r.entityId
+}
+
+func (r *StaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
+	return r.repository.InstanceWithReferences(ctx, dto)
+}
+
+func (r *StaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
+	return r.repository.ListWithReferences(ctx, dto)
 }

@@ -894,3 +894,94 @@ func TestObjectIDFieldRegistry_ConvertFilterToStorage(t *testing.T) {
 		assert.Equal(t, userIDStr, oid.Hex())
 	})
 }
+
+// helpers for pointer literals in tests
+func strPtr(s string) *string { return &s }
+
+// TestExtractEntityReferenceIDsFromDoc_FlatReferences verifies that top-level
+// properties annotated with UISchema.Entity are collected correctly, including
+// proper hex conversion when the stored value is a primitive.ObjectID.
+func TestExtractEntityReferenceIDsFromDoc_FlatReferences(t *testing.T) {
+	oid := primitive.NewObjectID()
+
+	schema := &sdk.RootSchema{
+		Schema: sdk.Schema{
+			Type: sdk.SchemaTypeObject,
+			Properties: &map[string]sdk.Schema{
+				"customerId": {
+					Type:     sdk.SchemaTypeString,
+					UISchema: &sdk.UISchema{Entity: strPtr("customer")},
+				},
+				"productId": {
+					Type:     sdk.SchemaTypeString,
+					UISchema: &sdk.UISchema{Entity: strPtr("product")},
+				},
+				"name": {
+					Type: sdk.SchemaTypeString,
+				},
+			},
+		},
+	}
+
+	doc := bson.M{
+		"_id":        "order-1",
+		"customerId": "cust-abc",
+		"productId":  oid,
+		"name":       "Test Order",
+	}
+
+	result := extractEntityReferenceIDsFromDoc(schema, doc)
+
+	assert.Equal(t, []string{"cust-abc"}, result["customer"])
+	assert.Equal(t, []string{oid.Hex()}, result["product"])
+	assert.NotContains(t, result, "name")
+}
+
+// TestExtractEntityReferenceIDsFromDoc_NestedArrayReferences verifies that entity
+// references nested inside an array of objects (e.g. order lines) are collected
+// recursively from every element of the array.
+func TestExtractEntityReferenceIDsFromDoc_NestedArrayReferences(t *testing.T) {
+	lineItemSchema := sdk.Schema{
+		Type: sdk.SchemaTypeObject,
+		Properties: &map[string]sdk.Schema{
+			"productId": {
+				Type:     sdk.SchemaTypeString,
+				UISchema: &sdk.UISchema{Entity: strPtr("product")},
+			},
+			"qty": {
+				Type: sdk.SchemaTypeInteger,
+			},
+		},
+	}
+
+	schema := &sdk.RootSchema{
+		Schema: sdk.Schema{
+			Type: sdk.SchemaTypeObject,
+			Properties: &map[string]sdk.Schema{
+				"customerId": {
+					Type:     sdk.SchemaTypeString,
+					UISchema: &sdk.UISchema{Entity: strPtr("customer")},
+				},
+				"lines": {
+					Type:  sdk.SchemaTypeArray,
+					Items: &lineItemSchema,
+				},
+			},
+		},
+	}
+
+	doc := bson.M{
+		"_id":        "order-2",
+		"customerId": "cust-xyz",
+		"lines": primitive.A{
+			bson.M{"productId": "prod-1", "qty": 2},
+			bson.M{"productId": "prod-2", "qty": 1},
+			bson.M{"qty": 3}, // no productId — should be skipped
+		},
+	}
+
+	result := extractEntityReferenceIDsFromDoc(schema, doc)
+
+	assert.Equal(t, []string{"cust-xyz"}, result["customer"])
+	assert.ElementsMatch(t, []string{"prod-1", "prod-2"}, result["product"])
+}

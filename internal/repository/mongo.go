@@ -842,3 +842,141 @@ func (r *mongoBaseRepository[T]) GetIDStrategy() IDStrategy {
 func (r *mongoBaseRepository[T]) GetDocumentMapper() *DocumentMapper[T] {
 	return r.documentMapper
 }
+
+// FindReferences retrieves id->description pairs for the given entity IDs.
+// descriptionKey specifies the document field used as the human-readable description.
+// String IDs are converted to the appropriate storage format via the ID strategy.
+func (r *mongoBaseRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO, descriptionKey string) (sdk.EntityReferenceGroupDescriptions, error) {
+	if len(dto.Ids) == 0 {
+		return make(sdk.EntityReferenceGroupDescriptions), nil
+	}
+
+	// Convert string IDs to the correct storage format (primitive.ObjectID or string).
+	storageIDs := make([]interface{}, 0, len(dto.Ids))
+	for _, id := range dto.Ids {
+		storageID, err := r.idStrategy.ToStorageFormat(id)
+		if err != nil {
+			return nil, sdk.NewBadRequestError(fmt.Errorf("invalid id %s: %w", id, err))
+		}
+		storageIDs = append(storageIDs, storageID)
+	}
+
+	filter := bson.M{"_id": bson.M{"$in": storageIDs}}
+	projection := bson.M{
+		"_id":          1,
+		descriptionKey: 1,
+	}
+
+	opts := options.Find().SetProjection(projection)
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to find references: %w", err))
+	}
+	defer cursor.Close(ctx)
+
+	var docs []bson.M
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, sdk.NewInternalServerError(fmt.Errorf("failed to decode references: %w", err))
+	}
+
+	result := make(sdk.EntityReferenceGroupDescriptions, len(docs))
+	for _, doc := range docs {
+		rawID, ok := doc["_id"]
+		if !ok {
+			continue
+		}
+		idStr, err := r.idStrategy.FromStorageFormat(rawID)
+		if err != nil {
+			idStr = fmt.Sprintf("%v", rawID)
+		}
+		desc, _ := doc[descriptionKey]
+		result[idStr] = fmt.Sprintf("%v", desc)
+	}
+
+	return result, nil
+}
+
+// resolveEntityReferences calls FindReferences on the RepositoryRegistry for each entry
+// in entityIDs and returns the merged EntityRefererenceGroup.
+func resolveEntityReferences(ctx context.Context, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
+	registry := sdk.GetRepositoryRegistry()
+	references := make(sdk.EntityRefererenceGroup)
+	for entityName, ids := range entityIDs {
+		repo, found := registry.Get(entityName)
+		if !found {
+			continue
+		}
+		descriptions, err := repo.FindReferences(ctx, sdk.ReadInstancesDTO{Ids: ids})
+		if err != nil {
+			return nil, err
+		}
+		references[entityName] = descriptions
+	}
+	return references, nil
+}
+
+// extractEntityReferenceIDsFromDoc inspects schema properties and, for each property with a
+// UISchema.Entity annotation, extracts the field value directly from a bson.M document.
+// Recursively handles nested objects and arrays of objects.
+// Returns a map of entityName -> []IDs. Duplicate IDs are possible; callers may deduplicate.
+func extractEntityReferenceIDsFromDoc(schema *sdk.RootSchema, doc bson.M) map[string][]string {
+	entityIDs := make(map[string][]string)
+	if schema == nil || schema.Properties == nil {
+		return entityIDs
+	}
+	collectEntityReferenceIDsFromSchema(&schema.Schema, doc, entityIDs)
+	return entityIDs
+}
+
+// collectEntityReferenceIDsFromSchema recursively walks schema properties against a bson.M document,
+// collecting entity reference IDs for any property annotated with UISchema.Entity.
+// Arrays (primitive.A) and nested objects (bson.M) are handled via recursion.
+func collectEntityReferenceIDsFromSchema(schema *sdk.Schema, doc bson.M, entityIDs map[string][]string) {
+	if schema == nil || schema.Properties == nil {
+		return
+	}
+	for propName, propSchema := range *schema.Properties {
+		propSchemaCopy := propSchema
+		val, ok := doc[propName]
+		if !ok || val == nil {
+			continue
+		}
+
+		// Property is a direct entity reference: extract the ID.
+		if propSchema.UISchema != nil && propSchema.UISchema.Entity != nil {
+			id := bsonValueToIDString(val)
+			if id != "" {
+				entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+			}
+			continue
+		}
+
+		// Property is a nested object: recurse into it.
+		if propSchema.Type == sdk.SchemaTypeObject && propSchema.Properties != nil {
+			if nested, ok := val.(bson.M); ok {
+				collectEntityReferenceIDsFromSchema(&propSchemaCopy, nested, entityIDs)
+			}
+			continue
+		}
+
+		// Property is an array: recurse into each element using the Items schema.
+		if propSchema.Type == sdk.SchemaTypeArray && propSchema.Items != nil {
+			if arr, ok := val.(primitive.A); ok {
+				for _, elem := range arr {
+					if nested, ok := elem.(bson.M); ok {
+						collectEntityReferenceIDsFromSchema(propSchema.Items, nested, entityIDs)
+					}
+				}
+			}
+		}
+	}
+}
+
+// bsonValueToIDString converts a BSON value to its string ID representation.
+// primitive.ObjectID is converted via Hex(); all other types use fmt.Sprintf.
+func bsonValueToIDString(val interface{}) string {
+	if oid, ok := val.(primitive.ObjectID); ok {
+		return oid.Hex()
+	}
+	return fmt.Sprintf("%v", val)
+}

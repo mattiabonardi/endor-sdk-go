@@ -16,8 +16,9 @@ import (
 )
 
 type Endor struct {
-	endorHandlers *[]sdk.EndorHandlerInterface
-	postInitFunc  func()
+	endorHandlers     *[]sdk.EndorHandlerInterface
+	endorRepositories []sdk.EndorRepositoryInterface
+	postInitFunc      func()
 }
 
 type EndorInitializer struct {
@@ -32,6 +33,11 @@ func NewEndorInitializer() *EndorInitializer {
 
 func (b *EndorInitializer) WithEndorHandlers(handlers *[]sdk.EndorHandlerInterface) *EndorInitializer {
 	b.endor.endorHandlers = handlers
+	return b
+}
+
+func (b *EndorInitializer) WithEndorRepositories(repositories []sdk.EndorRepositoryInterface) *EndorInitializer {
+	b.endor.endorRepositories = repositories
 	return b
 }
 
@@ -58,6 +64,11 @@ func (h *Endor) Init(microserviceId string) {
 
 	// create router
 	router := gin.New()
+
+	// registrer repositories
+	for _, r := range h.endorRepositories {
+		sdk.GetRepositoryRegistry().Register(r.GetEntity(), r)
+	}
 
 	// monitoring
 	router.GET("/readyz", func(c *gin.Context) {

@@ -24,7 +24,8 @@ import (
 // - Stores entities directly as they are defined in the struct
 // - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
-	base *mongoBaseRepository[T]
+	base     *mongoBaseRepository[T]
+	entityId string
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
@@ -37,14 +38,20 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 		// Return a repository with nil base - operations will fail at runtime
 		// This allows the service to be constructed without a DB connection (useful for tests)
 		return &MongoStaticEntityInstanceRepository[T]{
-			base: nil,
+			base:     nil,
+			entityId: entityId,
 		}
 	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
 
 	return &MongoStaticEntityInstanceRepository[T]{
-		base: newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
+		entityId: entityId,
 	}
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) GetEntity() string {
+	return r.entityId
 }
 
 // Instance retrieves a single entity by ID.
@@ -124,6 +131,79 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 // Delete removes an entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
 	return r.base.Delete(ctx, dto.Id)
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	var zero T
+	descriptionAttributeKey := sdk.NewSchema(zero).UISchema.EntityDescriptionKey
+	if descriptionAttributeKey == nil {
+		return make(sdk.EntityReferenceGroupDescriptions), nil
+	}
+	return r.base.FindReferences(ctx, dto, *descriptionAttributeKey)
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
+	var zero T
+
+	rawDoc, err := r.base.FindByID(ctx, dto.Id)
+	if err != nil {
+		return zero, nil, err
+	}
+
+	entityIDs := extractEntityReferenceIDsFromDoc(sdk.NewSchema(zero), rawDoc)
+	references, err := resolveEntityReferences(ctx, entityIDs)
+	if err != nil {
+		return zero, nil, err
+	}
+
+	instance, err := r.toModel(rawDoc)
+	if err != nil {
+		return zero, nil, err
+	}
+
+	return instance, references, nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.base.Find(ctx, filter, projection)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var zero T
+	schema := sdk.NewSchema(zero)
+	allEntityIDs := make(map[string][]string)
+	for _, rawDoc := range rawDocs {
+		for entityName, ids := range extractEntityReferenceIDsFromDoc(schema, rawDoc) {
+			allEntityIDs[entityName] = append(allEntityIDs[entityName], ids...)
+		}
+	}
+
+	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	instances := make([]T, 0, len(rawDocs))
+	for _, rawDoc := range rawDocs {
+		instance, err := r.toModel(rawDoc)
+		if err != nil {
+			return nil, nil, err
+		}
+		instances = append(instances, instance)
+	}
+
+	return instances, references, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.
