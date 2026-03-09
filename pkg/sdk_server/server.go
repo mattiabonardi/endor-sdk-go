@@ -17,7 +17,7 @@ import (
 
 type Endor struct {
 	endorHandlers     *[]sdk.EndorHandlerInterface
-	endorRepositories []sdk.RepositoryInterface
+	endorRepositories []sdk.EndorRepositoryInterface
 	postInitFunc      func()
 }
 
@@ -36,7 +36,7 @@ func (b *EndorInitializer) WithEndorHandlers(handlers *[]sdk.EndorHandlerInterfa
 	return b
 }
 
-func (b *EndorInitializer) WithEndorRepositories(repositories []sdk.RepositoryInterface) *EndorInitializer {
+func (b *EndorInitializer) WithEndorRepositories(repositories []sdk.EndorRepositoryInterface) *EndorInitializer {
 	b.endor.endorRepositories = repositories
 	return b
 }

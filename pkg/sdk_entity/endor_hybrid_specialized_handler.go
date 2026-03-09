@@ -259,11 +259,11 @@ func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.End
 	} else {
 		c.Payload.Filter = categoryFilter
 	}
-	list, err := repository.List(context.TODO(), c.Payload)
+	list, references, err := repository.ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
@@ -278,11 +278,11 @@ func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.E
 }
 
 func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, err := repository.Instance(context.TODO(), c.Payload)
+	instance, references, err := repository.InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {

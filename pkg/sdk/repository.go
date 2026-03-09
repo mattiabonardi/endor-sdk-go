@@ -16,13 +16,13 @@ type EntityInstanceRepositoryOptions struct {
 // RepositoryInterface defines the common operations shared by all repository types.
 // It is the type returned by RepositoryRegistry.Get, allowing callers to perform
 // common operations (e.g. resolving references) without knowing the concrete repository type.
-type RepositoryInterface interface {
+type EndorRepositoryInterface interface {
 	FindReferences(ctx context.Context, ids ReadInstancesDTO) (EntityReferenceGroupDescriptions, error)
 	GetEntity() string
 }
 
 type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
-	RepositoryInterface
+	EndorRepositoryInterface
 	Instance(ctx context.Context, dto ReadInstanceDTO) (*EntityInstance[T], error)
 	List(ctx context.Context, dto ReadDTO) ([]EntityInstance[T], error)
 	Create(ctx context.Context, dto CreateDTO[EntityInstance[T]]) (*EntityInstance[T], error)
@@ -46,7 +46,7 @@ type StaticEntityInstanceRepositoryOptions struct {
 // without the EntityInstance[T] wrapper. This provides a simpler interface for cases where
 // the full entity instance structure (with metadata) is not needed.
 type StaticEntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
-	RepositoryInterface
+	EndorRepositoryInterface
 	Instance(ctx context.Context, dto ReadInstanceDTO) (T, error)
 	List(ctx context.Context, dto ReadDTO) ([]T, error)
 	Create(ctx context.Context, dto CreateDTO[T]) (T, error)
@@ -100,7 +100,7 @@ type EntityReferenceGroupDescriptions map[string]string
 // when the concrete repository type is known.
 type RepositoryRegistry struct {
 	mu           sync.RWMutex
-	repositories map[string]RepositoryInterface
+	repositories map[string]EndorRepositoryInterface
 }
 
 var (
@@ -112,7 +112,7 @@ var (
 func GetRepositoryRegistry() *RepositoryRegistry {
 	repositoryRegistryOnce.Do(func() {
 		repositoryRegistryInstance = &RepositoryRegistry{
-			repositories: make(map[string]RepositoryInterface),
+			repositories: make(map[string]EndorRepositoryInterface),
 		}
 	})
 	return repositoryRegistryInstance
@@ -120,7 +120,7 @@ func GetRepositoryRegistry() *RepositoryRegistry {
 
 // Register stores a repository (either EntityInstanceRepositoryInterface or
 // StaticEntityInstanceRepositoryInterface) under the given name.
-func (r *RepositoryRegistry) Register(name string, repo RepositoryInterface) {
+func (r *RepositoryRegistry) Register(name string, repo EndorRepositoryInterface) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.repositories[name] = repo
@@ -128,7 +128,7 @@ func (r *RepositoryRegistry) Register(name string, repo RepositoryInterface) {
 
 // Get retrieves the RepositoryInterface stored under the given name.
 // Use this when only common operations (e.g. FindReferences) are needed.
-func (r *RepositoryRegistry) Get(name string) (RepositoryInterface, bool) {
+func (r *RepositoryRegistry) Get(name string) (EndorRepositoryInterface, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	repo, ok := r.repositories[name]

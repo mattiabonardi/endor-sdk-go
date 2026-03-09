@@ -3,8 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
@@ -145,65 +143,67 @@ func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Cont
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
-	// Retrieve the entity instance
-	instance, err := r.Instance(ctx, dto)
-	if err != nil {
-		return instance, nil, err
-	}
-
-	// Build schema to discover entity reference fields
 	var zero T
-	schema := sdk.NewSchema(zero)
-	if schema.Properties == nil {
-		return instance, make(sdk.EntityRefererenceGroup), nil
+
+	rawDoc, err := r.base.FindByID(ctx, dto.Id)
+	if err != nil {
+		return zero, nil, err
 	}
 
-	instanceVal := reflect.ValueOf(instance)
-	if instanceVal.Kind() == reflect.Ptr {
-		instanceVal = instanceVal.Elem()
-	}
-	instanceType := instanceVal.Type()
-
-	// Navigate schema properties: for each reference field, look up the value from the instance
-	entityIDs := make(map[string][]string)
-	for propName, propSchema := range *schema.Properties {
-		if propSchema.UISchema == nil || propSchema.UISchema.Entity == nil {
-			continue
-		}
-		id := ""
-		for i := 0; i < instanceType.NumField(); i++ {
-			if strings.Split(instanceType.Field(i).Tag.Get("json"), ",")[0] == propName {
-				id = fmt.Sprintf("%v", instanceVal.Field(i).Interface())
-				break
-			}
-		}
-		if id == "" {
-			continue
-		}
-		entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+	entityIDs := extractEntityReferenceIDsFromDoc(sdk.NewSchema(zero), rawDoc)
+	references, err := resolveEntityReferences(ctx, entityIDs)
+	if err != nil {
+		return zero, nil, err
 	}
 
-	// Resolve references via RepositoryRegistry
-	registry := sdk.GetRepositoryRegistry()
-	references := make(sdk.EntityRefererenceGroup)
-	for entityName, ids := range entityIDs {
-		repo, found := registry.Get(entityName)
-		if !found {
-			continue
-		}
-		descriptions, err := repo.FindReferences(ctx, sdk.ReadInstancesDTO{Ids: ids})
-		if err != nil {
-			return instance, nil, err
-		}
-		references[entityName] = descriptions
+	instance, err := r.toModel(rawDoc)
+	if err != nil {
+		return zero, nil, err
 	}
 
 	return instance, references, nil
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
-	// TODO
-	return nil, nil, nil
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.base.Find(ctx, filter, projection)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var zero T
+	schema := sdk.NewSchema(zero)
+	allEntityIDs := make(map[string][]string)
+	for _, rawDoc := range rawDocs {
+		for entityName, ids := range extractEntityReferenceIDsFromDoc(schema, rawDoc) {
+			allEntityIDs[entityName] = append(allEntityIDs[entityName], ids...)
+		}
+	}
+
+	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	instances := make([]T, 0, len(rawDocs))
+	for _, rawDoc := range rawDocs {
+		instance, err := r.toModel(rawDoc)
+		if err != nil {
+			return nil, nil, err
+		}
+		instances = append(instances, instance)
+	}
+
+	return instances, references, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.

@@ -895,3 +895,50 @@ func (r *mongoBaseRepository[T]) FindReferences(ctx context.Context, dto sdk.Rea
 
 	return result, nil
 }
+
+// resolveEntityReferences calls FindReferences on the RepositoryRegistry for each entry
+// in entityIDs and returns the merged EntityRefererenceGroup.
+func resolveEntityReferences(ctx context.Context, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
+	registry := sdk.GetRepositoryRegistry()
+	references := make(sdk.EntityRefererenceGroup)
+	for entityName, ids := range entityIDs {
+		repo, found := registry.Get(entityName)
+		if !found {
+			continue
+		}
+		descriptions, err := repo.FindReferences(ctx, sdk.ReadInstancesDTO{Ids: ids})
+		if err != nil {
+			return nil, err
+		}
+		references[entityName] = descriptions
+	}
+	return references, nil
+}
+
+// extractEntityReferenceIDsFromDoc inspects schema properties and, for each property with a
+// UISchema.Entity annotation, extracts the field value directly from a bson.M document.
+// Returns a map of entityName -> []IDs. Duplicate IDs are possible; callers may deduplicate.
+func extractEntityReferenceIDsFromDoc(schema *sdk.RootSchema, doc bson.M) map[string][]string {
+	entityIDs := make(map[string][]string)
+	if schema == nil || schema.Properties == nil {
+		return entityIDs
+	}
+	for propName, propSchema := range *schema.Properties {
+		if propSchema.UISchema == nil || propSchema.UISchema.Entity == nil {
+			continue
+		}
+		val, ok := doc[propName]
+		if !ok || val == nil {
+			continue
+		}
+		id := fmt.Sprintf("%v", val)
+		if oid, ok := val.(primitive.ObjectID); ok {
+			id = oid.Hex()
+		}
+		if id == "" {
+			continue
+		}
+		entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+	}
+	return entityIDs
+}

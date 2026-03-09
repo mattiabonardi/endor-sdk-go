@@ -165,19 +165,19 @@ func defaultSchema[T sdk.EntityInstanceInterface](_ *sdk.EndorContext[sdk.NoPayl
 }
 
 func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, err := repository.Instance(context.TODO(), c.Payload)
+	instance, references, err := repository.InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-	list, err := repository.List(context.TODO(), c.Payload)
+	list, references, err := repository.ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).Build(), nil
+	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
 func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {

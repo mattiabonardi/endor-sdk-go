@@ -46,6 +46,11 @@ func (h *ResponseBuilder[T]) AddSchema(schema *RootSchema) *ResponseBuilder[T] {
 	return h
 }
 
+func (h *ResponseBuilder[T]) AddReferences(references EntityRefererenceGroup) *ResponseBuilder[T] {
+	h.response.References = &references
+	return h
+}
+
 func (h *ResponseBuilder[T]) Build() *Response[T] {
 	return &h.response
 }

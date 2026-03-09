@@ -27,6 +27,7 @@ import (
 type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	base     *mongoBaseRepository[T]
 	entityId string
+	schema   sdk.RootSchema
 }
 
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
@@ -38,7 +39,8 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	client, err := sdk.GetMongoClient()
 	if client == nil || err != nil {
 		return &MongoEntityInstanceRepository[T]{
-			base: nil,
+			base:   nil,
+			schema: schema,
 		}
 	}
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
@@ -46,6 +48,7 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	return &MongoEntityInstanceRepository[T]{
 		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 		entityId: entityId,
+		schema:   schema,
 	}
 }
 
@@ -146,9 +149,7 @@ func (r *MongoEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.R
 
 // FindReferences retrieves id->description pairs for the given entity IDs.
 func (r *MongoEntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
-	var zero T
-	//FIXME: I think that the implementation is wrong. I think that the mothod must be check the injected schema
-	descriptionAttributeKey := sdk.NewSchema(zero).UISchema.EntityDescriptionKey
+	descriptionAttributeKey := r.schema.UISchema.EntityDescriptionKey
 	if descriptionAttributeKey == nil {
 		return make(sdk.EntityReferenceGroupDescriptions), nil
 	}
@@ -156,15 +157,63 @@ func (r *MongoEntityInstanceRepository[T]) FindReferences(ctx context.Context, d
 }
 
 func (r *MongoEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
-	//TODO
+	rawDoc, err := r.base.FindByID(ctx, dto.Id)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return nil, nil, nil
+	entityIDs := extractEntityReferenceIDsFromDoc(&r.schema, rawDoc)
+	references, err := resolveEntityReferences(ctx, entityIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	instance, err := r.toEntityInstance(rawDoc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return instance, references, nil
 }
 
 func (r *MongoEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
-	//TODO
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
 
-	return nil, nil, nil
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.base.Find(ctx, filter, projection)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allEntityIDs := make(map[string][]string)
+	for _, rawDoc := range rawDocs {
+		for entityName, ids := range extractEntityReferenceIDsFromDoc(&r.schema, rawDoc) {
+			allEntityIDs[entityName] = append(allEntityIDs[entityName], ids...)
+		}
+	}
+
+	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	instances := make([]sdk.EntityInstance[T], 0, len(rawDocs))
+	for _, rawDoc := range rawDocs {
+		instance, err := r.toEntityInstance(rawDoc)
+		if err != nil {
+			return nil, nil, err
+		}
+		instances = append(instances, *instance)
+	}
+
+	return instances, references, nil
 }
 
 // toEntityInstance converts a raw MongoDB document to EntityInstance[T].
