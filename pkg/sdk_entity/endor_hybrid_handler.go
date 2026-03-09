@@ -85,6 +85,10 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 			(*rootSchema.Properties)[k] = v
 		}
 	}
+	// merge ui schema
+	if metadataSchema.UISchema != nil {
+		rootSchema.UISchema = metadataSchema.UISchema
+	}
 	return rootSchema
 }
 

@@ -917,28 +917,66 @@ func resolveEntityReferences(ctx context.Context, entityIDs map[string][]string)
 
 // extractEntityReferenceIDsFromDoc inspects schema properties and, for each property with a
 // UISchema.Entity annotation, extracts the field value directly from a bson.M document.
+// Recursively handles nested objects and arrays of objects.
 // Returns a map of entityName -> []IDs. Duplicate IDs are possible; callers may deduplicate.
 func extractEntityReferenceIDsFromDoc(schema *sdk.RootSchema, doc bson.M) map[string][]string {
 	entityIDs := make(map[string][]string)
 	if schema == nil || schema.Properties == nil {
 		return entityIDs
 	}
+	collectEntityReferenceIDsFromSchema(&schema.Schema, doc, entityIDs)
+	return entityIDs
+}
+
+// collectEntityReferenceIDsFromSchema recursively walks schema properties against a bson.M document,
+// collecting entity reference IDs for any property annotated with UISchema.Entity.
+// Arrays (primitive.A) and nested objects (bson.M) are handled via recursion.
+func collectEntityReferenceIDsFromSchema(schema *sdk.Schema, doc bson.M, entityIDs map[string][]string) {
+	if schema == nil || schema.Properties == nil {
+		return
+	}
 	for propName, propSchema := range *schema.Properties {
-		if propSchema.UISchema == nil || propSchema.UISchema.Entity == nil {
-			continue
-		}
+		propSchemaCopy := propSchema
 		val, ok := doc[propName]
 		if !ok || val == nil {
 			continue
 		}
-		id := fmt.Sprintf("%v", val)
-		if oid, ok := val.(primitive.ObjectID); ok {
-			id = oid.Hex()
-		}
-		if id == "" {
+
+		// Property is a direct entity reference: extract the ID.
+		if propSchema.UISchema != nil && propSchema.UISchema.Entity != nil {
+			id := bsonValueToIDString(val)
+			if id != "" {
+				entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+			}
 			continue
 		}
-		entityIDs[*propSchema.UISchema.Entity] = append(entityIDs[*propSchema.UISchema.Entity], id)
+
+		// Property is a nested object: recurse into it.
+		if propSchema.Type == sdk.SchemaTypeObject && propSchema.Properties != nil {
+			if nested, ok := val.(bson.M); ok {
+				collectEntityReferenceIDsFromSchema(&propSchemaCopy, nested, entityIDs)
+			}
+			continue
+		}
+
+		// Property is an array: recurse into each element using the Items schema.
+		if propSchema.Type == sdk.SchemaTypeArray && propSchema.Items != nil {
+			if arr, ok := val.(primitive.A); ok {
+				for _, elem := range arr {
+					if nested, ok := elem.(bson.M); ok {
+						collectEntityReferenceIDsFromSchema(propSchema.Items, nested, entityIDs)
+					}
+				}
+			}
+		}
 	}
-	return entityIDs
+}
+
+// bsonValueToIDString converts a BSON value to its string ID representation.
+// primitive.ObjectID is converted via Hex(); all other types use fmt.Sprintf.
+func bsonValueToIDString(val interface{}) string {
+	if oid, ok := val.(primitive.ObjectID); ok {
+		return oid.Hex()
+	}
+	return fmt.Sprintf("%v", val)
 }
