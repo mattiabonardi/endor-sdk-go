@@ -69,9 +69,11 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 	if err != nil {
 		return zero, err
 	}
-	err = r.options.Hooks.AfterFind(instance)
-	if err != nil {
-		return zero, err
+	if r.options.Hooks.AfterFind != nil {
+		err = r.options.Hooks.AfterFind(instance)
+		if err != nil {
+			return zero, err
+		}
 	}
 	return instance, err
 }
@@ -177,9 +179,11 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 	if err != nil {
 		return zero, nil, err
 	}
-	err = r.options.Hooks.AfterFind(instance)
-	if err != nil {
-		return zero, nil, err
+	if r.options.Hooks.AfterFind != nil {
+		err = r.options.Hooks.AfterFind(instance)
+		if err != nil {
+			return zero, nil, err
+		}
 	}
 
 	return instance, references, nil
