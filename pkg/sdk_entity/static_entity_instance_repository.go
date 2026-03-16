@@ -17,13 +17,13 @@ type StaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 
 // NewStaticEntityInstanceRepository creates a new static repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions) *StaticEntityInstanceRepository[T] {
+func NewStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions[T]) *StaticEntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
 	return &StaticEntityInstanceRepository[T]{
-		repository: repository.NewMongoStaticEntityInstanceRepository[T](entityId, options),
+		repository: repository.NewMongoStaticEntityInstanceRepository(entityId, options),
 	}
 }
 

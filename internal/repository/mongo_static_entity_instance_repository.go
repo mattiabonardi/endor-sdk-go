@@ -24,6 +24,7 @@ import (
 // - Stores entities directly as they are defined in the struct
 // - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
+	options  sdk.StaticEntityInstanceRepositoryOptions[T]
 	base     *mongoBaseRepository[T]
 	entityId string
 }
@@ -31,7 +32,7 @@ type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
 func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
-	options sdk.StaticEntityInstanceRepositoryOptions,
+	options sdk.StaticEntityInstanceRepositoryOptions[T],
 ) *MongoStaticEntityInstanceRepository[T] {
 	client, err := sdk.GetMongoClient()
 	if client == nil || err != nil {
@@ -45,6 +46,7 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
 
 	return &MongoStaticEntityInstanceRepository[T]{
+		options:  options,
 		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 		entityId: entityId,
 	}
@@ -63,7 +65,15 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 		return zero, err
 	}
 
-	return r.toModel(rawDoc)
+	instance, err := r.toModel(rawDoc)
+	if err != nil {
+		return zero, err
+	}
+	err = r.options.Hooks.AfterFind(instance)
+	if err != nil {
+		return zero, err
+	}
+	return instance, err
 }
 
 // List retrieves entities matching the filter.
@@ -89,6 +99,13 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 		model, err := r.toModel(rawDoc)
 		if err != nil {
 			return nil, err
+		}
+		// call hook
+		if r.options.Hooks.AfterFind != nil {
+			err := r.options.Hooks.AfterFind(model)
+			if err != nil {
+				return nil, err
+			}
 		}
 		results = append(results, model)
 	}
@@ -160,6 +177,10 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 	if err != nil {
 		return zero, nil, err
 	}
+	err = r.options.Hooks.AfterFind(instance)
+	if err != nil {
+		return zero, nil, err
+	}
 
 	return instance, references, nil
 }
@@ -199,6 +220,13 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 		instance, err := r.toModel(rawDoc)
 		if err != nil {
 			return nil, nil, err
+		}
+		// call hook
+		if r.options.Hooks.AfterFind != nil {
+			err := r.options.Hooks.AfterFind(instance)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		instances = append(instances, instance)
 	}

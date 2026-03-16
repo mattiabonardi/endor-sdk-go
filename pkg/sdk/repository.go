@@ -35,11 +35,17 @@ type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
 
 // StaticEntityInstanceRepositoryOptions defines configuration options for StaticEntityInstanceRepository
 // Mirrors EntityInstanceRepositoryOptions for consistency
-type StaticEntityInstanceRepositoryOptions struct {
+type StaticEntityInstanceRepositoryOptions[T EntityInstanceInterface] struct {
 	// AutoGenerateID determines whether IDs should be auto-generated or provided by the user
 	// When true (default): Empty IDs are auto-generated using primitive.ObjectID.Hex()
 	// When false: IDs must be provided by the user, empty IDs cause BadRequestError
 	AutoGenerateID *bool
+
+	Hooks StaticEntityInstanceRepositoryOptionsHooks[T]
+}
+
+type StaticEntityInstanceRepositoryOptionsHooks[T EntityInstanceInterface] struct {
+	AfterFind func(entity T) error
 }
 
 // StaticEntityInstanceRepositoryInterface defines CRUD operations for working directly with model type T
