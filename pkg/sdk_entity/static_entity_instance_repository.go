@@ -2,6 +2,8 @@ package sdk_entity
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -61,4 +63,24 @@ func (r *StaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.C
 
 func (r *StaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
 	return r.repository.ListWithReferences(ctx, dto)
+}
+
+func (r *StaticEntityInstanceRepository[T]) ListDocuments(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
+	items, err := r.repository.List(ctx, dto)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity instance: %w", err)
+		}
+		var doc map[string]interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal entity instance: %w", err)
+		}
+		result = append(result, doc)
+	}
+	return result, nil
 }

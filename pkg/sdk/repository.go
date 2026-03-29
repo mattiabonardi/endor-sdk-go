@@ -141,6 +141,26 @@ func (r *RepositoryRegistry) Get(name string) (EndorRepositoryInterface, bool) {
 	return repo, ok
 }
 
+// DocumentRepositoryInterface extends EndorRepositoryInterface with the ability
+// to list raw documents as a slice of maps, enabling aggregation pipelines to
+// query any entity without knowing its concrete type at compile time.
+type DocumentRepositoryInterface interface {
+	EndorRepositoryInterface
+	ListDocuments(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
+}
+
+// GetDocumentRepository retrieves a repository from the singleton RepositoryRegistry
+// and asserts it to DocumentRepositoryInterface.
+// Returns (nil, false) if the name is not registered or the type does not match.
+func GetDocumentRepository(name string) (DocumentRepositoryInterface, bool) {
+	repo, ok := GetRepositoryRegistry().Get(name)
+	if !ok {
+		return nil, false
+	}
+	docRepo, ok := repo.(DocumentRepositoryInterface)
+	return docRepo, ok
+}
+
 // GetEntityInstanceRepository retrieves a repository from the singleton RepositoryRegistry
 // and asserts it to EntityInstanceRepositoryInterface[T].
 // Returns (nil, false) if the name is not registered or the type does not match.
