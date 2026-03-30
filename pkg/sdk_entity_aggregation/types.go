@@ -1,37 +1,44 @@
 package sdk_entity_aggregation
 
-import "encoding/json"
-
 // AggregationPipeline is the top-level payload for the aggregation execute action.
-// Each element is either an EntityPipelineStage (has "entity" key) or a
-// post-processing operator ($mergeResults).
+// It is a sequence of EntityPipelineStages executed serially in declaration order.
+// Each stage is an independent aggregation unit; a stage may declare dependencies
+// on previously completed stages via DependsOn.
 //
 // Example:
 //
 //	[
-//	  { "entity": "order", "pipeline": [{ "$match": { "status": "completed" } }, { "$group": { "_id": "$customerId", "totalSpent": { "$sum": "$amount" } } }] },
-//	  { "entity": "review", "pipeline": [{ "$match": { "rating": { "$gte": 4 } } }, { "$group": { "_id": "$userId", "positiveReviews": { "$sum": 1 } } }] },
-//	  { "$mergeResults": { "on": "_id", "fields": ["totalSpent", "positiveReviews"] } }
+//	  { "id": "grouped_orders", "entity": "order",    "pipeline": [{ "$group": { "id": "$customerId", "total": { "$sum": "$amount" } } }] },
+//	  { "id": "customers",      "entity": "customer", "pipeline": [] },
+//	  { "dependsOn": ["grouped_orders", "customers"], "pipeline": [{ "$mergeResults": { "on": "id" } }] }
 //	]
-type AggregationPipeline []json.RawMessage
+type AggregationPipeline []EntityPipelineStage
 
-// EntityPipelineStage targets a specific local entity and applies a sequence
-// of pipeline stages to its data.
+// EntityPipelineStage is an independent aggregation unit. It fetches documents
+// for Entity from the repository registry and applies Pipeline stages in sequence.
+// When Entity is empty the stage starts with no documents, which is the intended
+// pattern for post-processing stages (e.g. those that only run $mergeResults).
+//
+// ID is an optional stable identifier for this stage. When set, other stages
+// reference it via DependsOn using this ID. When omitted, Entity is used as
+// the fallback identifier (Entity must then be unique within the pipeline).
 type EntityPipelineStage struct {
-	Entity   string      `json:"entity"`
-	Pipeline []StageSpec `json:"pipeline"`
+	ID        string      `json:"id,omitempty"`
+	Entity    string      `json:"entity,omitempty"`
+	DependsOn []string    `json:"dependsOn,omitempty"`
+	Pipeline  []StageSpec `json:"pipeline"`
 }
 
-// StageSpec represents a single pipeline stage as a raw key→value map.
-// Supported keys: $match, $group.
+// StageSpec represents a single pipeline stage as a key→value map.
+// Supported operators: $match, $group, $mergeResults.
 type StageSpec map[string]interface{}
 
-// MergeResultsOptions configures the $mergeResults top-level operator, which
-// joins results from multiple entity stages on a common key.
+// MergeResultsOptions configures the $mergeResults operator, which joins the
+// results of the stages listed in the enclosing EntityPipelineStage.DependsOn.
 type MergeResultsOptions struct {
 	// On is the field name used as the join key.
 	On string `json:"on"`
-	// Fields lists which fields to include from each entity result.
+	// Fields lists which fields to copy from each source doc.
 	// When empty, all fields are merged.
 	Fields []string `json:"fields"`
 }

@@ -2,7 +2,6 @@ package sdk_entity_aggregation
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 )
 
@@ -28,18 +27,14 @@ func TestGroupBy_ByCustomer(t *testing.T) {
 	cleanup := registerMock(newMockRepository("order", orderDocs))
 	defer cleanup()
 
-	p := pipeline(t,
-		map[string]interface{}{
-			"entity": "order",
-			"pipeline": []interface{}{
-				map[string]interface{}{
-					"$group": map[string]interface{}{
-						"id": "$customerId",
-					},
-				},
+	p := AggregationPipeline{
+		{
+			Entity: "order",
+			Pipeline: []StageSpec{
+				{"$group": map[string]interface{}{"id": "$customerId"}},
 			},
 		},
-	)
+	}
 
 	result, err := NewAggregationEngine().Execute(context.Background(), p)
 	if err != nil {
@@ -71,19 +66,17 @@ func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
 	cleanup := registerMock(newMockRepository("order", orderDocs))
 	defer cleanup()
 
-	p := pipeline(t,
-		map[string]interface{}{
-			"entity": "order",
-			"pipeline": []interface{}{
-				map[string]interface{}{
-					"$group": map[string]interface{}{
-						"id":    "$customerId",
-						"total": map[string]interface{}{"$sum": "$amount"},
-					},
-				},
+	p := AggregationPipeline{
+		{
+			Entity: "order",
+			Pipeline: []StageSpec{
+				{"$group": map[string]interface{}{
+					"id":    "$customerId",
+					"total": map[string]interface{}{"$sum": "$amount"},
+				}},
 			},
 		},
-	)
+	}
 
 	result, err := NewAggregationEngine().Execute(context.Background(), p)
 	if err != nil {
@@ -119,28 +112,29 @@ func TestMergeResults(t *testing.T) {
 
 	// Group orders by customerId → each doc gets "id" = customerId.
 	// Then merge with customer docs (which also carry "id") to get a combined view.
-	p := pipeline(t,
-		map[string]interface{}{
-			"entity": "order",
-			"pipeline": []interface{}{
-				map[string]interface{}{
-					"$group": map[string]interface{}{
-						"id":    "$customerId",
-						"total": map[string]interface{}{"$sum": "$amount"},
-					},
-				},
+	p := AggregationPipeline{
+		{
+			ID:     "grouped_orders",
+			Entity: "order",
+			Pipeline: []StageSpec{
+				{"$group": map[string]interface{}{
+					"id":    "$customerId",
+					"total": map[string]interface{}{"$sum": "$amount"},
+				}},
 			},
 		},
-		map[string]interface{}{
-			"entity":   "customer",
-			"pipeline": []interface{}{},
+		{
+			ID:       "customers",
+			Entity:   "customer",
+			Pipeline: []StageSpec{},
 		},
-		map[string]interface{}{
-			"$mergeResults": map[string]interface{}{
-				"on": "id",
+		{
+			DependsOn: []string{"grouped_orders", "customers"},
+			Pipeline: []StageSpec{
+				{"$mergeResults": map[string]interface{}{"on": "id"}},
 			},
 		},
-	)
+	}
 
 	result, err := NewAggregationEngine().Execute(context.Background(), p)
 	if err != nil {
@@ -173,19 +167,6 @@ func TestMergeResults(t *testing.T) {
 // #endregion
 
 // #region helpers
-
-func pipeline(t *testing.T, stages ...interface{}) AggregationPipeline {
-	t.Helper()
-	p := make(AggregationPipeline, len(stages))
-	for i, s := range stages {
-		b, err := json.Marshal(s)
-		if err != nil {
-			t.Fatalf("pipeline marshal stage %d: %v", i, err)
-		}
-		p[i] = json.RawMessage(b)
-	}
-	return p
-}
 
 // indexByID indexes grouped results by the "id" field produced by $group.
 func indexByID(docs []map[string]interface{}) map[string]map[string]interface{} {

@@ -1,9 +1,33 @@
 package sdk_entity_aggregation
 
 import (
+	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+// generateStageID produces a unique stage identifier by appending 4 random bytes
+// (hex-encoded) to the entity name. This ensures two stages targeting the same
+// entity never collide in stageResults.
+func generateStageID(entity string) string {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	if entity != "" {
+		return fmt.Sprintf("%s_%x", entity, b)
+	}
+	return fmt.Sprintf("stage_%x", b)
+}
+
+// remarshal round-trips a value through JSON to decode an interface{} into a
+// typed struct without requiring the caller to hold a json.RawMessage.
+func remarshal(src interface{}, dst interface{}) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
+}
 
 // resolveExpr evaluates a field reference ("$fieldName") or returns a literal.
 func resolveExpr(doc map[string]interface{}, expr interface{}) interface{} {

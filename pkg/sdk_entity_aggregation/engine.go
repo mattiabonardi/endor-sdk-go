@@ -2,16 +2,14 @@ package sdk_entity_aggregation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
 // AggregationEngine executes aggregation pipelines against the local
-// RepositoryRegistry. Supported entity-level stages: $match, $group.
-// Supported top-level operators: $mergeResults.
+// RepositoryRegistry. Supported operators (usable at any StageSpec level):
+// $match, $group, $mergeResults.
 type AggregationEngine struct{}
 
 // NewAggregationEngine returns a ready-to-use AggregationEngine.
@@ -19,87 +17,84 @@ func NewAggregationEngine() *AggregationEngine {
 	return &AggregationEngine{}
 }
 
-// Execute runs the aggregation pipeline and returns the final document set.
-func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPipeline) ([]map[string]interface{}, error) {
-	entityResults := map[string][]map[string]interface{}{}
-	entityOrder := []string{}
-	currentResult := []map[string]interface{}{}
-	hasResult := false
-
-	for _, rawStage := range pipeline {
-		// Try to decode as an entity stage (presence of "entity" field).
-		var entityStage EntityPipelineStage
-		if err := json.Unmarshal(rawStage, &entityStage); err == nil && entityStage.Entity != "" {
-			docs, err := e.executeEntityStage(ctx, entityStage)
-			if err != nil {
-				return nil, fmt.Errorf("entity stage %q: %w", entityStage.Entity, err)
-			}
-			if _, seen := entityResults[entityStage.Entity]; !seen {
-				entityOrder = append(entityOrder, entityStage.Entity)
-			}
-			entityResults[entityStage.Entity] = docs
-			continue
-		}
-
-		// Decode as a top-level operator map (one key per stage).
-		var stageMap map[string]json.RawMessage
-		if err := json.Unmarshal(rawStage, &stageMap); err != nil {
-			return nil, fmt.Errorf("invalid pipeline stage: %w", err)
-		}
-
-		for op, value := range stageMap {
-			switch op {
-			case "$mergeResults":
-				var opts MergeResultsOptions
-				if err := json.Unmarshal(value, &opts); err != nil {
-					return nil, fmt.Errorf("$mergeResults: %w", err)
-				}
-				currentResult = mergeResults(entityResults, entityOrder, opts)
-				hasResult = true
-			}
-		}
-	}
-
-	// If no $mergeResults was applied, return the single entity result directly.
-	if !hasResult {
-		if len(entityOrder) == 1 {
-			return entityResults[entityOrder[0]], nil
-		}
-		return currentResult, nil
-	}
-	return currentResult, nil
+// stageExecContext carries shared state needed by operators during stage execution.
+type stageExecContext struct {
+	// stageResults holds the output of each completed EntityPipelineStage,
+	// keyed by stage ID (ID field if set, Entity name otherwise).
+	// Used by $mergeResults to reference other stages.
+	stageResults map[string][]map[string]interface{}
+	// dependsOn is the DependsOn list of the enclosing EntityPipelineStage,
+	// which $mergeResults uses as the ordered set of stage IDs to merge.
+	dependsOn []string
 }
 
-// executeEntityStage fetches documents for the entity and applies the
-// pipeline stages in-memory. A leading $match is pushed down to the
-// repository as a filter for efficiency.
-func (e *AggregationEngine) executeEntityStage(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, error) {
-	repo, ok := sdk.GetDocumentRepository(stage.Entity)
-	if !ok {
-		return nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
+// Execute runs all EntityPipelineStages in declaration order and returns the
+// result of the last stage. Each stage stores its output keyed by stageID so
+// that subsequent stages can reference it via DependsOn / $mergeResults.
+func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPipeline) ([]map[string]interface{}, error) {
+	stageResults := map[string][]map[string]interface{}{}
+	lastResult := []map[string]interface{}{}
+
+	for _, stage := range pipeline {
+		// Assign a unique ID once so all subsequent uses within this iteration
+		// refer to the same key. An explicit ID is preserved as-is.
+		if stage.ID == "" {
+			stage.ID = generateStageID(stage.Entity)
+		}
+		docs, err := e.executeEntityStage(ctx, stage, stageResults)
+		if err != nil {
+			return nil, fmt.Errorf("stage %q: %w", stage.ID, err)
+		}
+		stageResults[stage.ID] = docs
+		lastResult = docs
 	}
+	return lastResult, nil
+}
 
-	// Push down a leading $match to the repository filter.
-	filter := map[string]interface{}{}
-	inMemoryFrom := 0
+// executeEntityStage fetches the initial document set for the stage (when Entity
+// is registered in the repository registry) and then applies each StageSpec in
+// sequence. A leading $match is pushed down to the repository as a filter.
+// Stages with an empty Entity start with an empty document set.
+func (e *AggregationEngine) executeEntityStage(
+	ctx context.Context,
+	stage EntityPipelineStage,
+	stageResults map[string][]map[string]interface{},
+) ([]map[string]interface{}, error) {
+	docs := []map[string]interface{}{}
+	pipeline := stage.Pipeline
 
-	if len(stage.Pipeline) > 0 {
-		if matchVal, ok := stage.Pipeline[0]["$match"]; ok {
-			if f, ok := matchVal.(map[string]interface{}); ok {
-				filter = f
-				inMemoryFrom = 1
+	if stage.Entity != "" {
+		repo, ok := sdk.GetDocumentRepository(stage.Entity)
+		if !ok {
+			return nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
+		}
+
+		// Push down a leading $match to the repository filter for efficiency.
+		filter := map[string]interface{}{}
+		if len(pipeline) > 0 {
+			if matchVal, ok := pipeline[0]["$match"]; ok {
+				if f, ok := matchVal.(map[string]interface{}); ok {
+					filter = f
+					pipeline = pipeline[1:]
+				}
 			}
+		}
+
+		var err error
+		docs, err = repo.ListDocuments(ctx, sdk.ReadDTO{Filter: filter})
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	docs, err := repo.ListDocuments(ctx, sdk.ReadDTO{Filter: filter})
-	if err != nil {
-		return nil, err
+	execCtx := stageExecContext{
+		stageResults: stageResults,
+		dependsOn:    stage.DependsOn,
 	}
 
-	// Apply remaining stages in-memory.
-	for _, s := range stage.Pipeline[inMemoryFrom:] {
-		docs, err = e.applyEntityStage(docs, s)
+	var err error
+	for _, s := range pipeline {
+		docs, err = e.applyStage(docs, s, execCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +102,10 @@ func (e *AggregationEngine) executeEntityStage(ctx context.Context, stage Entity
 	return docs, nil
 }
 
-func (e *AggregationEngine) applyEntityStage(docs []map[string]interface{}, stage StageSpec) ([]map[string]interface{}, error) {
+// applyStage applies a single StageSpec operator to the working document set.
+// All supported operators are resolved here — there is no separate top-level
+// vs entity-level distinction.
+func (e *AggregationEngine) applyStage(docs []map[string]interface{}, stage StageSpec, ctx stageExecContext) ([]map[string]interface{}, error) {
 	if matchSpec, ok := stage["$match"]; ok {
 		if f, ok := matchSpec.(map[string]interface{}); ok {
 			return applyMatch(docs, f), nil
@@ -118,179 +116,12 @@ func (e *AggregationEngine) applyEntityStage(docs []map[string]interface{}, stag
 			return applyGroup(docs, g)
 		}
 	}
+	if mergeSpec, ok := stage["$mergeResults"]; ok {
+		var opts MergeResultsOptions
+		if err := remarshal(mergeSpec, &opts); err != nil {
+			return nil, fmt.Errorf("$mergeResults: %w", err)
+		}
+		return mergeResults(ctx.stageResults, ctx.dependsOn, opts), nil
+	}
 	return docs, nil
-}
-
-// ---------------------------------------------------------------------------
-// In-memory stage implementations
-// ---------------------------------------------------------------------------
-
-// applyMatch filters documents using MongoDB-style filter operators.
-func applyMatch(docs []map[string]interface{}, filter map[string]interface{}) []map[string]interface{} {
-	result := docs[:0:0]
-	for _, doc := range docs {
-		if matchDocument(doc, filter) {
-			result = append(result, doc)
-		}
-	}
-	return result
-}
-
-func matchDocument(doc map[string]interface{}, filter map[string]interface{}) bool {
-	for field, condition := range filter {
-		switch field {
-		case "$and":
-			clauses, ok := toSliceOfMaps(condition)
-			if !ok {
-				return false
-			}
-			for _, clause := range clauses {
-				if !matchDocument(doc, clause) {
-					return false
-				}
-			}
-		case "$or":
-			clauses, ok := toSliceOfMaps(condition)
-			if !ok {
-				return false
-			}
-			matched := false
-			for _, clause := range clauses {
-				if matchDocument(doc, clause) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				return false
-			}
-		case "$nor":
-			clauses, ok := toSliceOfMaps(condition)
-			if !ok {
-				return false
-			}
-			for _, clause := range clauses {
-				if matchDocument(doc, clause) {
-					return false
-				}
-			}
-		default:
-			docVal := getFieldValue(doc, field)
-			if !matchCondition(docVal, condition) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func matchCondition(value interface{}, condition interface{}) bool {
-	condMap, ok := condition.(map[string]interface{})
-	if !ok {
-		// Plain equality.
-		return equals(value, condition)
-	}
-	for op, operand := range condMap {
-		switch op {
-		case "$eq":
-			if !equals(value, operand) {
-				return false
-			}
-		case "$ne":
-			if equals(value, operand) {
-				return false
-			}
-		case "$gt":
-			if compareValues(value, operand) <= 0 {
-				return false
-			}
-		case "$gte":
-			if compareValues(value, operand) < 0 {
-				return false
-			}
-		case "$lt":
-			if compareValues(value, operand) >= 0 {
-				return false
-			}
-		case "$lte":
-			if compareValues(value, operand) > 0 {
-				return false
-			}
-		case "$in":
-			arr := toSlice(operand)
-			found := false
-			for _, v := range arr {
-				if equals(value, v) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		case "$nin":
-			arr := toSlice(operand)
-			for _, v := range arr {
-				if equals(value, v) {
-					return false
-				}
-			}
-		case "$exists":
-			wantExists := toBool(operand)
-			exists := value != nil
-			if exists != wantExists {
-				return false
-			}
-		case "$regex":
-			// Basic prefix/contains match using strings.Contains for simplicity.
-			if pattern, ok := operand.(string); ok {
-				str := fmt.Sprintf("%v", value)
-				if !strings.Contains(str, pattern) {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
-
-// applyGroup groups documents by the id expression and computes accumulators.
-func applyGroup(docs []map[string]interface{}, groupSpec map[string]interface{}) ([]map[string]interface{}, error) {
-	idExpr := groupSpec["id"]
-
-	type groupEntry struct {
-		key   string
-		idVal interface{}
-		docs  []map[string]interface{}
-	}
-	order := []string{}
-	groups := map[string]*groupEntry{}
-
-	for _, doc := range docs {
-		idVal := resolveExpr(doc, idExpr)
-		key := fmt.Sprintf("%v", idVal)
-		if _, exists := groups[key]; !exists {
-			groups[key] = &groupEntry{key: key, idVal: idVal}
-			order = append(order, key)
-		}
-		groups[key].docs = append(groups[key].docs, doc)
-	}
-
-	result := make([]map[string]interface{}, 0, len(groups))
-	for _, key := range order {
-		entry := groups[key]
-		output := map[string]interface{}{"id": entry.idVal}
-		for field, accExpr := range groupSpec {
-			if field == "id" {
-				continue
-			}
-			val, err := applyAccumulator(entry.docs, accExpr)
-			if err != nil {
-				return nil, fmt.Errorf("accumulator %q: %w", field, err)
-			}
-			output[field] = val
-		}
-		result = append(result, output)
-	}
-	return result, nil
 }
