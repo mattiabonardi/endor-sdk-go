@@ -13,13 +13,13 @@ const aggregationEntityDescription = "Distributed aggregation pipeline over regi
 // NewAggregationHandler builds an EndorBaseHandlerInterface for the "aggregation"
 // entity and registers the "execute" action, which runs an AggregationPipeline
 // against the local RepositoryRegistry.
-func NewAggregationHandler() sdk.EndorBaseHandlerInterface {
-	engine := NewAggregationEngine()
+func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
+	engine := NewAggregationEngine(opts...)
 
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
 		aggregationEntityDescription,
-	).WithActions(map[string]sdk.EndorHandlerActionInterface{
+	).WithPriority(priority).WithActions(map[string]sdk.EndorHandlerActionInterface{
 		"execute": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
 				Description:           "Execute an aggregation pipeline over entity repositories",

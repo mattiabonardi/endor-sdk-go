@@ -1,5 +1,7 @@
 package sdk_entity_aggregation
 
+import "context"
+
 // AggregationPipeline is the top-level payload for the aggregation execute action.
 // It is a sequence of EntityPipelineStages executed serially in declaration order.
 // Each stage is an independent aggregation unit; a stage may declare dependencies
@@ -32,6 +34,14 @@ type EntityPipelineStage struct {
 // StageSpec represents a single pipeline stage as a key→value map.
 // Supported operators: $match, $group, $mergeResults.
 type StageSpec map[string]interface{}
+
+// EntityStageHandler is an optional callback that, when provided to
+// AggregationEngine, fully replaces the built-in repository-fetch + in-memory
+// pipeline execution for every EntityPipelineStage whose Entity field is
+// non-empty. The callback is responsible for returning the complete result
+// for that stage (including any pipeline operators it chooses to apply).
+// Use WithEntityStageHandler to attach it to an engine.
+type EntityStageHandler func(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, error)
 
 // MergeResultsOptions configures the $mergeResults operator, which joins the
 // results of the stages listed in the enclosing EntityPipelineStage.DependsOn.

@@ -10,11 +10,30 @@ import (
 // AggregationEngine executes aggregation pipelines against the local
 // RepositoryRegistry. Supported operators (usable at any StageSpec level):
 // $match, $group, $mergeResults.
-type AggregationEngine struct{}
+type AggregationEngine struct {
+	entityStageHandler EntityStageHandler
+}
+
+// AggregationEngineOption is a functional option for AggregationEngine.
+type AggregationEngineOption func(*AggregationEngine)
+
+// WithEntityStageHandler attaches a custom handler that is invoked instead of
+// the default repository-fetch logic whenever an EntityPipelineStage carries a
+// non-empty Entity. Passing nil is a no-op.
+func WithEntityStageHandler(h EntityStageHandler) AggregationEngineOption {
+	return func(e *AggregationEngine) {
+		e.entityStageHandler = h
+	}
+}
 
 // NewAggregationEngine returns a ready-to-use AggregationEngine.
-func NewAggregationEngine() *AggregationEngine {
-	return &AggregationEngine{}
+// Pass AggregationEngineOption values to customise behaviour (e.g. WithEntityStageHandler).
+func NewAggregationEngine(opts ...AggregationEngineOption) *AggregationEngine {
+	e := &AggregationEngine{}
+	for _, o := range opts {
+		o(e)
+	}
+	return e
 }
 
 // stageExecContext carries shared state needed by operators during stage execution.
@@ -64,6 +83,14 @@ func (e *AggregationEngine) executeEntityStage(
 	pipeline := stage.Pipeline
 
 	if stage.Entity != "" {
+		if e.entityStageHandler != nil {
+			// The handler takes full ownership of the stage — it receives the
+			// complete EntityPipelineStage (including Pipeline) and is
+			// responsible for executing it entirely (e.g. by forwarding it to
+			// a child microservice). In-memory operators are NOT re-applied.
+			return e.entityStageHandler(ctx, stage)
+		}
+
 		repo, ok := sdk.GetDocumentRepository(stage.Entity)
 		if !ok {
 			return nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)

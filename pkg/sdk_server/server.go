@@ -12,6 +12,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity_aggregation"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -78,6 +79,20 @@ func (h *Endor) Init(microserviceId string) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// Check if an EndorHandler with entity == "aggregation" is already defined
+	aggregationServiceExists := false
+	if h.endorHandlers != nil {
+		for _, svc := range *h.endorHandlers {
+			if svc.GetEntity() == "aggregationServiceExists" {
+				aggregationServiceExists = true
+				break
+			}
+		}
+	}
+	if !aggregationServiceExists {
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity_aggregation.NewAggregationHandler(0))
+	}
 
 	// Check if an EndorHandler with entity == "entity" is already defined
 	entityServiceExists := false

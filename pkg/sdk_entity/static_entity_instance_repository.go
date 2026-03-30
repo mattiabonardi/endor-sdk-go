@@ -26,6 +26,7 @@ func NewStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId s
 	}
 	return &StaticEntityInstanceRepository[T]{
 		repository: repository.NewMongoStaticEntityInstanceRepository(entityId, options),
+		entityId:   entityId,
 	}
 }
 
