@@ -316,12 +316,12 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 		},
 	}
 
-	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, error) {
+	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		docs, ok := computedByEntity[stage.Entity]
 		if !ok {
-			return []map[string]interface{}{}, nil
+			return []map[string]interface{}{}, nil, nil, nil
 		}
-		return docs, nil
+		return docs, nil, nil, nil
 	}
 
 	p := AggregationPipeline{
@@ -370,16 +370,16 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 	// The handler simulates a child microservice that has already executed the
 	// $group+$sum locally and returns the aggregated result directly.
-	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, error) {
+	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		// Assert that the full pipeline is forwarded to the handler.
 		if len(stage.Pipeline) != 1 {
-			return nil, fmt.Errorf("expected 1 pipeline stage forwarded, got %d", len(stage.Pipeline))
+			return nil, nil, nil, fmt.Errorf("expected 1 pipeline stage forwarded, got %d", len(stage.Pipeline))
 		}
 		// Return the already-aggregated result (as a child microservice would).
 		return []map[string]interface{}{
 			{"id": "c1", "total": float64(300)},
 			{"id": "c2", "total": float64(150)},
-		}, nil
+		}, nil, nil, nil
 	}
 
 	p := AggregationPipeline{

@@ -1,6 +1,10 @@
 package sdk_entity_aggregation
 
-import "context"
+import (
+	"context"
+
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+)
 
 // AggregationPipeline is the top-level payload for the aggregation execute action.
 // It is a sequence of EntityPipelineStages executed serially in declaration order.
@@ -39,9 +43,10 @@ type StageSpec map[string]interface{}
 // AggregationEngine, fully replaces the built-in repository-fetch + in-memory
 // pipeline execution for every EntityPipelineStage whose Entity field is
 // non-empty. The callback is responsible for returning the complete result
-// for that stage (including any pipeline operators it chooses to apply).
+// for that stage (including any pipeline operators it chooses to apply),
+// the derived output schema, and the resolved entity reference group.
 // Use WithEntityStageHandler to attach it to an engine.
-type EntityStageHandler func(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, error)
+type EntityStageHandler func(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error)
 
 // MergeResultsOptions configures the $mergeResults operator, which joins the
 // results of the stages listed in the enclosing EntityPipelineStage.DependsOn.

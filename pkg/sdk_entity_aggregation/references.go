@@ -166,7 +166,11 @@ func mergeSchemas(stageSchemas map[string]*sdk.Schema, dependsOn []string) *sdk.
 			continue
 		}
 		for k, v := range *s.Properties {
-			allProps[k] = v
+			// First-writer-wins: the first stage that introduces a field
+			// determines its schema (preserving UISchema, entity refs, etc.).
+			if _, exists := allProps[k]; !exists {
+				allProps[k] = v
+			}
 		}
 	}
 	if len(allProps) == 0 {

@@ -104,8 +104,7 @@ func (e *AggregationEngine) executeEntityStage(
 			// complete EntityPipelineStage (including Pipeline) and is
 			// responsible for executing it entirely (e.g. by forwarding it to
 			// a child microservice). In-memory operators are NOT re-applied.
-			docs, err := e.entityStageHandler(ctx, stage)
-			return docs, nil, nil, err
+			return e.entityStageHandler(ctx, stage)
 		}
 
 		repo, ok := sdk.GetDocumentRepository(stage.Entity)
