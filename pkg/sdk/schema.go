@@ -60,6 +60,7 @@ type Schema struct {
 	ReadOnly             *bool              `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
 	WriteOnly            *bool              `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
 	Required             []string           `json:"required,omitempty" yaml:"required,omitempty"`
+	UniqueItems          *bool              `json:"uniqueItems,omitempty" yaml:"uniqueItems,omitempty"`
 
 	// field dimension
 	MinLength *int `json:"minLength,omitempty" yaml:"minLength,omitempty"`
@@ -378,6 +379,27 @@ func applySchemaDecorators(s *Schema, props map[string]string) {
 		case "minLength":
 			if i, err := strconv.Atoi(v); err == nil {
 				s.MinLength = &i
+			}
+
+		// enum values (pipe-separated, e.g. enum=supplier|customer)
+		case "enum":
+			rawVals := strings.Split(v, "|")
+			enumVals := make([]string, len(rawVals))
+			for i, e := range rawVals {
+				enumVals[i] = strings.TrimSpace(e)
+			}
+			// For array schemas, enum constrains each item — place it on items
+			if s.Type == SchemaTypeArray && s.Items != nil {
+				s.Items.Enum = &enumVals
+			} else {
+				s.Enum = &enumVals
+			}
+
+		// array constraints
+		case "uniqueItems":
+			if v == "true" {
+				b := true
+				s.UniqueItems = &b
 			}
 		}
 	}

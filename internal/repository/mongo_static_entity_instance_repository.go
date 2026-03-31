@@ -25,8 +25,9 @@ import (
 // - Still automatically converts sdk.ObjectID fields to primitive.ObjectID
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	options  sdk.StaticEntityInstanceRepositoryOptions[T]
-	base     *mongoBaseRepository[T]
 	entityId string
+
+	_base *mongoBaseRepository[T]
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
@@ -34,20 +35,8 @@ func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	options sdk.StaticEntityInstanceRepositoryOptions[T],
 ) *MongoStaticEntityInstanceRepository[T] {
-	client, err := sdk.GetMongoClient()
-	if client == nil || err != nil {
-		// Return a repository with nil base - operations will fail at runtime
-		// This allows the service to be constructed without a DB connection (useful for tests)
-		return &MongoStaticEntityInstanceRepository[T]{
-			base:     nil,
-			entityId: entityId,
-		}
-	}
-	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
-
 	return &MongoStaticEntityInstanceRepository[T]{
 		options:  options,
-		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 		entityId: entityId,
 	}
 }
@@ -60,7 +49,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) GetEntity() string {
 func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	var zero T
 
-	rawDoc, err := r.base.FindByID(ctx, dto.Id)
+	rawDoc, err := r.getBaseRepository().FindByID(ctx, dto.Id)
 	if err != nil {
 		return zero, err
 	}
@@ -91,7 +80,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 		projection = cloneBsonM(dto.Projection)
 	}
 
-	rawDocs, err := r.base.Find(ctx, filter, projection)
+	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +108,8 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto sdk.CreateDTO[T]) (T, error) {
 	var zero T
 
-	mapper := r.base.GetDocumentMapper()
-	doc, err := mapper.ToDocumentWithoutMetadata(dto.Data, r.base.GetIDStrategy())
+	mapper := r.getBaseRepository().GetDocumentMapper()
+	doc, err := mapper.ToDocumentWithoutMetadata(dto.Data, r.getBaseRepository().GetIDStrategy())
 	if err != nil {
 		return zero, sdk.NewInternalServerError(err)
 	}
@@ -128,7 +117,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 	// Get provided ID
 	providedID := dto.Data.GetID()
 
-	idStr, err := r.base.Insert(ctx, doc, providedID)
+	idStr, err := r.getBaseRepository().Insert(ctx, doc, providedID)
 	if err != nil {
 		return zero, err
 	}
@@ -140,7 +129,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Create(ctx context.Context, dto
 func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto sdk.UpdateByIdDTO[map[string]interface{}]) (T, error) {
 	var zero T
 
-	if err := r.base.Update(ctx, dto.Id, dto.Data); err != nil {
+	if err := r.getBaseRepository().Update(ctx, dto.Id, dto.Data); err != nil {
 		return zero, err
 	}
 
@@ -149,7 +138,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Update(ctx context.Context, dto
 
 // Delete removes an entity by ID.
 func (r *MongoStaticEntityInstanceRepository[T]) Delete(ctx context.Context, dto sdk.ReadInstanceDTO) error {
-	return r.base.Delete(ctx, dto.Id)
+	return r.getBaseRepository().Delete(ctx, dto.Id)
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
@@ -158,13 +147,13 @@ func (r *MongoStaticEntityInstanceRepository[T]) FindReferences(ctx context.Cont
 	if descriptionAttributeKey == nil {
 		return make(sdk.EntityReferenceGroupDescriptions), nil
 	}
-	return r.base.FindReferences(ctx, dto, *descriptionAttributeKey)
+	return r.getBaseRepository().FindReferences(ctx, dto, *descriptionAttributeKey)
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
 	var zero T
 
-	rawDoc, err := r.base.FindByID(ctx, dto.Id)
+	rawDoc, err := r.getBaseRepository().FindByID(ctx, dto.Id)
 	if err != nil {
 		return zero, nil, err
 	}
@@ -200,7 +189,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 		projection = cloneBsonM(dto.Projection)
 	}
 
-	rawDocs, err := r.base.Find(ctx, filter, projection)
+	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -253,4 +242,13 @@ func (r *MongoStaticEntityInstanceRepository[T]) toModel(rawDoc bson.M) (T, erro
 	}
 
 	return result, nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) getBaseRepository() *mongoBaseRepository[T] {
+	if r._base != nil {
+		return r._base
+	}
+	client, _ := sdk.GetMongoClient()
+	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(r.entityId)
+	return newMongoBaseRepository[T](collection, *r.options.AutoGenerateID)
 }
