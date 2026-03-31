@@ -48,11 +48,16 @@ type stageExecContext struct {
 }
 
 // Execute runs all EntityPipelineStages in declaration order and returns the
-// result of the last stage. Each stage stores its output keyed by stageID so
-// that subsequent stages can reference it via DependsOn / $mergeResults.
-func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPipeline) ([]map[string]interface{}, error) {
+// result of the last stage, the derived output schema, and the merged
+// EntityRefererenceGroup collected from every entity stage. Each stage stores
+// its output keyed by stageID so that subsequent stages can reference it via
+// DependsOn / $mergeResults.
+func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPipeline) ([]map[string]interface{}, *sdk.RootSchema, sdk.EntityRefererenceGroup, error) {
 	stageResults := map[string][]map[string]interface{}{}
+	stageSchemas := map[string]*sdk.Schema{}
 	lastResult := []map[string]interface{}{}
+	var lastSchema *sdk.Schema
+	var allRefs sdk.EntityRefererenceGroup
 
 	for _, stage := range pipeline {
 		// Assign a unique ID once so all subsequent uses within this iteration
@@ -60,25 +65,36 @@ func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPip
 		if stage.ID == "" {
 			stage.ID = generateStageID(stage.Entity)
 		}
-		docs, err := e.executeEntityStage(ctx, stage, stageResults)
+		docs, schema, refs, err := e.executeEntityStage(ctx, stage, stageResults, stageSchemas)
 		if err != nil {
-			return nil, fmt.Errorf("stage %q: %w", stage.ID, err)
+			return nil, nil, nil, fmt.Errorf("stage %q: %w", stage.ID, err)
 		}
 		stageResults[stage.ID] = docs
+		stageSchemas[stage.ID] = schema
 		lastResult = docs
+		lastSchema = schema
+		allRefs = mergeEntityRefererenceGroups(allRefs, refs)
 	}
-	return lastResult, nil
+
+	var rootSchema *sdk.RootSchema
+	if lastSchema != nil {
+		rootSchema = &sdk.RootSchema{Schema: *lastSchema}
+	}
+	return lastResult, rootSchema, allRefs, nil
 }
 
 // executeEntityStage fetches the initial document set for the stage (when Entity
 // is registered in the repository registry) and then applies each StageSpec in
 // sequence. A leading $match is pushed down to the repository as a filter.
 // Stages with an empty Entity start with an empty document set.
+// After all pipeline operators the method derives the output schema and resolves
+// entity references by tracking the schema through each stage.
 func (e *AggregationEngine) executeEntityStage(
 	ctx context.Context,
 	stage EntityPipelineStage,
 	stageResults map[string][]map[string]interface{},
-) ([]map[string]interface{}, error) {
+	stageSchemas map[string]*sdk.Schema,
+) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 	docs := []map[string]interface{}{}
 	pipeline := stage.Pipeline
 
@@ -88,12 +104,13 @@ func (e *AggregationEngine) executeEntityStage(
 			// complete EntityPipelineStage (including Pipeline) and is
 			// responsible for executing it entirely (e.g. by forwarding it to
 			// a child microservice). In-memory operators are NOT re-applied.
-			return e.entityStageHandler(ctx, stage)
+			docs, err := e.entityStageHandler(ctx, stage)
+			return docs, nil, nil, err
 		}
 
 		repo, ok := sdk.GetDocumentRepository(stage.Entity)
 		if !ok {
-			return nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
+			return nil, nil, nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
 		}
 
 		// Push down a leading $match to the repository filter for efficiency.
@@ -110,7 +127,7 @@ func (e *AggregationEngine) executeEntityStage(
 		var err error
 		docs, err = repo.ListDocuments(ctx, sdk.ReadDTO{Filter: filter})
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 	}
 
@@ -123,10 +140,39 @@ func (e *AggregationEngine) executeEntityStage(
 	for _, s := range pipeline {
 		docs, err = e.applyStage(docs, s, execCtx)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 	}
-	return docs, nil
+
+	if stage.Entity != "" {
+		// Derive output schema and resolve entity references.
+		schema, refs, err := e.computeStageSchemaAndReferences(ctx, stage, docs)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return docs, schema, refs, nil
+	}
+
+	// Non-entity stage (e.g. $mergeResults): merge schemas from dependsOn stages.
+	schema := mergeSchemas(stageSchemas, stage.DependsOn)
+	return docs, schema, nil, nil
+}
+
+// computeStageSchemaAndReferences derives the output schema of the stage pipeline,
+// extracts entity reference IDs from docs, then resolves them via the registry.
+func (e *AggregationEngine) computeStageSchemaAndReferences(ctx context.Context, stage EntityPipelineStage, docs []map[string]interface{}) (*sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	repo, ok := sdk.GetDocumentRepository(stage.Entity)
+	if !ok {
+		return nil, nil, nil
+	}
+	baseSchema := repo.GetSchema()
+	if baseSchema == nil {
+		return nil, nil, nil
+	}
+	finalSchema := deriveSchemaAfterPipeline(&baseSchema.Schema, stage.Pipeline)
+	entityIDs := extractReferenceIDsFromFlatDocs(&finalSchema, docs)
+	refs, err := resolveReferences(ctx, entityIDs)
+	return &finalSchema, refs, err
 }
 
 // applyStage applies a single StageSpec operator to the working document set.

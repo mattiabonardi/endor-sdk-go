@@ -28,11 +28,12 @@ func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.En
 				InputSchema:           buildPipelineSchema(),
 			},
 			func(c *sdk.EndorContext[AggregationPipeline]) (*sdk.Response[[]map[string]interface{}], error) {
-				result, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
+				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {
 					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err))
 				}
-				return &sdk.Response[[]map[string]interface{}]{Data: &result}, nil
+				return sdk.NewResponseBuilder[[]map[string]interface{}]().AddData(&result).
+					AddReferences(refs).AddSchema(schema).Build(), nil
 			},
 		),
 	})

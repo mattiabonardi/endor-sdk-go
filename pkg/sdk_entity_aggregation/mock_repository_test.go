@@ -11,6 +11,10 @@ import (
 type mockRepository struct {
 	entity string
 	docs   []map[string]interface{}
+	schema *sdk.RootSchema
+	// refDescs, when non-nil, is returned by FindReferences. Used by tests that
+	// need a reference-holding "lookup" entity (e.g. "product").
+	refDescs sdk.EntityReferenceGroupDescriptions
 }
 
 func newMockRepository(entity string, docs []map[string]interface{}) *mockRepository {
@@ -19,7 +23,12 @@ func newMockRepository(entity string, docs []map[string]interface{}) *mockReposi
 
 func (r *mockRepository) GetEntity() string { return r.entity }
 
+func (r *mockRepository) GetSchema() *sdk.RootSchema { return r.schema }
+
 func (r *mockRepository) FindReferences(_ context.Context, _ sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+	if r.refDescs != nil {
+		return r.refDescs, nil
+	}
 	return sdk.EntityReferenceGroupDescriptions{}, nil
 }
 

@@ -12,6 +12,7 @@ import (
 type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	repository sdk.EntityInstanceRepositoryInterface[T]
 	entityId   string
+	schema     sdk.RootSchema
 }
 
 // NewEntityInstanceRepository creates a new repository with default options
@@ -24,6 +25,7 @@ func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string,
 	return &EntityInstanceRepository[T]{
 		repository: repository.NewMongoEntityInstanceRepository[T](entityId, schema, options),
 		entityId:   entityId,
+		schema:     schema,
 	}
 }
 
@@ -53,6 +55,10 @@ func (r *EntityInstanceRepository[T]) FindReferences(ctx context.Context, dto sd
 
 func (r *EntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
+}
+
+func (r *EntityInstanceRepository[T]) GetSchema() *sdk.RootSchema {
+	return &r.schema
 }
 
 func (r *EntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {

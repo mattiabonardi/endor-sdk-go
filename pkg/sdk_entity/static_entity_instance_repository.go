@@ -58,6 +58,11 @@ func (r *StaticEntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
 }
 
+func (r *StaticEntityInstanceRepository[T]) GetSchema() *sdk.RootSchema {
+	var zero T
+	return sdk.NewSchema(zero)
+}
+
 func (r *StaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context, dto sdk.ReadInstanceDTO) (T, sdk.EntityRefererenceGroup, error) {
 	return r.repository.InstanceWithReferences(ctx, dto)
 }

@@ -356,3 +356,27 @@ func TestMap(t *testing.T) {
 	// For map[string]any, additionalProperties should be an empty schema (allowing any type)
 	assert.Empty(t, anyFilterProp.AdditionalProperties.Type, "Expected anyFilter additionalProperties to have no type (any)")
 }
+
+type TypedEntity struct {
+	Types []string `json:"types" bson:"types" schema:"title=Types,enum=supplier|customer,uniqueItems=true"`
+}
+
+func TestArrayEnumAndUniqueItems(t *testing.T) {
+	schema := sdk.NewSchema(&TypedEntity{})
+
+	props := *schema.Properties
+	typesProp := props["types"]
+
+	// Array-level attributes
+	assert.Equal(t, sdk.SchemaTypeArray, typesProp.Type, "Expected types to be array type")
+	assert.Equal(t, "Types", *typesProp.Title, "Expected title on array schema")
+	assert.NotNil(t, typesProp.UniqueItems, "Expected uniqueItems to be set on array schema")
+	assert.True(t, *typesProp.UniqueItems, "Expected uniqueItems to be true")
+	assert.Nil(t, typesProp.Enum, "Expected enum NOT to be on array schema")
+
+	// Items-level attributes
+	assert.NotNil(t, typesProp.Items, "Expected items to be present")
+	assert.Equal(t, sdk.SchemaTypeString, typesProp.Items.Type, "Expected items to be string type")
+	assert.NotNil(t, typesProp.Items.Enum, "Expected enum to be on items schema")
+	assert.Equal(t, []string{"supplier", "customer"}, *typesProp.Items.Enum, "Expected correct enum values on items")
+}

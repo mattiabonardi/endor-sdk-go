@@ -144,9 +144,12 @@ func (r *RepositoryRegistry) Get(name string) (EndorRepositoryInterface, bool) {
 // DocumentRepositoryInterface extends EndorRepositoryInterface with the ability
 // to list raw documents as a slice of maps, enabling aggregation pipelines to
 // query any entity without knowing its concrete type at compile time.
+// GetSchema returns the entity's root schema, which the aggregation engine uses
+// to track field lineage through pipeline stages and resolve entity references.
 type DocumentRepositoryInterface interface {
 	EndorRepositoryInterface
 	ListDocuments(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
+	GetSchema() *RootSchema
 }
 
 // GetDocumentRepository retrieves a repository from the singleton RepositoryRegistry
