@@ -84,7 +84,7 @@ func (h *Endor) Init(microserviceId string) {
 	aggregationServiceExists := false
 	if h.endorHandlers != nil {
 		for _, svc := range *h.endorHandlers {
-			if svc.GetEntity() == "aggregationServiceExists" {
+			if svc.GetEntity() == "aggregation" {
 				aggregationServiceExists = true
 				break
 			}
