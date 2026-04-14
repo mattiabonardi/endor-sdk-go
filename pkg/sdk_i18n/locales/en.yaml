@@ -1,0 +1,7 @@
+errors:
+  not_found: "Resource not found"
+  unauthorized: "Unauthorized"
+  forbidden: "Forbidden"
+  bad_request: "Bad request"
+  internal: "Internal server error"
+  validation: "Validation error: %s"

@@ -83,6 +83,39 @@ type RootSchema struct {
 	Definitions map[string]Schema `json:"$defs,omitempty" yaml:"$defs,omitempty"`
 }
 
+// ResolveTranslations recursively resolves t(key) tokens in Title and Description
+// for the root schema, all its definitions, and all nested schemas.
+func (rs *RootSchema) ResolveTranslations(locale string) {
+	rs.Schema.resolveTranslations(locale)
+	for key, def := range rs.Definitions {
+		def.resolveTranslations(locale)
+		rs.Definitions[key] = def
+	}
+}
+
+func (s *Schema) resolveTranslations(locale string) {
+	if s.Title != nil {
+		v := resolveI18nValue(locale, *s.Title)
+		s.Title = &v
+	}
+	if s.Description != nil {
+		v := resolveI18nValue(locale, *s.Description)
+		s.Description = &v
+	}
+	if s.Properties != nil {
+		for key, prop := range *s.Properties {
+			prop.resolveTranslations(locale)
+			(*s.Properties)[key] = prop
+		}
+	}
+	if s.Items != nil {
+		s.Items.resolveTranslations(locale)
+	}
+	if s.AdditionalProperties != nil {
+		s.AdditionalProperties.resolveTranslations(locale)
+	}
+}
+
 func (h *RootSchema) ToYAML() (string, error) {
 	yamlData, err := yaml.Marshal(&h)
 	if err != nil {

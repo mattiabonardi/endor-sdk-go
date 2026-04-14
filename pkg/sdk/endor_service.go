@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
@@ -99,6 +100,7 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
 			Session:        session,
+			Locale:         sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language")),
 			GinContext:     c,
 			Logger:         *logger,
 			CategoryType:   categoryType,
@@ -124,6 +126,7 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 				c.JSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 			}
 		} else {
+			response.ResolveTranslations(ec.Locale)
 			c.Header("x-endor-microservice", microserviceId)
 			c.JSON(http.StatusOK, response)
 		}

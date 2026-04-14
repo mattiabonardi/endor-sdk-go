@@ -13,6 +13,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity_aggregation"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -59,6 +60,11 @@ func (h *Endor) Init(microserviceId string) {
 	logger := sdk.NewLogger(sdk.LogConfig{
 		LogType: sdk.LogType(config.LogType),
 	}, sdk.LogContext{})
+
+	// load i18n translations
+	if err := sdk_i18n.Init("./locales"); err != nil {
+		logger.Info("i18n: failed to initialize translations: " + err.Error())
+	}
 
 	// define runtime configuration
 	config.DynamicEntityDocumentDBName = microserviceId
