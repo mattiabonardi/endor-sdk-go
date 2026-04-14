@@ -120,7 +120,11 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
 				logger.ErrorWithStackTrace(endorError)
-				c.JSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())).Build())
+				message := endorError.Error()
+				if endorError.TranslationKey != "" {
+					message = sdk_i18n.TMap(ec.Locale, endorError.TranslationKey, endorError.TranslationArgs)
+				}
+				c.JSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, message)).Build())
 			} else {
 				logger.ErrorWithStackTrace(err)
 				c.JSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())

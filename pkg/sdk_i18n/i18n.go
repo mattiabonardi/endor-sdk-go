@@ -140,6 +140,51 @@ func NormalizeLocale(acceptLanguage string) string {
 	return lang
 }
 
+// TMap translates key for the given locale and performs named placeholder interpolation
+// using the provided args map. Placeholders in the translated string must use the
+// syntax {{key}} (e.g. "Hello {{name}}"). The same fallback chain as T applies.
+// If args is nil or empty, no interpolation is performed.
+func TMap(locale, key string, args map[string]any) string {
+	if globalTranslator == nil {
+		return key
+	}
+	globalTranslator.mu.RLock()
+	defer globalTranslator.mu.RUnlock()
+
+	locales := []string{locale}
+	if locale != DefaultLocale {
+		locales = append(locales, DefaultLocale)
+	}
+
+	for _, loc := range locales {
+		if m, ok := globalTranslator.projectTranslations[loc]; ok {
+			if val, ok := m[key]; ok {
+				return interpolateMap(val, args)
+			}
+		}
+		if m, ok := globalTranslator.sdkTranslations[loc]; ok {
+			if val, ok := m[key]; ok {
+				return interpolateMap(val, args)
+			}
+		}
+	}
+
+	return key
+}
+
+// interpolateMap replaces {{key}} placeholders in val with the corresponding values from args.
+func interpolateMap(val string, args map[string]any) string {
+	if len(args) == 0 {
+		return val
+	}
+	result := val
+	for k, v := range args {
+		result = strings.ReplaceAll(result, "{{{"+k+"}}}", fmt.Sprintf("%v", v))
+		result = strings.ReplaceAll(result, "{{"+k+"}}", fmt.Sprintf("%v", v))
+	}
+	return result
+}
+
 // interpolate applies fmt.Sprintf-style formatting when args are provided.
 func interpolate(val string, args ...interface{}) string {
 	if len(args) == 0 {
