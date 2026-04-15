@@ -172,7 +172,18 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 	paths := make(map[string]map[string]OpenAPIOperation)
 	for _, service := range services {
 		for methodKey, method := range service.Actions {
-			parameters := []OpenAPIParameter{}
+			parameters := []OpenAPIParameter{
+				{
+					Name: "Accept-Language",
+					In:   "header",
+					Schema: sdk.Schema{
+						Type: sdk.SchemaTypeString,
+						Enum: &[]string{"en", "it"},
+					},
+					Description: "Response language",
+					Required:    false,
+				},
+			}
 			if !method.GetOptions().Public {
 				parameters = append(parameters, []OpenAPIParameter{
 					{

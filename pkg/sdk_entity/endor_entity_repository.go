@@ -332,7 +332,7 @@ func (h *EndorHandlerRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*E
 	if entity, ok := entities[dto.Id]; ok {
 		return &entity, nil
 	}
-	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("entities.entity.not_found", map[string]any{"id": dto.Id})
 }
 
 func (h *EndorHandlerRepository) DictionaryActionInstance(dto sdk.ReadInstanceDTO) (*EndorHandlerActionDictionary, error) {
@@ -347,10 +347,10 @@ func (h *EndorHandlerRepository) DictionaryActionInstance(dto sdk.ReadInstanceDT
 		if entityAction, ok := entityInstance.EndorHandler.Actions[idSegments[1]]; ok {
 			return h.createAction(idSegments[0], idSegments[1], entityAction)
 		} else {
-			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found"))
+			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found")).WithTranslation("entities.entity.action_not_found", nil)
 		}
 	} else {
-		return nil, sdk.NewBadRequestError(fmt.Errorf("invalid entity action id"))
+		return nil, sdk.NewBadRequestError(fmt.Errorf("invalid entity action id")).WithTranslation("entities.entity.invalid_action_id", nil)
 	}
 }
 
@@ -478,7 +478,7 @@ func (h *EndorHandlerRepository) Instance(entityType *sdk.EntityType, dto sdk.Re
 	if entity.entity.GetCategoryType() == string(*entityType) {
 		return &entity.entity, nil
 	}
-	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id))
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("entities.entity.not_found", map[string]any{"id": dto.Id})
 }
 
 func (h *EndorHandlerRepository) Create(entityType *sdk.EntityType, dto sdk.CreateDTO[sdk.EntityInterface]) (*sdk.EntityInterface, error) {
@@ -498,10 +498,10 @@ func (h *EndorHandlerRepository) Create(entityType *sdk.EntityType, dto sdk.Crea
 			h.reloadRouteConfiguration(h.microServiceId)
 			return &dto.Data, nil
 		} else {
-			return nil, sdk.NewConflictError(fmt.Errorf("entity already exist"))
+			return nil, sdk.NewConflictError(fmt.Errorf("entity already exist")).WithTranslation("entities.entity.already_exists", nil)
 		}
 	} else {
-		return nil, sdk.NewForbiddenError(fmt.Errorf("create entity not permitted"))
+		return nil, sdk.NewForbiddenError(fmt.Errorf("create entity not permitted")).WithTranslation("entities.entity.create_not_permitted", nil)
 	}
 }
 
@@ -538,7 +538,7 @@ func (h *EndorHandlerRepository) Update(entityType *sdk.EntityType, dto sdk.Upda
 
 		return instance, nil
 	} else {
-		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted"))
+		return nil, sdk.NewForbiddenError(fmt.Errorf("update entity not permitted")).WithTranslation("entities.entity.update_not_permitted", nil)
 	}
 }
 
@@ -556,7 +556,7 @@ func (h *EndorHandlerRepository) Delete(entityType *sdk.EntityType, dto sdk.Read
 		}
 		return err
 	} else {
-		return sdk.NewForbiddenError(fmt.Errorf("delete entity not permitted"))
+		return sdk.NewForbiddenError(fmt.Errorf("delete entity not permitted")).WithTranslation("entities.entity.delete_not_permitted", nil)
 	}
 }
 

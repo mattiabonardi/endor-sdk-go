@@ -80,43 +80,6 @@ func Init(projectLocalePath string) error {
 	return nil
 }
 
-// T translates key for the given locale with optional fmt.Sprintf args.
-//
-// Fallback chain:
-//  1. Project translations for locale
-//  2. SDK translations for locale
-//  3. Project translations for DefaultLocale ("en")
-//  4. SDK translations for DefaultLocale ("en")
-//  5. The key itself (untranslated)
-func T(locale, key string, args ...interface{}) string {
-	if globalTranslator == nil {
-		return key
-	}
-	globalTranslator.mu.RLock()
-	defer globalTranslator.mu.RUnlock()
-
-	// Build ordered list of locales to try (deduplicated).
-	locales := []string{locale}
-	if locale != DefaultLocale {
-		locales = append(locales, DefaultLocale)
-	}
-
-	for _, loc := range locales {
-		if m, ok := globalTranslator.projectTranslations[loc]; ok {
-			if val, ok := m[key]; ok {
-				return interpolate(val, args...)
-			}
-		}
-		if m, ok := globalTranslator.sdkTranslations[loc]; ok {
-			if val, ok := m[key]; ok {
-				return interpolate(val, args...)
-			}
-		}
-	}
-
-	return key
-}
-
 // NormalizeLocale extracts the primary language tag from an Accept-Language header value.
 // Examples:
 //
@@ -140,11 +103,12 @@ func NormalizeLocale(acceptLanguage string) string {
 	return lang
 }
 
-// TMap translates key for the given locale and performs named placeholder interpolation
+// T translates key for the given locale and performs named placeholder interpolation
 // using the provided args map. Placeholders in the translated string must use the
-// syntax {{key}} (e.g. "Hello {{name}}"). The same fallback chain as T applies.
+// syntax {{key}} (e.g. "Hello {{name}}"). Fallback chain: project locale → SDK locale →
+// project default → SDK default → key itself.
 // If args is nil or empty, no interpolation is performed.
-func TMap(locale, key string, args map[string]any) string {
+func T(locale, key string, args map[string]any) string {
 	if globalTranslator == nil {
 		return key
 	}
@@ -183,14 +147,6 @@ func interpolateMap(val string, args map[string]any) string {
 		result = strings.ReplaceAll(result, "{{"+k+"}}", fmt.Sprintf("%v", v))
 	}
 	return result
-}
-
-// interpolate applies fmt.Sprintf-style formatting when args are provided.
-func interpolate(val string, args ...interface{}) string {
-	if len(args) == 0 {
-		return val
-	}
-	return fmt.Sprintf(val, args...)
 }
 
 // parseYAML parses YAML bytes and flattens nested keys using dot notation.

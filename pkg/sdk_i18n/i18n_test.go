@@ -32,9 +32,9 @@ func TestT_SDKEmbeddedFallback(t *testing.T) {
 	if err := sdk_i18n.Init(""); err != nil {
 		t.Fatal(err)
 	}
-	got := sdk_i18n.T("en", "errors.not_found")
-	if got == "errors.not_found" {
-		t.Error("expected SDK embedded translation for errors.not_found, got the key itself")
+	got := sdk_i18n.T("en", "entities.entity.not_found", nil)
+	if got == "entities.entity.not_found" {
+		t.Error("expected SDK embedded translation for entities.entity.not_found, got the key itself")
 	}
 }
 
@@ -42,9 +42,9 @@ func TestT_LocaleFallbackToDefault(t *testing.T) {
 	if err := sdk_i18n.Init(""); err != nil {
 		t.Fatal(err)
 	}
-	// "it" locale has no translations; should fall back to "en".
-	got := sdk_i18n.T("it", "errors.not_found")
-	if got == "errors.not_found" {
+	// "it" locale without project files falls back to "en".
+	got := sdk_i18n.T("it", "entities.entity.not_found", nil)
+	if got == "entities.entity.not_found" {
 		t.Error("expected fallback to SDK en translation, got the key itself")
 	}
 }
@@ -52,7 +52,7 @@ func TestT_LocaleFallbackToDefault(t *testing.T) {
 func TestT_ProjectOverridesSDK(t *testing.T) {
 	// Write a temporary project locale file that overrides the SDK translation.
 	dir := t.TempDir()
-	content := "errors:\n  not_found: \"Risorsa non trovata\"\n"
+	content := "entities:\n  entity:\n    not_found: \"Risorsa non trovata\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "it.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestT_ProjectOverridesSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := sdk_i18n.T("it", "errors.not_found")
+	got := sdk_i18n.T("it", "entities.entity.not_found", nil)
 	if got != "Risorsa non trovata" {
 		t.Errorf("expected project translation override, got %q", got)
 	}
@@ -71,9 +71,12 @@ func TestT_Interpolation(t *testing.T) {
 	if err := sdk_i18n.Init(""); err != nil {
 		t.Fatal(err)
 	}
-	got := sdk_i18n.T("en", "errors.validation", "campo obbligatorio")
-	if got == "errors.validation" {
+	got := sdk_i18n.T("en", "entities.entity.not_found", map[string]any{"id": "123"})
+	if got == "entities.entity.not_found" {
 		t.Error("expected interpolated translation, got key itself")
+	}
+	if got == "entity {{id}} not found" {
+		t.Errorf("expected placeholder to be replaced, got %q", got)
 	}
 }
 
@@ -81,7 +84,7 @@ func TestT_UnknownKeyReturnsKey(t *testing.T) {
 	if err := sdk_i18n.Init(""); err != nil {
 		t.Fatal(err)
 	}
-	got := sdk_i18n.T("en", "this.key.does.not.exist")
+	got := sdk_i18n.T("en", "this.key.does.not.exist", nil)
 	if got != "this.key.does.not.exist" {
 		t.Errorf("expected key itself for unknown key, got %q", got)
 	}

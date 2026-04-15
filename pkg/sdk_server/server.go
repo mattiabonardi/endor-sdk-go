@@ -147,7 +147,8 @@ func (h *Endor) Init(microserviceId string) {
 			}
 		}
 		response := sdk.NewDefaultResponseBuilder()
-		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, "404 page not found (uri: "+c.Request.RequestURI+", method: "+c.Request.Method+")"))
+		locale := sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language"))
+		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, sdk_i18n.T(locale, "commons.not_found", map[string]any{"uri": c.Request.RequestURI, "method": c.Request.Method})))
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 

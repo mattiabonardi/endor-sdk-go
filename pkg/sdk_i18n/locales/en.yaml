@@ -1,7 +1,46 @@
-errors:
-  not_found: "Resource not found"
-  unauthorized: "Unauthorized"
-  forbidden: "Forbidden"
-  bad_request: "Bad request"
-  internal: "Internal server error"
-  validation: "Validation error: %s"
+commons:
+  not_found: "Page not found (uri: {{uri}}, method: {{method}})"
+
+entities:
+  entity:
+    fields:
+      id: "Id"
+      description: "Description"
+      type: "Type"
+      service: "Service"
+      schema: "Schema"
+      categories: "Categories"
+      additional_schema: "Additional schema"
+      additional_categories: "Additional categories"
+    created: "entity {{id}} created"
+    updated: "entity {{id}} updated"
+    deleted: "entity {{id}} deleted"
+    not_found: "entity {{id}} not found"
+    already_exists: "entity already exists"
+    create_not_permitted: "creating entity is not permitted"
+    update_not_permitted: "updating entity is not permitted"
+    delete_not_permitted: "deleting entity is not permitted"
+    action_not_found: "entity action not found"
+    invalid_action_id: "invalid entity action id"
+    created_specialized: "{{name}} {{id}} created"
+    updated_category: "{{name}} updated (category)"
+  category:
+    fields:
+      id: "Category ID"
+      description: "Category description"
+      schema: "Schema"
+      additional_schema: "Additional category schema"
+  entity_action:
+    fields:
+      id: "Id"
+      entity: "Entity"
+      description: "Description"
+      input_schema: "Input schema"
+  dynamic_entity:
+    fields:
+      id: "Id"
+      type: "Type"
+  aggregation:
+    fields:
+      pipeline_description: "Array of pipeline stages. Each stage is either an entity stage { entity, pipeline } or the top-level $mergeResults operator."
+    failed: "Aggregation failed"

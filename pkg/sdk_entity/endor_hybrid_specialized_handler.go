@@ -6,6 +6,7 @@ import (
 	"maps"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
@@ -274,7 +275,7 @@ func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.E
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s %s created", entity, created.GetID()))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.created_specialized", map[string]any{"name": entity, "id": created.GetID()}))).Build(), nil
 }
 
 func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
@@ -290,5 +291,5 @@ func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.E
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, fmt.Sprintf("%s updated (category)", entity))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.updated_category", map[string]any{"name": entity}))).Build(), nil
 }

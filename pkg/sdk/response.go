@@ -12,7 +12,7 @@ var i18nTokenRegexp = regexp.MustCompile(`t\(([^)]+)\)`)
 func resolveI18nValue(locale, value string) string {
 	return i18nTokenRegexp.ReplaceAllStringFunc(value, func(match string) string {
 		key := match[2 : len(match)-1] // strip leading "t(" and trailing ")"
-		return sdk_i18n.T(locale, key)
+		return sdk_i18n.T(locale, key, nil)
 	})
 }
 
