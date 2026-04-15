@@ -123,13 +123,13 @@ func (h *Endor) Init(microserviceId string) {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		// find the entity in path /api/{version}/{entity}/{method}
+		// find the entity in path /api/{microserviceId}/{version}/{entity}/{method}
 		pathSegments := strings.Split(c.Request.URL.Path, "/")
-		if len(pathSegments) > 4 {
-			entity := pathSegments[3]
-			action := pathSegments[4]
-			if len(pathSegments) == 6 {
-				action = pathSegments[4] + "/" + pathSegments[5]
+		if len(pathSegments) > 5 {
+			entity := pathSegments[4]
+			action := pathSegments[5]
+			if len(pathSegments) == 7 {
+				action = pathSegments[5] + "/" + pathSegments[6]
 			}
 			endorRepositoryDictionary, err := EndorHandlerRepository.DictionaryInstance(sdk.ReadInstanceDTO{
 				Id: entity,

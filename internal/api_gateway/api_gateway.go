@@ -44,8 +44,16 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	// Create model
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
+	// Single wildcard rule for the entire microservice context with forward auth enabled
+	routers[fmt.Sprintf("%s-router", microServiceId)] = ApiGatewayConfigurationRouter{
+		Rule:        fmt.Sprintf("PathPrefix(`/api/%s`)", microServiceId),
+		Service:     microServiceId,
+		EntryPoints: []string{"web"},
+		Middlewares: &[]string{"authMiddleware"},
+	}
+
 	for _, service := range services {
-		basePath := "/api/"
+		basePath := fmt.Sprintf("/api/%s/", microServiceId)
 		// version
 		if service.Version != "" {
 			basePath += service.Version + "/"
@@ -55,20 +63,18 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 		// entity
 		basePath += service.Entity
 
-		// methods
+		// Individual routes only for public actions (override the wildcard, no auth)
 		for methodKey, method := range service.Actions {
-			// create router
-			key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Entity, methodKey)
-			router := ApiGatewayConfigurationRouter{
-				Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
-				Service:     microServiceId,
-				Priority:    service.Priority,
-				EntryPoints: []string{"web"},
+			if method.GetOptions().Public {
+				key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Entity, methodKey)
+				router := ApiGatewayConfigurationRouter{
+					Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
+					Service:     microServiceId,
+					Priority:    service.Priority,
+					EntryPoints: []string{"web"},
+				}
+				routers[key] = router
 			}
-			if !method.GetOptions().Public {
-				router.Middlewares = &[]string{"authMiddleware"}
-			}
-			routers[key] = router
 		}
 	}
 

@@ -292,7 +292,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 
 			path := map[string]OpenAPIOperation{}
 			path["post"] = operation
-			paths[fmt.Sprintf("%s/%s/%s/%s", baseApiPath, version, service.Entity, methodKey)] = path
+			paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, microServiceId, version, service.Entity, methodKey)] = path
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,
