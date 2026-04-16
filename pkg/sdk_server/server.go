@@ -123,27 +123,24 @@ func (h *Endor) Init(microserviceId string) {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		// find the entity in path /api/{microserviceId}/{version}/{entity}/{method}
-		pathSegments := strings.Split(c.Request.URL.Path, "/")
-		if len(pathSegments) > 5 {
-			entity := pathSegments[4]
-			action := pathSegments[5]
-			if len(pathSegments) == 7 {
-				action = pathSegments[5] + "/" + pathSegments[6]
-			}
-			endorRepositoryDictionary, err := EndorHandlerRepository.DictionaryInstance(sdk.ReadInstanceDTO{
-				Id: entity,
-			})
+		urlPath := c.Request.URL.Path
+		if strings.HasPrefix(urlPath, "/api/") {
+			// actionId format: ms-id/version/entity/[category/]action
+			actionId := strings.TrimPrefix(urlPath, "/api/")
+			dict, err := EndorHandlerRepository.DictionaryActionInstance(sdk.ReadInstanceDTO{Id: actionId})
 			if err == nil {
-				if method, ok := endorRepositoryDictionary.EndorHandler.Actions[action]; ok {
-					category := ""
-					if strings.Contains(action, "/") {
-						parts := strings.SplitN(action, "/", 2)
-						category = parts[0]
+				// segments: [0]=ms-id [1]=version [2]=entity [3+]=action parts
+				segments := strings.Split(actionId, "/")
+				entity, actionKey, category := "", "", ""
+				if len(segments) >= 4 {
+					entity = segments[2]
+					actionKey = strings.Join(segments[3:], "/")
+					if len(segments) >= 5 {
+						category = segments[3]
 					}
-					method.CreateHTTPCallback(microserviceId, entity, action, category)(c)
-					return
 				}
+				dict.EndorHandlerAction.CreateHTTPCallback(microserviceId, entity, actionKey, category)(c)
+				return
 			}
 		}
 		response := sdk.NewDefaultResponseBuilder()

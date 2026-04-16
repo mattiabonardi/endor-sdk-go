@@ -319,7 +319,7 @@ func (h *EndorHandlerRepository) DictionaryActionMap() (map[string]EndorHandlerA
 	}
 	for entityName, entity := range entities {
 		for actionName, EndorHandlerAction := range entity.EndorHandler.Actions {
-			action, err := h.createAction(entityName, actionName, EndorHandlerAction)
+			action, err := h.createAction(entityName, entity.EndorHandler.Version, actionName, EndorHandlerAction)
 			if err == nil {
 				actions[action.entityAction.ID] = *action
 			}
@@ -341,22 +341,14 @@ func (h *EndorHandlerRepository) DictionaryInstance(dto sdk.ReadInstanceDTO) (*E
 }
 
 func (h *EndorHandlerRepository) DictionaryActionInstance(dto sdk.ReadInstanceDTO) (*EndorHandlerActionDictionary, error) {
-	idSegments := strings.Split(dto.Id, "/")
-	if len(idSegments) == 2 {
-		entityInstance, err := h.DictionaryInstance(sdk.ReadInstanceDTO{
-			Id: idSegments[0],
-		})
-		if err != nil {
-			return nil, err
-		}
-		if entityAction, ok := entityInstance.EndorHandler.Actions[idSegments[1]]; ok {
-			return h.createAction(idSegments[0], idSegments[1], entityAction)
-		} else {
-			return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found")).WithTranslation("entities.entity.action_not_found", nil)
-		}
-	} else {
-		return nil, sdk.NewBadRequestError(fmt.Errorf("invalid entity action id")).WithTranslation("entities.entity.invalid_action_id", nil)
+	actions, err := h.DictionaryActionMap()
+	if err != nil {
+		return nil, err
 	}
+	if action, ok := actions[dto.Id]; ok {
+		return &action, nil
+	}
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found")).WithTranslation("entities.entity.action_not_found", nil)
 }
 
 func (h *EndorHandlerRepository) EntityActionList() ([]sdk.EntityAction, error) {
@@ -531,8 +523,11 @@ func (h *EndorHandlerRepository) reloadRouteConfiguration(microserviceId string)
 	return nil
 }
 
-func (h *EndorHandlerRepository) createAction(entityName string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
-	actionId := path.Join(entityName, actionName)
+func (h *EndorHandlerRepository) createAction(entityName string, version string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
+	if version == "" {
+		version = "v1"
+	}
+	actionId := path.Join(h.microServiceId, version, entityName, actionName)
 	action := sdk.EntityAction{
 		ID:          actionId,
 		Entity:      entityName,
