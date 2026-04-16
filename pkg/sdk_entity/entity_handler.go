@@ -2,7 +2,6 @@ package sdk_entity
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 func NewEntityHandler(microServiceId string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int, hybridEntitiesEnabled bool, dynamicEntitiesEnabled bool) sdk.EndorHandlerInterface {
@@ -59,36 +58,14 @@ func NewEntityHandler(microServiceId string, handlers *[]sdk.EndorHandlerInterfa
 	// dynamic specialized category actions
 	dynamicSpecializedActions := map[string]sdk.EndorHandlerActionInterface{}
 
-	if hybridEntitiesEnabled || dynamicEntitiesEnabled {
-		hybridActions["update"] = sdk.NewConfigurableAction(sdk.EndorHandlerActionOptions{
-			Description: "Update an existing entity of type " + string(sdk.EntityTypeHybrid),
-			InputSchema: entityService.getUpdateSchema(&sdk.EntityHybrid{}),
-		}, entityService.updateHybrid)
-		hybridSpecializedActions["update"] = sdk.NewConfigurableAction(sdk.EndorHandlerActionOptions{
-			Description: "Update an existing entity of type " + string(sdk.EntityTypeHybridSpecialized),
-			InputSchema: entityService.getUpdateSchema(&sdk.EntityHybridSpecialized{}),
-		}, entityService.updateHybridSpecialized)
-	}
 	if dynamicEntitiesEnabled {
 		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybrid{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Search for available entities of type "+string(sdk.EntityTypeDynamic))
-		dynamicActions["create"] = sdk.NewAction(entityService.createDynamic, "Create a new entity "+string(sdk.EntityTypeDynamic))
-		dynamicActions["update"] = sdk.NewConfigurableAction(sdk.EndorHandlerActionOptions{
-			Description: "Update an existing entity of type " + string(sdk.EntityTypeDynamic),
-			InputSchema: entityService.getUpdateSchema(&sdk.EntityHybrid{}),
-		}, entityService.updateDynamic)
-		dynamicActions["delete"] = sdk.NewAction(entityService.delete(sdk.EntityTypeDynamic), "Delete an existing entity "+string(sdk.EntityTypeDynamic))
 
 		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybridSpecialized{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized))
-		dynamicSpecializedActions["create"] = sdk.NewAction(entityService.createDynamicSpecalized, "Create a new entity "+string(sdk.EntityTypeDynamicSpecialized))
-		dynamicSpecializedActions["update"] = sdk.NewConfigurableAction(sdk.EndorHandlerActionOptions{
-			Description: "Update an existing entity of type " + string(sdk.EntityTypeDynamicSpecialized),
-			InputSchema: entityService.getUpdateSchema(&sdk.EntityHybridSpecialized{}),
-		}, entityService.updateDynamicSpecialized)
-		dynamicSpecializedActions["delete"] = sdk.NewAction(entityService.delete(sdk.EntityTypeDynamicSpecialized), "Delete an existing entity "+string(sdk.EntityTypeDynamicSpecialized))
 	}
 
 	return NewEndorBaseSpecializedHandler[*sdk.Entity]("entity", "Entity").
@@ -181,60 +158,6 @@ func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSche
 	}
 }
 
-func (h *EntityHandler) createDynamic(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityHybrid]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.create(c.Locale, sdk.CreateDTO[sdk.EntityInterface]{
-		Data: &c.Payload.Data,
-	}, sdk.EntityTypeDynamic, sdk.NewSchema(sdk.EntityHybrid{}))
-}
-
-func (h *EntityHandler) createDynamicSpecalized(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityHybridSpecialized]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.create(c.Locale, sdk.CreateDTO[sdk.EntityInterface]{
-		Data: &c.Payload.Data,
-	}, sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(sdk.EntityHybridSpecialized{}))
-}
-
-func (h *EntityHandler) create(locale string, dto sdk.CreateDTO[sdk.EntityInterface], entityType sdk.EntityType, schema *sdk.RootSchema) (*sdk.Response[sdk.EntityInterface], error) {
-	entity, err := h.repository.Create(&entityType, dto)
-	if err != nil {
-		return nil, err
-	}
-	return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(entity).AddSchema(sdk.NewSchema(schema)).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(locale, "entities.entity.created", map[string]any{"id": dto.Data.GetID()}))).Build(), nil
-}
-
-func (h *EntityHandler) updateHybrid(c *sdk.EndorContext[sdk.UpdateByIdDTO[map[string]interface{}]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.update(c.Locale, c.Payload, sdk.EntityTypeHybrid, sdk.NewSchema(sdk.EntityHybrid{}))
-}
-
-func (h *EntityHandler) updateHybridSpecialized(c *sdk.EndorContext[sdk.UpdateByIdDTO[map[string]interface{}]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.update(c.Locale, c.Payload, sdk.EntityTypeHybridSpecialized, sdk.NewSchema(sdk.EntityHybridSpecialized{}))
-}
-
-func (h *EntityHandler) updateDynamic(c *sdk.EndorContext[sdk.UpdateByIdDTO[map[string]interface{}]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.update(c.Locale, c.Payload, sdk.EntityTypeDynamic, sdk.NewSchema(sdk.EntityHybrid{}))
-}
-
-func (h *EntityHandler) updateDynamicSpecialized(c *sdk.EndorContext[sdk.UpdateByIdDTO[map[string]interface{}]]) (*sdk.Response[sdk.EntityInterface], error) {
-	return h.update(c.Locale, c.Payload, sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(sdk.EntityHybridSpecialized{}))
-}
-
-func (h *EntityHandler) update(locale string, dto sdk.UpdateByIdDTO[map[string]interface{}], entityType sdk.EntityType, schema *sdk.RootSchema) (*sdk.Response[sdk.EntityInterface], error) {
-	entity, err := h.repository.Update(&entityType, dto)
-	if err != nil {
-		return nil, err
-	}
-	return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(entity).AddSchema(sdk.NewSchema(schema)).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(locale, "entities.entity.updated", map[string]any{"id": dto.Id}))).Build(), nil
-}
-
-func (h *EntityHandler) delete(entityType sdk.EntityType) func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.NoPayload], error) {
-	return func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.NoPayload], error) {
-		err := h.repository.Delete(&entityType, c.Payload)
-		if err != nil {
-			return nil, err
-		}
-		return sdk.NewResponseBuilder[sdk.NoPayload]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.deleted", map[string]any{"id": c.Payload.Id}))).Build(), nil
-	}
-}
-
 func (h *EntityHandler) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.RootSchema {
 	schema := sdk.NewSchema(baseSchema)
 	readOnly := false
@@ -254,18 +177,4 @@ func (h *EntityHandler) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.Ro
 	serviceSchema.UISchema.Query = &query
 	properties["service"] = serviceSchema
 	return schema
-}
-
-func (h *EntityHandler) getUpdateSchema(baseSchema sdk.EntityInterface) *sdk.RootSchema {
-	return &sdk.RootSchema{
-		Schema: sdk.Schema{
-			Type: sdk.SchemaTypeObject,
-			Properties: &map[string]sdk.Schema{
-				"id": {
-					Type: sdk.SchemaTypeString,
-				},
-				"data": sdk.NewSchema(baseSchema).Schema,
-			},
-		},
-	}
 }
