@@ -32,20 +32,6 @@ func idToString(id any) string {
 	}
 }
 
-// entityDSLBasePath returns the production filesystem path where entity DSL YAML files
-// for the given microservice are stored, relative to the service's working directory.
-// Structure: ./prod/ui/entities/<ms-id>/
-func entityDSLBasePath(msId string) string {
-	return filepath.Join("prod", "entities", msId)
-}
-
-// devEntityDSLBasePath returns the per-user debug overlay path, relative to the
-// service's working directory.
-// Structure: ./dev/<user-id>/ui/entities/<ms-id>/
-func devEntityDSLBasePath(userID, msId string) string {
-	return filepath.Join("dev", userID, "entities", msId)
-}
-
 // Singleton instance and initialization sync
 var (
 	endorServiceRepositoryInstance *EndorHandlerRepository
@@ -66,17 +52,13 @@ func GetEndorHandlerRepository() *EndorHandlerRepository {
 // entity definitions and installs an fsnotify watcher on ./prod/ with a 1-second debounce.
 func InitEndorHandlerRepository(microServiceId string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
 	endorServiceRepositoryOnce.Do(func() {
-		relDSLPath := entityDSLBasePath(microServiceId)
-		absDSLPath, _ := filepath.Abs(relDSLPath)
-		// prodDSLRoot is 3 levels above entityDSLPath: prod/ui/entities/<ms> → prod
-		absProdRoot, _ := filepath.Abs(filepath.Join(relDSLPath, "..", "..", ".."))
+		absProdRoot, _ := filepath.Abs("prod")
 		endorServiceRepositoryInstance = &EndorHandlerRepository{
 			microServiceId:        microServiceId,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
 			mu:                    &sync.RWMutex{},
-			entityDSLPath:         absDSLPath,
-			prodDSLRoot:           absProdRoot,
+			prodDAO:               &sdk.DSLDAO{BasePath: absProdRoot},
 			ephemeralCache:        newEphemeralCacheManager(),
 		}
 		if err := endorServiceRepositoryInstance.startEntityWatcher(); err != nil {
@@ -96,10 +78,8 @@ func NewEndorHandlerRepository(microServiceId string, internalEndorHandlers *[]s
 type EndorHandlerRepository struct {
 	microServiceId        string
 	internalEndorHandlers *[]sdk.EndorHandlerInterface
-	// entityDSLPath is the absolute path to ./prod/ui/entities/<ms-id>/
-	entityDSLPath string
-	// prodDSLRoot is the absolute path to ./prod/ – the root watched by fsnotify.
-	prodDSLRoot      string
+	// prodDAO is scoped to ./prod/ and used to read production entity DSL files.
+	prodDAO          *sdk.DSLDAO
 	logger           *sdk.Logger
 	mu               *sync.RWMutex
 	cachedDictionary map[string]EndorHandlerDictionary
@@ -401,11 +381,7 @@ type entityDSLFile struct {
 // as EntityInterface instances. Each file in the entity DSL path represents one entity;
 // the filename (without extension) is used as the entity ID.
 func (h *EndorHandlerRepository) DynamicEntityList() ([]sdk.EntityInterface, error) {
-	if h.entityDSLPath == "" {
-		return nil, nil
-	}
-
-	entries, err := os.ReadDir(h.entityDSLPath)
+	entityIDs, err := h.prodDAO.ListAllEntities(h.microServiceId)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -415,22 +391,16 @@ func (h *EndorHandlerRepository) DynamicEntityList() ([]sdk.EntityInterface, err
 
 	var entities []sdk.EntityInterface
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		entityID := strings.TrimSuffix(name, filepath.Ext(name))
-
-		data, err := os.ReadFile(filepath.Join(h.entityDSLPath, name))
+	for _, entityID := range entityIDs {
+		content, err := h.prodDAO.ReadEntity(h.microServiceId, entityID)
 		if err != nil {
-			h.logger.Warn(fmt.Sprintf("unable to read entity DSL file %s: %s", name, err.Error()))
+			h.logger.Warn(fmt.Sprintf("unable to read entity DSL file %s: %s", entityID, err.Error()))
 			continue
 		}
 
 		var def entityDSLFile
-		if err := yaml.Unmarshal(data, &def); err != nil {
-			h.logger.Warn(fmt.Sprintf("unable to parse entity DSL file %s: %s", name, err.Error()))
+		if err := yaml.Unmarshal([]byte(content), &def); err != nil {
+			h.logger.Warn(fmt.Sprintf("unable to parse entity DSL file %s: %s", entityID, err.Error()))
 			continue
 		}
 
@@ -457,7 +427,7 @@ func (h *EndorHandlerRepository) DynamicEntityList() ([]sdk.EntityInterface, err
 				AdditionalCategories: def.AdditionalCategories,
 			})
 		default:
-			h.logger.Warn(fmt.Sprintf("unknown entity type %q in DSL file %s", def.Type, name))
+			h.logger.Warn(fmt.Sprintf("unknown entity type %q in DSL file %s", def.Type, entityID))
 		}
 	}
 
@@ -575,8 +545,8 @@ func (h *EndorHandlerRepository) startEntityWatcher() error {
 		return err
 	}
 
-	// Start watching from prodDSLRoot; walk up to find the deepest existing ancestor.
-	watchRoot := h.prodDSLRoot
+	// Start watching from prodDAO.BasePath; walk up to find the deepest existing ancestor.
+	watchRoot := h.prodDAO.BasePath
 	for {
 		if _, err := os.Stat(watchRoot); err == nil {
 			break
@@ -584,7 +554,7 @@ func (h *EndorHandlerRepository) startEntityWatcher() error {
 		parent := filepath.Dir(watchRoot)
 		if parent == watchRoot {
 			watcher.Close()
-			return fmt.Errorf("no existing ancestor directory found for %s", h.prodDSLRoot)
+			return fmt.Errorf("no existing ancestor directory found for %s", h.prodDAO.BasePath)
 		}
 		watchRoot = parent
 	}
@@ -610,7 +580,7 @@ func (h *EndorHandlerRepository) startEntityWatcher() error {
 
 				// Progressively watch newly-created sub-directories within the prod tree.
 				if event.Has(fsnotify.Create) {
-					if isAncestorOrEqual(h.prodDSLRoot, event.Name) {
+					if isAncestorOrEqual(h.prodDAO.BasePath, event.Name) {
 						if info, statErr := os.Stat(event.Name); statErr == nil && info.IsDir() {
 							_ = watcher.Add(event.Name)
 						}
@@ -618,7 +588,7 @@ func (h *EndorHandlerRepository) startEntityWatcher() error {
 				}
 
 				// Only react to events inside the prod tree.
-				if !isAncestorOrEqual(h.prodDSLRoot, event.Name) {
+				if !isAncestorOrEqual(h.prodDAO.BasePath, event.Name) {
 					continue
 				}
 
@@ -685,7 +655,7 @@ func (h *EndorHandlerRepository) Resolve(session sdk.Session) (map[string]EndorH
 	// Slow path: build the overlay and populate the cache.
 	devDict, err := h.buildDevDictionary(userID)
 	if err != nil {
-		h.logger.Warn(fmt.Sprintf("[debug][user=%s] failed to build ephemeral registry, falling back to prod: %s", userID, err.Error()))
+		h.logger.Warn(fmt.Sprintf("failed to build ephemeral registry, falling back to prod: %s", err.Error()))
 		return h.DictionaryMap()
 	}
 	h.ephemeralCache.Set(userID, devDict)
@@ -747,33 +717,27 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 		devDict[k] = v
 	}
 
-	devPath := devEntityDSLBasePath(userID, h.microServiceId)
-	entries, err := os.ReadDir(devPath)
+	devDAO := sdk.NewDSLDAO(userID, true)
+	entityIDs, err := devDAO.ListAllEntities(h.microServiceId)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return devDict, nil
 		}
 		// Non-fatal I/O error: log and return the production clone as-is.
-		h.logger.Warn(fmt.Sprintf("[debug][user=%s] unable to read dev entity dir %s: %s", userID, devPath, err.Error()))
+		h.logger.Warn(fmt.Sprintf("unable to read dev entity dir", err.Error()))
 		return devDict, nil
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		entityID := strings.TrimSuffix(name, filepath.Ext(name))
-
-		data, err := os.ReadFile(filepath.Join(devPath, name))
+	for _, entityID := range entityIDs {
+		content, err := devDAO.ReadEntity(h.microServiceId, entityID)
 		if err != nil {
-			h.logger.Warn(fmt.Sprintf("[debug][user=%s] unable to read dev entity DSL %s: %s", userID, name, err.Error()))
+			h.logger.Warn(fmt.Sprintf("unable to read dev entity DSL %s: %s", entityID, err.Error()))
 			continue
 		}
 
 		var def entityDSLFile
-		if err := yaml.Unmarshal(data, &def); err != nil {
-			h.logger.Warn(fmt.Sprintf("[debug][user=%s] corrupt dev entity DSL %s, keeping prod version: %s", userID, name, err.Error()))
+		if err := yaml.Unmarshal([]byte(content), &def); err != nil {
+			h.logger.Warn(fmt.Sprintf("corrupt dev entity DSL, keeping prod version: %s", entityID, err.Error()))
 			continue // resilient fallback: production entry (if any) remains
 		}
 
@@ -801,7 +765,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 				AdditionalCategories: def.AdditionalCategories,
 			}
 		default:
-			h.logger.Warn(fmt.Sprintf("[debug][user=%s] unknown entity type %q in dev DSL %s", userID, def.Type, name))
+			h.logger.Warn(fmt.Sprintf("unknown entity type %q in dev DSL %s", def.Type, entityID))
 			continue
 		}
 
@@ -817,7 +781,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 				if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
 					definition, err := entityHybrid.UnmarshalAdditionalAttributes()
 					if err != nil {
-						h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for hybrid %s: %s", userID, entityID, err.Error()))
+						h.logger.Warn(fmt.Sprintf("unmarshal error for hybrid %s: %s", entityID, err.Error()))
 						continue
 					}
 					handlerDict.EndorHandler = hybridInst.ToEndorHandler(*definition)
@@ -834,7 +798,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 				if specInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridSpecializedHandlerInterface); ok {
 					definition, err := entitySpec.UnmarshalAdditionalAttributes()
 					if err != nil {
-						h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for specialized %s: %s", userID, entityID, err.Error()))
+						h.logger.Warn(fmt.Sprintf("unmarshal error for specialized %s: %s", entityID, err.Error()))
 						continue
 					}
 					cats := []sdk.EndorHybridSpecializedHandlerCategoryInterface{}
@@ -843,7 +807,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 						cats = append(cats, NewEndorHybridSpecializedHandlerCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 						catSchema, err := c.UnmarshalAdditionalAttributes()
 						if err != nil {
-							h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for category %s/%s: %s", userID, entityID, c.ID, err.Error()))
+							h.logger.Warn(fmt.Sprintf("unmarshal error for category %s/%s: %s", entityID, c.ID, err.Error()))
 						} else {
 							catsSchema[c.ID] = *catSchema
 						}
@@ -863,7 +827,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 			if entityHybrid, ok := devEntity.(*sdk.EntityHybrid); ok {
 				definition, err := entityHybrid.UnmarshalAdditionalAttributes()
 				if err != nil {
-					h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for new hybrid %s: %s", userID, entityID, err.Error()))
+					h.logger.Warn(fmt.Sprintf("unmarshal error for new hybrid %s: %s", entityID, err.Error()))
 					continue
 				}
 				schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
@@ -876,7 +840,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 			} else if entitySpec, ok := devEntity.(*sdk.EntityHybridSpecialized); ok {
 				definition, err := entitySpec.UnmarshalAdditionalAttributes()
 				if err != nil {
-					h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for new specialized %s: %s", userID, entityID, err.Error()))
+					h.logger.Warn(fmt.Sprintf("unmarshal error for new specialized %s: %s", entityID, err.Error()))
 					continue
 				}
 				cats := []sdk.EndorHybridSpecializedHandlerCategoryInterface{}
@@ -885,7 +849,7 @@ func (h *EndorHandlerRepository) buildDevDictionary(userID string) (map[string]E
 					cats = append(cats, NewEndorHybridSpecializedHandlerCategory[*sdk.DynamicEntitySpecialized](c.ID, c.Description))
 					catSchema, err := c.UnmarshalAdditionalAttributes()
 					if err != nil {
-						h.logger.Warn(fmt.Sprintf("[debug][user=%s] unmarshal error for category %s/%s: %s", userID, entityID, c.ID, err.Error()))
+						h.logger.Warn(fmt.Sprintf("unmarshal error for category %s/%s: %s", entityID, c.ID, err.Error()))
 					} else {
 						catsSchema[c.ID] = *catSchema
 					}
