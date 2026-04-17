@@ -127,7 +127,14 @@ func (h *Endor) Init(microserviceId string) {
 		if strings.HasPrefix(urlPath, "/api/") {
 			// actionId format: ms-id/version/entity/[category/]action
 			actionId := strings.TrimPrefix(urlPath, "/api/")
-			dict, err := EndorHandlerRepository.DictionaryActionInstance(sdk.ReadInstanceDTO{Id: actionId})
+			// Build the session here: single point of header parsing.
+			// Development=true activates the per-user ephemeral registry overlay.
+			session := sdk.Session{
+				Id:          c.GetHeader("x-user-session"),
+				Username:    c.GetHeader("x-user-id"),
+				Development: c.GetHeader("x-development") == "true",
+			}
+			dict, err := EndorHandlerRepository.DictionaryActionInstanceForSession(session, sdk.ReadInstanceDTO{Id: actionId})
 			if err == nil {
 				// segments: [0]=ms-id [1]=version [2]=entity [3+]=action parts
 				segments := strings.Split(actionId, "/")
@@ -139,7 +146,7 @@ func (h *Endor) Init(microserviceId string) {
 						category = segments[3]
 					}
 				}
-				dict.EndorHandlerAction.CreateHTTPCallback(microserviceId, entity, actionKey, category)(c)
+				dict.EndorHandlerAction.CreateHTTPCallback(microserviceId, entity, actionKey, category, session)(c)
 				return
 			}
 		}

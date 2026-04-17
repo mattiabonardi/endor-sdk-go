@@ -13,7 +13,7 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorHandlerActionInterface interface {
-	CreateHTTPCallback(microserviceId string, entity string, action string, category string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, entity string, action string, category string, session Session) func(c *gin.Context)
 	GetOptions() EndorHandlerActionOptions
 }
 
@@ -71,18 +71,8 @@ type endorHandlerActionImpl[T any, R any] struct {
 	options EndorHandlerActionOptions
 }
 
-func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string) func(c *gin.Context) {
+func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string, session Session) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		development := false
-		if c.GetHeader("x-development") == "true" {
-			development = true
-		}
-		session := Session{
-			Id:          c.GetHeader("x-user-session"),
-			Username:    c.GetHeader("x-user-id"),
-			Development: development,
-		}
-
 		// logger
 		configuration := sdk_configuration.GetConfig()
 		logger := NewLogger(LogConfig{
