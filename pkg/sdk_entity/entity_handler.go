@@ -140,7 +140,7 @@ func (h *EntityHandler) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[
 
 func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
 	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
-		entities, err := h.repository.List(&entityType)
+		entities, err := h.repository.List(c.Session, &entityType)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) 
 
 func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
 	return func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
-		entity, err := h.repository.Instance(&entityType, c.Payload)
+		entity, err := h.repository.Instance(c.Session, &entityType, c.Payload)
 		if err != nil {
 			return nil, err
 		}

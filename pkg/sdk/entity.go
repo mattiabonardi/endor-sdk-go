@@ -178,6 +178,6 @@ func (h *DynamicEntitySpecialized) SetCategoryType(categoryType string) {
 }
 
 type EntityRepositoryInterface interface {
-	List(*EntityType) ([]EntityInterface, error)
-	Instance(*EntityType, ReadInstanceDTO) (*EntityInterface, error)
+	List(session Session, entityType *EntityType) ([]EntityInterface, error)
+	Instance(session Session, entityType *EntityType, dto ReadInstanceDTO) (*EntityInterface, error)
 }

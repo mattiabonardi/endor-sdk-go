@@ -122,6 +122,8 @@ func (h *Endor) Init(microserviceId string) {
 		log.Fatal(err)
 	}
 
+	actionRepo := EndorHandlerRepository.ActionRepository()
+
 	router.NoRoute(func(c *gin.Context) {
 		urlPath := c.Request.URL.Path
 		if strings.HasPrefix(urlPath, "/api/") {
@@ -134,7 +136,7 @@ func (h *Endor) Init(microserviceId string) {
 				Username:    c.GetHeader("x-user-id"),
 				Development: c.GetHeader("x-development") == "true",
 			}
-			dict, err := EndorHandlerRepository.DictionaryActionInstanceForSession(session, sdk.ReadInstanceDTO{Id: actionId})
+			dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
 			if err == nil {
 				// segments: [0]=ms-id [1]=version [2]=entity [3+]=action parts
 				segments := strings.Split(actionId, "/")

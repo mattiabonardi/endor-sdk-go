@@ -6,7 +6,7 @@ toolchain go1.24.3
 
 require github.com/gin-gonic/gin v1.3.0
 
-require github.com/fsnotify/fsnotify v1.9.0 // indirect
+require github.com/fsnotify/fsnotify v1.9.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
