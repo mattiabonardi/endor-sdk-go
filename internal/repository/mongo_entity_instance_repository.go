@@ -43,7 +43,11 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 			schema: schema,
 		}
 	}
-	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(entityId)
+	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
+	if *options.Development == true && *options.UserId != "" {
+		dbName = *options.UserId + "-" + dbName
+	}
+	collection := client.Database(dbName).Collection(entityId)
 
 	return &MongoEntityInstanceRepository[T]{
 		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),

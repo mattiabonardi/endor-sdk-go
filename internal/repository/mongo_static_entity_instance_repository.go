@@ -249,6 +249,10 @@ func (r *MongoStaticEntityInstanceRepository[T]) getBaseRepository() *mongoBaseR
 		return r._base
 	}
 	client, _ := sdk.GetMongoClient()
-	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(r.entityId)
+	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
+	if *r.options.Development == true && *r.options.UserId != "" {
+		dbName = *r.options.UserId + "-" + dbName
+	}
+	collection := client.Database(dbName).Collection(r.entityId)
 	return newMongoBaseRepository[T](collection, *r.options.AutoGenerateID)
 }
