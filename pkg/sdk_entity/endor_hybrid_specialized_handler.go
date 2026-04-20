@@ -10,9 +10,10 @@ import (
 )
 
 type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
-	ID          string
-	Description string
-	ActionFn    func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
+	ID                string
+	Description       string
+	ActionFn          func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
+	repositoryFactory sdk.RepositoryFactory
 }
 
 func (h *EndorHybridSpecializedHandlerCategory[T]) GetID() string {
@@ -33,8 +34,19 @@ func (h *EndorHybridSpecializedHandlerCategory[T]) GetActions() func(getSchema f
 	return h.ActionFn
 }
 
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetRepository() sdk.RepositoryFactory {
+	return h.repositoryFactory
+}
+
 func (h *EndorHybridSpecializedHandlerCategory[T]) WithActions(actionFn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface) sdk.EndorHybridSpecializedHandlerCategoryInterface {
 	h.ActionFn = actionFn
+	return h
+}
+
+func (h *EndorHybridSpecializedHandlerCategory[T]) WithRepository(
+	fn sdk.RepositoryFactory,
+) sdk.EndorHybridSpecializedHandlerCategoryInterface {
+	h.repositoryFactory = fn
 	return h
 }
 
@@ -51,12 +63,13 @@ func NewEndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInt
 }
 
 type EndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struct {
-	Entity            string
-	EntityDescription string
-	Priority          *int
-	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
-	staticCategories  []string
-	categories        map[string]sdk.EndorHybridSpecializedHandlerCategoryInterface
+	Entity              string
+	EntityDescription   string
+	Priority            *int
+	methodsFn           func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
+	staticCategories    []string
+	categories          map[string]sdk.EndorHybridSpecializedHandlerCategoryInterface
+	repositoryFactories []sdk.RepositoryFactory
 }
 
 func (h EndorHybridSpecializedHandler[T]) GetEntity() string {
@@ -123,6 +136,16 @@ func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCate
 	return staticCategories
 }
 
+func (h EndorHybridSpecializedHandler[T]) WithRepository(
+	fn sdk.RepositoryFactory,
+) sdk.EndorHybridSpecializedHandlerInterface {
+	if h.repositoryFactories == nil {
+		h.repositoryFactories = []sdk.RepositoryFactory{}
+	}
+	h.repositoryFactories = append(h.repositoryFactories, fn)
+	return h
+}
+
 // create endor service instance
 func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorHandler {
 	var methods = make(map[string]sdk.EndorHandlerActionInterface)
@@ -148,10 +171,26 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 		maps.Copy(methods, h.methodsFn(getSchemaCallback))
 	}
 
+	repositoryFactories := []sdk.RepositoryFactory{}
+	masterRepositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+		autogenerateID := true
+		return NewEntityInstanceRepository[T](h.Entity, *rootSchemaWithMetadata, sdk.EntityInstanceRepositoryOptions{
+			AutoGenerateID: &autogenerateID,
+		}, container)
+	}
+	repositoryFactories = append(repositoryFactories, masterRepositoryFactory)
+
 	// check if categories are defined
 	if len(h.categories) > 0 {
 		// iterate over categories
 		for categoryID, category := range h.categories {
+			categoryRepositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+				autogenerateID := true
+				return NewEntityInstanceRepository[T](h.Entity, *rootSchemaWithMetadata, sdk.EntityInstanceRepositoryOptions{
+					AutoGenerateID: &autogenerateID,
+				}, container)
+			}
+			repositoryFactories = append(repositoryFactories, categoryRepositoryFactory)
 			// add default CRUD methods specified for category
 			categoryMethods := category.CreateDefaultActions(h.Entity, h.EntityDescription, metadataSchema, categoriesMetadataSchema[categoryID])
 			maps.Copy(methods, categoryMethods)
@@ -159,10 +198,11 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 	}
 
 	return sdk.EndorHandler{
-		Entity:            h.Entity,
-		EntityDescription: h.EntityDescription,
-		Priority:          h.Priority,
-		Actions:           methods,
+		Entity:              h.Entity,
+		EntityDescription:   h.EntityDescription,
+		Priority:            h.Priority,
+		Actions:             methods,
+		RepositoryFactories: h.repositoryFactories,
 	}
 }
 
@@ -183,13 +223,7 @@ func getCategorySchemaWithMetadata[T sdk.EntityInstanceSpecializedInterface](met
 }
 
 func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](entity string, schema sdk.RootSchema, entityDescription string, categoryID string) map[string]sdk.EndorHandlerActionInterface {
-	autogenerateID := true
-
-	repository := NewEntityInstanceRepository[T](
-		entity,
-		schema,
-		sdk.EntityInstanceRepositoryOptions{AutoGenerateID: &autogenerateID},
-	)
+	entityPath := entity + "/" + categoryID
 
 	return map[string]sdk.EndorHandlerActionInterface{
 		categoryID + "/schema": sdk.NewAction(
@@ -200,7 +234,7 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 		),
 		categoryID + "/list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-				return defaultListSpecialized(c, schema, repository)
+				return defaultListSpecialized[T](c, schema, entityPath)
 			},
 			fmt.Sprintf("Search for available list of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
@@ -217,12 +251,12 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 				},
 			},
 			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstanceSpecialized[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultCreateSpecialized(c, schema, repository, entity)
+				return defaultCreateSpecialized(c, schema, entityPath)
 			},
 		),
 		categoryID + "/instance": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-				return defaultInstanceSpecialized(c, schema, repository)
+				return defaultInstanceSpecialized[T](c, schema, entityPath)
 			},
 			fmt.Sprintf("Get the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
 		),
@@ -242,13 +276,13 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 				},
 			},
 			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultUpdateSpecialized(c, schema, repository, entity)
+				return defaultUpdateSpecialized(c, schema, entityPath)
 			},
 		),
 	}
 }
 
-func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
+func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, entityPath string) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 	categoryFilter := map[string]interface{}{"type": c.CategoryType}
 	if len(c.Payload.Filter) > 0 {
 		c.Payload.Filter = map[string]interface{}{
@@ -260,36 +294,36 @@ func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.End
 	} else {
 		c.Payload.Filter = categoryFilter
 	}
-	list, references, err := repository.ListWithReferences(context.TODO(), c.Payload)
+	list, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
-func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, entityPath string) (*sdk.Response[sdk.EntityInstance[T]], error) {
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	created, err := repository.Create(context.TODO(), sdk.CreateDTO[sdk.EntityInstance[T]]{
+	created, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).Create(context.TODO(), sdk.CreateDTO[sdk.EntityInstance[T]]{
 		Data: c.Payload.Data.EntityInstance,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.created_specialized", map[string]any{"name": entity, "id": created.GetID()}))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.created_specialized", map[string]any{"name": entityPath, "id": created.GetID()}))).Build(), nil
 }
 
-func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, references, err := repository.InstanceWithReferences(context.TODO(), c.Payload)
+func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, entityPath string) (*sdk.Response[*sdk.EntityInstance[T]], error) {
+	instance, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
-func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	updated, err := repository.Update(context.TODO(), c.Payload)
+func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, entityPath string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	updated, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.updated_category", map[string]any{"name": entity}))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.updated_category", map[string]any{"name": entityPath}))).Build(), nil
 }

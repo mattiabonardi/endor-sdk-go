@@ -11,16 +11,6 @@ type Session struct {
 	Development bool   `json:"development"`
 }
 
-// EndorDIContainerInterface is the dependency-injection contract exposed to handler code.
-// It provides type-safe access to registered repositories without creating a circular
-// dependency between the sdk and sdk_entity packages.
-// Use the generic helpers GetRepositoryFromContainer and GetHandlerFromContainer
-// (defined in sdk_entity) for compile-time type assertions.
-type EndorDIContainerInterface interface {
-	GetRepositoryByName(name string) (EndorRepositoryInterface, bool)
-	GetHandlerByName(name string) (EndorHandlerInterface, bool)
-}
-
 type EndorContext[T any] struct {
 	MicroServiceId string
 	Session        Session
@@ -30,7 +20,7 @@ type EndorContext[T any] struct {
 
 	// DIContainer gives handler code access to all registered handlers and repositories
 	// for the current session (production or per-user development overlay).
-	DIContainer EndorDIContainerInterface
+	DIContainer EndorDIContainer
 
 	GinContext *gin.Context
 	Logger     Logger

@@ -70,12 +70,21 @@ func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk
 		}
 	}
 
+	// define repository factory
+	repositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+		autogenerateID := true
+		return NewEntityInstanceRepository[T](h.Entity, *rootSchemWithMetadata, sdk.EntityInstanceRepositoryOptions{
+			AutoGenerateID: &autogenerateID,
+		}, container)
+	}
+
 	return sdk.EndorHandler{
-		Entity:            h.Entity,
-		EntityDescription: h.EntityDescription,
-		Priority:          h.Priority,
-		Actions:           methods,
-		EntitySchema:      *rootSchemWithMetadata,
+		Entity:              h.Entity,
+		EntityDescription:   h.EntityDescription,
+		Priority:            h.Priority,
+		Actions:             methods,
+		EntitySchema:        *rootSchemWithMetadata,
+		RepositoryFactories: []sdk.RepositoryFactory{repositoryFactory},
 	}
 }
 
@@ -94,14 +103,6 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 }
 
 func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorHandlerActionInterface {
-	// Crea repository usando DynamicEntity come default (per ora)
-	autogenerateID := true
-	repository := NewEntityInstanceRepository[T](entity, schema, sdk.EntityInstanceRepositoryOptions{
-		AutoGenerateID: &autogenerateID,
-	})
-	// save repository to registry
-	sdk.GetRepositoryRegistry().Register(entity, repository)
-
 	return map[string]sdk.EndorHandlerActionInterface{
 		"schema": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
@@ -111,13 +112,13 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 		),
 		"instance": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-				return defaultInstance(c, schema, repository)
+				return defaultInstance[T](c, schema, entity)
 			},
 			fmt.Sprintf("Get the instance of %s (%s)", entity, entityDescription),
 		),
 		"list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-				return defaultList(c, schema, repository)
+				return defaultList[T](c, schema, entity)
 			},
 			fmt.Sprintf("Search for available list of %s (%s)", entity, entityDescription),
 		),
@@ -134,7 +135,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 				},
 			},
 			func(c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultCreate(c, schema, repository, entity)
+				return defaultCreate(c, schema, entity)
 			},
 		),
 		"update": sdk.NewConfigurableAction(
@@ -153,12 +154,12 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 				},
 			},
 			func(c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]]) (*sdk.Response[sdk.EntityInstance[T]], error) {
-				return defaultUpdate(c, schema, repository, entity)
+				return defaultUpdate(c, schema, entity)
 			},
 		),
 		"delete": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
-				return defaultDelete(c, repository, entity)
+				return defaultDelete[T](c, entity)
 			},
 			fmt.Sprintf("Delete the existing instance of %s (%s)", entity, entityDescription),
 		),
@@ -169,40 +170,40 @@ func defaultSchema[T sdk.EntityInstanceInterface](_ *sdk.EndorContext[sdk.NoPayl
 	return sdk.NewResponseBuilder[any]().AddSchema(&schema).Build(), nil
 }
 
-func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, references, err := repository.InstanceWithReferences(context.TODO(), c.Payload)
+func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, entity string) (*sdk.Response[*sdk.EntityInstance[T]], error) {
+	instance, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[*sdk.EntityInstance[T]]().AddData(&instance).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
-func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, repository *EntityInstanceRepository[T]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-	list, references, err := repository.ListWithReferences(context.TODO(), c.Payload)
+func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, entity string) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
+	list, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[[]sdk.EntityInstance[T]]().AddData(&list).AddSchema(&schema).AddReferences(references).Build(), nil
 }
 
-func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	created, err := repository.Create(context.TODO(), c.Payload)
+func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	created, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.created", map[string]any{"id": entity}))).Build(), nil
 }
 
-func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, repository *EntityInstanceRepository[T], entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	updated, err := repository.Update(context.TODO(), c.Payload)
+func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	updated, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
 	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.updated", map[string]any{"id": entity}))).Build(), nil
 }
 
-func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], repository *EntityInstanceRepository[T], entity string) (*sdk.Response[any], error) {
-	err := repository.Delete(context.TODO(), c.Payload)
+func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], entity string) (*sdk.Response[any], error) {
+	err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}

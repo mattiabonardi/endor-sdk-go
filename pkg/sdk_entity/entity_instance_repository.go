@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -17,13 +18,15 @@ type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 
 // NewEntityInstanceRepository creates a new repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, schema sdk.RootSchema, options sdk.EntityInstanceRepositoryOptions) *EntityInstanceRepository[T] {
+func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, schema sdk.RootSchema, options sdk.EntityInstanceRepositoryOptions, di sdk.EndorDIContainer) *EntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
+	entity, _, _ := strings.Cut(entityId, "/")
+
 	return &EntityInstanceRepository[T]{
-		repository: repository.NewMongoEntityInstanceRepository[T](entityId, schema, options),
+		repository: repository.NewMongoEntityInstanceRepository[T](entity, schema, options, di),
 		entityId:   entityId,
 		schema:     schema,
 	}

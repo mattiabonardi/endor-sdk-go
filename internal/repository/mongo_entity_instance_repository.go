@@ -35,6 +35,7 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	schema sdk.RootSchema,
 	options sdk.EntityInstanceRepositoryOptions,
+	di sdk.EndorDIContainer,
 ) *MongoEntityInstanceRepository[T] {
 	client, err := sdk.GetMongoClient()
 	if client == nil || err != nil {
