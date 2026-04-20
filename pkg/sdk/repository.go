@@ -147,6 +147,18 @@ func (r *RepositoryRegistry) Get(name string) (EndorRepositoryInterface, bool) {
 	return repo, ok
 }
 
+// Snapshot returns a shallow copy of all currently registered repositories.
+// It is used by RegistryCore to populate DI containers at build time.
+func (r *RepositoryRegistry) Snapshot() map[string]EndorRepositoryInterface {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make(map[string]EndorRepositoryInterface, len(r.repositories))
+	for k, v := range r.repositories {
+		result[k] = v
+	}
+	return result
+}
+
 // DocumentRepositoryInterface extends EndorRepositoryInterface with the ability
 // to list raw documents as a slice of maps, enabling aggregation pipelines to
 // query any entity without knowing its concrete type at compile time.

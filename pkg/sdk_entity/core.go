@@ -62,21 +62,48 @@ type RegistryCore struct {
 	prodDAO          *sdk.DSLDAO
 	logger           *sdk.Logger
 	mu               *sync.RWMutex
-	cachedDictionary map[string]EndorHandlerDictionary
+	cachedDictionary map[string]EndorDIContainer
 	cacheInitialized bool
 	// ephemeralCache holds per-user ephemeral (debug) overlay registries.
 	ephemeralCache *EphemeralCacheManager
 }
 
-type EndorHandlerDictionary struct {
+// EndorDIContainer is the per-entity dependency injection container produced by RegistryCore.
+// It holds the entity's compiled handler, its entity metadata, and a snapshot of all
+// registered repositories available at container build time.
+// Use the generic helpers GetHandlerFromContainer and GetRepositoryFromContainer for
+// type-safe access from within action handlers.
+type EndorDIContainer struct {
 	OriginalInstance *sdk.EndorHandlerInterface
 	EndorHandler     sdk.EndorHandler
 	entity           sdk.EntityInterface
+	repositories     map[string]sdk.EndorRepositoryInterface
+}
+
+// GetRepositoryByName returns the repository registered under name.
+// Implements sdk.EndorDIContainerInterface.
+func (c *EndorDIContainer) GetRepositoryByName(name string) (sdk.EndorRepositoryInterface, bool) {
+	repo, ok := c.repositories[name]
+	return repo, ok
+}
+
+// GetHandlerByName returns the original handler instance for the given entity name.
+// Implements sdk.EndorDIContainerInterface.
+func (c *EndorDIContainer) GetHandlerByName(name string) (sdk.EndorHandlerInterface, bool) {
+	if c.OriginalInstance != nil {
+		h := *c.OriginalInstance
+		if h.GetEntity() == name {
+			return h, true
+		}
+	}
+	return nil, false
 }
 
 type EndorHandlerActionDictionary struct {
 	EndorHandlerAction sdk.EndorHandlerActionInterface
 	entityAction       sdk.EntityAction
+	// Container is the DI container for the entity that owns this action.
+	Container EndorDIContainer
 }
 
 // entityDSLFile is the YAML structure used to deserialize entity definition files from the DSL.
@@ -97,7 +124,7 @@ type entityDSLFile struct {
 //
 // On any error building the ephemeral overlay the method falls back to the production
 // dictionary and logs a warning.
-func (c *RegistryCore) Dictionary(session sdk.Session) (map[string]EndorHandlerDictionary, error) {
+func (c *RegistryCore) Dictionary(session sdk.Session) (map[string]EndorDIContainer, error) {
 	if !session.Development {
 		return c.dictionaryMap()
 	}
@@ -123,7 +150,7 @@ func (c *RegistryCore) Dictionary(session sdk.Session) (map[string]EndorHandlerD
 }
 
 // DictionaryInstance resolves a single registry entry by ID for the given session.
-func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInstanceDTO) (*EndorHandlerDictionary, error) {
+func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInstanceDTO) (*EndorDIContainer, error) {
 	dict, err := c.Dictionary(session)
 	if err != nil {
 		return nil, err
@@ -204,16 +231,58 @@ func (c *RegistryCore) Sync() {
 
 // #endregion
 
+// #region DI Container helpers
+
+// GetHandlerFromContainer returns the entity's compiled handler instance cast to T.
+// Use this from within action handlers to access the strongly-typed handler stored in
+// the DI container attached to EndorContext.
+//
+// Example:
+//
+//	h, ok := sdk_entity.GetHandlerFromContainer[*MyHandler](ec.DIContainer)
+func GetHandlerFromContainer[T sdk.EndorHandlerInterface](c sdk.EndorDIContainerInterface) (T, bool) {
+	container, ok := c.(*EndorDIContainer)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	if container.OriginalInstance == nil {
+		var zero T
+		return zero, false
+	}
+	typed, ok := (*container.OriginalInstance).(T)
+	return typed, ok
+}
+
+// GetRepositoryFromContainer returns the repository registered under name, cast to T.
+// Use this from within action handlers to obtain a strongly-typed repository from
+// the DI container attached to EndorContext.
+//
+// Example:
+//
+//	repo, ok := sdk_entity.GetRepositoryFromContainer[MyRepositoryInterface](ec.DIContainer, "myEntity")
+func GetRepositoryFromContainer[T sdk.EndorRepositoryInterface](c sdk.EndorDIContainerInterface, name string) (T, bool) {
+	repo, ok := c.GetRepositoryByName(name)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	typed, ok := repo.(T)
+	return typed, ok
+}
+
+// #endregion
+
 // #region Internal machinery
 
 // dictionaryMap builds (and caches) the production handler dictionary from compiled handlers
 // and DSL-defined dynamic/hybrid entities.
-func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error) {
+func (c *RegistryCore) dictionaryMap() (map[string]EndorDIContainer, error) {
 	// Check cache first with read lock
 	c.mu.RLock()
 	if c.cacheInitialized {
 		// Return a copy of the cached dictionary to prevent external modifications
-		result := make(map[string]EndorHandlerDictionary, len(c.cachedDictionary))
+		result := make(map[string]EndorDIContainer, len(c.cachedDictionary))
 		for k, v := range c.cachedDictionary {
 			result[k] = v
 		}
@@ -229,14 +298,14 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error
 	// Double-check after acquiring write lock
 	if c.cacheInitialized {
 		// Return a copy of the cached dictionary
-		result := make(map[string]EndorHandlerDictionary, len(c.cachedDictionary))
+		result := make(map[string]EndorDIContainer, len(c.cachedDictionary))
 		for k, v := range c.cachedDictionary {
 			result[k] = v
 		}
 		return result, nil
 	}
 
-	entities := map[string]EndorHandlerDictionary{}
+	entities := map[string]EndorDIContainer{}
 
 	// internal EndorHandlers
 	if c.internalEndorHandlers != nil {
@@ -298,7 +367,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error
 				}
 			}
 
-			entities[internalEndorHandler.GetEntity()] = EndorHandlerDictionary{
+			entities[internalEndorHandler.GetEntity()] = EndorDIContainer{
 				OriginalInstance: &internalEndorHandler,
 				EndorHandler:     endorService,
 				entity:           entity,
@@ -310,7 +379,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error
 	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
 		dynamicEntities, err := c.DynamicEntityList()
 		if err != nil {
-			return map[string]EndorHandlerDictionary{}, nil
+			return map[string]EndorDIContainer{}, nil
 		}
 
 		for _, entity := range dynamicEntities {
@@ -365,7 +434,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error
 					hybridService := NewEndorHybridHandler[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
 					schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
 					entityHybrid.Schema = schema
-					entities[entityHybrid.ID] = EndorHandlerDictionary{
+					entities[entityHybrid.ID] = EndorDIContainer{
 						EndorHandler: hybridService.ToEndorHandler(*defintion),
 						entity:       entityHybrid,
 					}
@@ -388,13 +457,20 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorHandlerDictionary, error
 					hybridService := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](entitySpecialized.ID, entitySpecialized.Description).WithHybridCategories(categories)
 					schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
 					entitySpecialized.Schema = schema
-					entities[entitySpecialized.ID] = EndorHandlerDictionary{
+					entities[entitySpecialized.ID] = EndorDIContainer{
 						EndorHandler: hybridService.ToEndorHandler(*defintion, categoriesAdditionalSchema, entitySpecialized.AdditionalCategories),
 						entity:       entitySpecialized,
 					}
 				}
 			}
 		}
+	}
+
+	// Snapshot repositories from the global registry and inject them into each container.
+	repoSnapshot := sdk.GetRepositoryRegistry().Snapshot()
+	for entityID, entry := range entities {
+		entry.repositories = repoSnapshot
+		entities[entityID] = entry
 	}
 
 	// Cache the result
@@ -552,7 +628,7 @@ func isAncestorOrEqual(candidate, target string) bool {
 //  2. Scan ./dev/<userID>/ui/entities/<ms-id>/ for YAML files.
 //  3. For each valid file, override (or add) the corresponding entity in the clone.
 //  4. Corrupt/unreadable dev YAML files are skipped; the production entry (if any) is preserved.
-func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandlerDictionary, error) {
+func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorDIContainer, error) {
 	// Build (and cache) the production dict first.
 	mainDict, err := c.dictionaryMap()
 	if err != nil {
@@ -560,7 +636,7 @@ func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandle
 	}
 
 	// Shallow clone: struct-value copy, no production map is mutated.
-	devDict := make(map[string]EndorHandlerDictionary, len(mainDict))
+	devDict := make(map[string]EndorDIContainer, len(mainDict))
 	for k, v := range mainDict {
 		devDict[k] = v
 	}
@@ -618,7 +694,7 @@ func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandle
 
 		existing, existsInProd := devDict[entityID]
 
-		var handlerDict EndorHandlerDictionary
+		var handlerDict EndorDIContainer
 
 		if existsInProd && existing.OriginalInstance != nil {
 			// Override: re-merge dev DSL with the original compiled handler.
@@ -669,6 +745,7 @@ func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandle
 			}
 		} else {
 			// New dev entity (not in prod) or prod entry has no compiled handler.
+			repoSnapshot := sdk.GetRepositoryRegistry().Snapshot()
 			if entityHybrid, ok := devEntity.(*sdk.EntityHybrid); ok {
 				definition, err := entityHybrid.UnmarshalAdditionalAttributes()
 				if err != nil {
@@ -678,9 +755,10 @@ func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandle
 				schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
 				entityHybrid.Schema = schema
 				hybridSvc := NewEndorHybridHandler[*sdk.DynamicEntity](entityHybrid.ID, entityHybrid.Description)
-				handlerDict = EndorHandlerDictionary{
+				handlerDict = EndorDIContainer{
 					EndorHandler: hybridSvc.ToEndorHandler(*definition),
 					entity:       entityHybrid,
+					repositories: repoSnapshot,
 				}
 			} else if entitySpec, ok := devEntity.(*sdk.EntityHybridSpecialized); ok {
 				definition, err := entitySpec.UnmarshalAdditionalAttributes()
@@ -702,9 +780,10 @@ func (c *RegistryCore) buildDevDictionary(userID string) (map[string]EndorHandle
 				schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
 				entitySpec.Schema = schema
 				hybridSvc := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](entitySpec.ID, entitySpec.Description).WithHybridCategories(cats)
-				handlerDict = EndorHandlerDictionary{
+				handlerDict = EndorDIContainer{
 					EndorHandler: hybridSvc.ToEndorHandler(*definition, catsSchema, entitySpec.AdditionalCategories),
 					entity:       entitySpec,
+					repositories: repoSnapshot,
 				}
 			} else {
 				continue

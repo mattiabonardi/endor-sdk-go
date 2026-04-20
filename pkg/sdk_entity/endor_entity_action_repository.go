@@ -26,10 +26,12 @@ func (r *EndorHandlerActionRepository) DictionaryActionMap(session sdk.Session) 
 		return nil, err
 	}
 	actions := make(map[string]EndorHandlerActionDictionary)
-	for entityName, entity := range dict {
-		for actionName, endorHandlerAction := range entity.EndorHandler.Actions {
-			action, err := r.core.createAction(entityName, entity.EndorHandler.Version, actionName, endorHandlerAction)
+	for entityName, entityContainer := range dict {
+		containerCopy := entityContainer
+		for actionName, endorHandlerAction := range entityContainer.EndorHandler.Actions {
+			action, err := r.core.createAction(entityName, entityContainer.EndorHandler.Version, actionName, endorHandlerAction)
 			if err == nil {
+				action.Container = containerCopy
 				actions[action.entityAction.ID] = *action
 			}
 		}

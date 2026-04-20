@@ -13,7 +13,7 @@ import (
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorHandlerActionInterface interface {
-	CreateHTTPCallback(microserviceId string, entity string, action string, category string, session Session) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, entity string, action string, category string, session Session, container EndorDIContainerInterface) func(c *gin.Context)
 	GetOptions() EndorHandlerActionOptions
 }
 
@@ -71,7 +71,7 @@ type endorHandlerActionImpl[T any, R any] struct {
 	options EndorHandlerActionOptions
 }
 
-func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string, session Session) func(c *gin.Context) {
+func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string, session Session, container EndorDIContainerInterface) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		// logger
 		configuration := sdk_configuration.GetConfig()
@@ -94,6 +94,7 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			GinContext:     c,
 			Logger:         *logger,
 			CategoryType:   categoryType,
+			DIContainer:    container,
 		}
 		var t T
 		if !m.options.SkipPayloadValidation && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {

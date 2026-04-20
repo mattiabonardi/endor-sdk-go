@@ -148,7 +148,7 @@ func (h *Endor) Init(microserviceId string) {
 						category = segments[3]
 					}
 				}
-				dict.EndorHandlerAction.CreateHTTPCallback(microserviceId, entity, actionKey, category, session)(c)
+				dict.EndorHandlerAction.CreateHTTPCallback(microserviceId, entity, actionKey, category, session, &dict.Container)(c)
 				return
 			}
 		}
