@@ -171,7 +171,11 @@ func defaultSchema[T sdk.EntityInstanceInterface](_ *sdk.EndorContext[sdk.NoPayl
 }
 
 func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, entity string) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).InstanceWithReferences(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entity)
+	if err != nil {
+		return nil, err
+	}
+	instance, references, err := repo.InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +183,11 @@ func defaultInstance[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Read
 }
 
 func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, entity string) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
-	list, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).ListWithReferences(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entity)
+	if err != nil {
+		return nil, err
+	}
+	list, references, err := repo.ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +195,11 @@ func defaultList[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadDTO]
 }
 
 func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstance[T]]], schema sdk.RootSchema, entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	created, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Create(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entity)
+	if err != nil {
+		return nil, err
+	}
+	created, err := repo.Create(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +207,11 @@ func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Create
 }
 
 func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	updated, err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Update(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entity)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := repo.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +219,11 @@ func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Update
 }
 
 func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], entity string) (*sdk.Response[any], error) {
-	err := sdk.GetDynamicRepository[T](c.DIContainer, entity).Delete(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entity)
+	if err != nil {
+		return nil, err
+	}
+	err = repo.Delete(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}

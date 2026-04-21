@@ -81,7 +81,6 @@ type EndorEntityDictionary struct {
 }
 
 // GetRepositoryByName returns the repository registered under name.
-// Implements sdk.EndorDIContainerInterface.
 func (c *EndorEntityDictionary) GetRepository(entityId string) (sdk.EndorRepositoryInterface, bool) {
 	repo, ok := c.repositories[entityId]
 	return repo, ok
@@ -215,48 +214,6 @@ func (c *RegistryCore) Sync() {
 	c.cachedDictionary = nil
 	c.mu.Unlock()
 	c.ephemeralCache.InvalidateAll()
-}
-
-// #endregion
-
-// #region DI Container helpers
-
-// GetHandlerFromContainer returns the entity's compiled handler instance cast to T.
-// Use this from within action handlers to access the strongly-typed handler stored in
-// the DI container attached to EndorContext.
-//
-// Example:
-//
-//	h, ok := sdk_entity.GetHandlerFromContainer[*MyHandler](ec.DIContainer)
-func GetHandlerFromContainer[T sdk.EndorHandlerInterface](c sdk.EndorDIContainerInterface) (T, bool) {
-	container, ok := c.(*EndorEntityDictionary)
-	if !ok {
-		var zero T
-		return zero, false
-	}
-	if container.OriginalInstance == nil {
-		var zero T
-		return zero, false
-	}
-	typed, ok := (*container.OriginalInstance).(T)
-	return typed, ok
-}
-
-// GetRepositoryFromContainer returns the repository registered under name, cast to T.
-// Use this from within action handlers to obtain a strongly-typed repository from
-// the DI container attached to EndorContext.
-//
-// Example:
-//
-//	repo, ok := sdk_entity.GetRepositoryFromContainer[MyRepositoryInterface](ec.DIContainer, "myEntity")
-func GetRepositoryFromContainer[T sdk.EndorRepositoryInterface](c sdk.EndorDIContainerInterface, name string) (T, bool) {
-	repo, ok := c.GetRepository(name)
-	if !ok {
-		var zero T
-		return zero, false
-	}
-	typed, ok := repo.(T)
-	return typed, ok
 }
 
 // #endregion

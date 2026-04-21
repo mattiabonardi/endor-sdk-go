@@ -28,6 +28,7 @@ type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	base     *mongoBaseRepository[T]
 	entityId string
 	schema   sdk.RootSchema
+	di       sdk.EndorDIContainer
 }
 
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
@@ -42,6 +43,7 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 		return &MongoEntityInstanceRepository[T]{
 			base:   nil,
 			schema: schema,
+			di:     di,
 		}
 	}
 	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
@@ -54,11 +56,16 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 		base:     newMongoBaseRepository[T](collection, *options.AutoGenerateID),
 		entityId: entityId,
 		schema:   schema,
+		di:       di,
 	}
 }
 
 func (r *MongoEntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
+}
+
+func (r *MongoEntityInstanceRepository[T]) GetSchema() *sdk.RootSchema {
+	return &r.schema
 }
 
 // Instance retrieves a single entity by ID.
@@ -71,9 +78,8 @@ func (r *MongoEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk
 	return r.toEntityInstance(rawDoc)
 }
 
-// List retrieves entities matching the filter.
-func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
-	// Filter and projection work directly since all fields are at root level
+func (r *MongoEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+	// For static entities, filter and projection are used directly (no metadata separation)
 	var filter bson.M
 	if dto.Filter != nil {
 		filter = cloneBsonM(dto.Filter)
@@ -85,6 +91,16 @@ func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.Rea
 	}
 
 	rawDocs, err := r.base.Find(ctx, filter, projection)
+	if err != nil {
+		return nil, err
+	}
+
+	return rawDocs, nil
+}
+
+// List retrieves entities matching the filter.
+func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
+	rawDocs, err := r.RawList(ctx, dto)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +184,7 @@ func (r *MongoEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Co
 	}
 
 	entityIDs := extractEntityReferenceIDsFromDoc(&r.schema, rawDoc)
-	references, err := resolveEntityReferences(ctx, entityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, entityIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -182,17 +198,7 @@ func (r *MongoEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Co
 }
 
 func (r *MongoEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
-	var filter bson.M
-	if dto.Filter != nil {
-		filter = cloneBsonM(dto.Filter)
-	}
-
-	var projection bson.M
-	if dto.Projection != nil {
-		projection = cloneBsonM(dto.Projection)
-	}
-
-	rawDocs, err := r.base.Find(ctx, filter, projection)
+	rawDocs, err := r.RawList(ctx, dto)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +210,7 @@ func (r *MongoEntityInstanceRepository[T]) ListWithReferences(ctx context.Contex
 		}
 	}
 
-	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, allEntityIDs)
 	if err != nil {
 		return nil, nil, err
 	}

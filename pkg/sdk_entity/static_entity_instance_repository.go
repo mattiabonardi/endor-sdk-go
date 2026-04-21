@@ -2,11 +2,10 @@ package sdk_entity
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // StaticEntityInstanceRepository provides a repository implementation that works directly
@@ -19,19 +18,23 @@ type StaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 
 // NewStaticEntityInstanceRepository creates a new static repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions[T]) *StaticEntityInstanceRepository[T] {
+func NewStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, options sdk.StaticEntityInstanceRepositoryOptions[T], di sdk.EndorDIContainer) *StaticEntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
 	}
 	return &StaticEntityInstanceRepository[T]{
-		repository: repository.NewMongoStaticEntityInstanceRepository(entityId, options),
+		repository: repository.NewMongoStaticEntityInstanceRepository(entityId, options, di),
 		entityId:   entityId,
 	}
 }
 
 func (r *StaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (T, error) {
 	return r.repository.Instance(ctx, dto)
+}
+
+func (r *StaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+	return r.repository.RawList(ctx, dto)
 }
 
 func (r *StaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
@@ -69,24 +72,4 @@ func (r *StaticEntityInstanceRepository[T]) InstanceWithReferences(ctx context.C
 
 func (r *StaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
 	return r.repository.ListWithReferences(ctx, dto)
-}
-
-func (r *StaticEntityInstanceRepository[T]) ListDocuments(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
-	items, err := r.repository.List(ctx, dto)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]map[string]interface{}, 0, len(items))
-	for _, item := range items {
-		data, err := json.Marshal(item)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal entity instance: %w", err)
-		}
-		var doc map[string]interface{}
-		if err := json.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal entity instance: %w", err)
-		}
-		result = append(result, doc)
-	}
-	return result, nil
 }

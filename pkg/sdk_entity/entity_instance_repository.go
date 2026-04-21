@@ -2,12 +2,11 @@ package sdk_entity
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
@@ -34,6 +33,10 @@ func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string,
 
 func (r *EntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.ReadInstanceDTO) (*sdk.EntityInstance[T], error) {
 	return r.repository.Instance(ctx, dto)
+}
+
+func (r *EntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+	return r.repository.RawList(ctx, dto)
 }
 
 func (r *EntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
@@ -70,24 +73,4 @@ func (r *EntityInstanceRepository[T]) InstanceWithReferences(ctx context.Context
 
 func (r *EntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
 	return r.repository.ListWithReferences(ctx, dto)
-}
-
-func (r *EntityInstanceRepository[T]) ListDocuments(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
-	items, err := r.repository.List(ctx, dto)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]map[string]interface{}, 0, len(items))
-	for _, item := range items {
-		data, err := json.Marshal(item)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal entity instance: %w", err)
-		}
-		var doc map[string]interface{}
-		if err := json.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal entity instance: %w", err)
-		}
-		result = append(result, doc)
-	}
-	return result, nil
 }

@@ -283,6 +283,10 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 }
 
 func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadDTO], schema sdk.RootSchema, entityPath string) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath)
+	if err != nil {
+		return nil, err
+	}
 	categoryFilter := map[string]interface{}{"type": c.CategoryType}
 	if len(c.Payload.Filter) > 0 {
 		c.Payload.Filter = map[string]interface{}{
@@ -294,7 +298,7 @@ func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.End
 	} else {
 		c.Payload.Filter = categoryFilter
 	}
-	list, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).ListWithReferences(context.TODO(), c.Payload)
+	list, references, err := repo.ListWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +306,12 @@ func defaultListSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.End
 }
 
 func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.CreateDTO[sdk.EntityInstanceSpecialized[T]]], schema sdk.RootSchema, entityPath string) (*sdk.Response[sdk.EntityInstance[T]], error) {
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath)
+	if err != nil {
+		return nil, err
+	}
 	c.Payload.Data.SetCategoryType(c.CategoryType)
-	created, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).Create(context.TODO(), sdk.CreateDTO[sdk.EntityInstance[T]]{
+	created, err := repo.Create(context.TODO(), sdk.CreateDTO[sdk.EntityInstance[T]]{
 		Data: c.Payload.Data.EntityInstance,
 	})
 	if err != nil {
@@ -313,7 +321,11 @@ func defaultCreateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.E
 }
 
 func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], schema sdk.RootSchema, entityPath string) (*sdk.Response[*sdk.EntityInstance[T]], error) {
-	instance, references, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).InstanceWithReferences(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath)
+	if err != nil {
+		return nil, err
+	}
+	instance, references, err := repo.InstanceWithReferences(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +333,11 @@ func defaultInstanceSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk
 }
 
 func defaultUpdateSpecialized[T sdk.EntityInstanceSpecializedInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, entityPath string) (*sdk.Response[sdk.EntityInstance[T]], error) {
-	updated, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath).Update(context.TODO(), c.Payload)
+	repo, err := sdk.GetDynamicRepository[T](c.DIContainer, entityPath)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := repo.Update(context.TODO(), c.Payload)
 	if err != nil {
 		return nil, err
 	}

@@ -39,7 +39,7 @@ func TestGroupBy_ByCustomer(t *testing.T) {
 		},
 	}
 
-	result, _, _, err := NewAggregationEngine().Execute(context.Background(), p)
+	result, _, _, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
 		},
 	}
 
-	result, schema, _, err := NewAggregationEngine().Execute(context.Background(), p)
+	result, schema, _, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestMergeResults(t *testing.T) {
 		},
 	}
 
-	result, schema, refs, err := NewAggregationEngine().Execute(context.Background(), p)
+	result, schema, refs, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 		},
 	}
 
-	engine := NewAggregationEngine(WithEntityStageHandler(handler))
+	engine := NewAggregationEngine(testDI, WithEntityStageHandler(handler))
 	result, _, _, err := engine.Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -394,7 +394,7 @@ func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 		},
 	}
 
-	engine := NewAggregationEngine(WithEntityStageHandler(handler))
+	engine := NewAggregationEngine(testDI, WithEntityStageHandler(handler))
 	result, _, _, err := engine.Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -470,7 +470,7 @@ func TestExecute_References(t *testing.T) {
 		},
 	}
 
-	result, schema, refs, err := NewAggregationEngine().Execute(context.Background(), p)
+	result, schema, refs, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -14,8 +14,6 @@ const aggregationEntityDescription = "Distributed aggregation pipeline over regi
 // entity and registers the "execute" action, which runs an AggregationPipeline
 // against the local RepositoryRegistry.
 func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
-	engine := NewAggregationEngine(opts...)
-
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
 		aggregationEntityDescription,
@@ -28,6 +26,7 @@ func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.En
 				InputSchema:           buildPipelineSchema(),
 			},
 			func(c *sdk.EndorContext[AggregationPipeline]) (*sdk.Response[[]map[string]interface{}], error) {
+				engine := NewAggregationEngine(c.DIContainer, opts...)
 				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {
 					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err)).WithTranslation("entities.aggregation.failed", nil)

@@ -26,23 +26,30 @@ import (
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	options  sdk.StaticEntityInstanceRepositoryOptions[T]
 	entityId string
-
-	_base *mongoBaseRepository[T]
+	di       sdk.EndorDIContainer
+	_base    *mongoBaseRepository[T]
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
 func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	options sdk.StaticEntityInstanceRepositoryOptions[T],
+	di sdk.EndorDIContainer,
 ) *MongoStaticEntityInstanceRepository[T] {
 	return &MongoStaticEntityInstanceRepository[T]{
 		options:  options,
 		entityId: entityId,
+		di:       di,
 	}
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) GetSchema() *sdk.RootSchema {
+	var zero T
+	return sdk.NewSchema(zero)
 }
 
 // Instance retrieves a single entity by ID.
@@ -69,18 +76,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 
 // List retrieves entities matching the filter.
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	// For static entities, filter and projection are used directly (no metadata separation)
-	var filter bson.M
-	if dto.Filter != nil {
-		filter = cloneBsonM(dto.Filter)
-	}
-
-	var projection bson.M
-	if dto.Projection != nil {
-		projection = cloneBsonM(dto.Projection)
-	}
-
-	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+	rawDocs, err := r.RawList(ctx, dto)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +155,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 	}
 
 	entityIDs := extractEntityReferenceIDsFromDoc(sdk.NewSchema(zero), rawDoc)
-	references, err := resolveEntityReferences(ctx, entityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, entityIDs)
 	if err != nil {
 		return zero, nil, err
 	}
@@ -179,17 +175,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
-	var filter bson.M
-	if dto.Filter != nil {
-		filter = cloneBsonM(dto.Filter)
-	}
-
-	var projection bson.M
-	if dto.Projection != nil {
-		projection = cloneBsonM(dto.Projection)
-	}
-
-	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+	rawDocs, err := r.RawList(ctx, dto)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -203,7 +189,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 		}
 	}
 
-	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, allEntityIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,6 +211,26 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 	}
 
 	return instances, references, nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+	// For static entities, filter and projection are used directly (no metadata separation)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+	if err != nil {
+		return nil, err
+	}
+
+	return rawDocs, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.
