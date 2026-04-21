@@ -65,7 +65,7 @@ func (h EndorBaseHandler[T]) ToEndorHandler() sdk.EndorHandler {
 		Priority:            h.priority,
 		Actions:             h.actions,
 		EntitySchema:        *rootSchema,
-		RepositoryFactories: []sdk.RepositoryFactory{h.repositoryFactory},
+		RepositoryFactories: map[string]sdk.RepositoryFactory{h.entity: h.repositoryFactory},
 	}
 }
 

@@ -57,7 +57,7 @@ type EndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struc
 	Priority            *int
 	actions             map[string]sdk.EndorHandlerActionInterface
 	categories          map[string]sdk.EndorBaseSpecializedHandlerCategoryInterface
-	repositoryFactories []sdk.RepositoryFactory
+	repositoryFactories map[string]sdk.RepositoryFactory
 }
 
 func (h EndorBaseSpecializedHandler[T]) GetEntity() string {
@@ -80,9 +80,9 @@ func (h EndorBaseSpecializedHandler[T]) WithRepository(
 	fn sdk.RepositoryFactory,
 ) sdk.EndorBaseSpecializedHandlerInterface {
 	if h.repositoryFactories == nil {
-		h.repositoryFactories = []sdk.RepositoryFactory{}
+		h.repositoryFactories = map[string]sdk.RepositoryFactory{}
 	}
-	h.repositoryFactories = append(h.repositoryFactories, fn)
+	h.repositoryFactories[h.Entity] = fn
 	return h
 }
 
@@ -111,12 +111,8 @@ func (h EndorBaseSpecializedHandler[T]) WithCategories(categories []sdk.EndorBas
 	if h.categories == nil {
 		h.categories = make(map[string]sdk.EndorBaseSpecializedHandlerCategoryInterface)
 	}
-	if h.repositoryFactories == nil {
-		h.repositoryFactories = []sdk.RepositoryFactory{}
-	}
 	for _, category := range categories {
 		h.categories[category.GetID()] = category
-		h.repositoryFactories = append(h.repositoryFactories, category.GetRepository())
 	}
 	return h
 }
@@ -137,6 +133,10 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 	// Create a new actions map to avoid modifying shared state
 	actions := make(map[string]sdk.EndorHandlerActionInterface)
 
+	if h.repositoryFactories == nil {
+		h.repositoryFactories = map[string]sdk.RepositoryFactory{}
+	}
+
 	// Copy existing actions
 	for k, v := range h.actions {
 		actions[k] = v
@@ -150,6 +150,7 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 			if len(category.GetActions()) > 0 {
 				for actionName, action := range category.GetActions() {
 					actions[category.GetID()+"/"+actionName] = action
+					h.repositoryFactories[h.Entity+"/"+category.GetID()] = category.GetRepository()
 				}
 			}
 		}

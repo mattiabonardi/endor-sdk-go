@@ -69,7 +69,7 @@ type EndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] str
 	methodsFn           func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
 	staticCategories    []string
 	categories          map[string]sdk.EndorHybridSpecializedHandlerCategoryInterface
-	repositoryFactories []sdk.RepositoryFactory
+	repositoryFactories map[string]sdk.RepositoryFactory
 }
 
 func (h EndorHybridSpecializedHandler[T]) GetEntity() string {
@@ -136,16 +136,6 @@ func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCate
 	return staticCategories
 }
 
-func (h EndorHybridSpecializedHandler[T]) WithRepository(
-	fn sdk.RepositoryFactory,
-) sdk.EndorHybridSpecializedHandlerInterface {
-	if h.repositoryFactories == nil {
-		h.repositoryFactories = []sdk.RepositoryFactory{}
-	}
-	h.repositoryFactories = append(h.repositoryFactories, fn)
-	return h
-}
-
 // create endor service instance
 func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorHandler {
 	var methods = make(map[string]sdk.EndorHandlerActionInterface)
@@ -171,14 +161,13 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 		maps.Copy(methods, h.methodsFn(getSchemaCallback))
 	}
 
-	repositoryFactories := []sdk.RepositoryFactory{}
 	masterRepositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
 		autogenerateID := true
 		return NewEntityInstanceRepository[T](h.Entity, *rootSchemaWithMetadata, sdk.EntityInstanceRepositoryOptions{
 			AutoGenerateID: &autogenerateID,
 		}, container)
 	}
-	repositoryFactories = append(repositoryFactories, masterRepositoryFactory)
+	h.repositoryFactories[h.Entity] = masterRepositoryFactory
 
 	// check if categories are defined
 	if len(h.categories) > 0 {
@@ -190,7 +179,7 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 					AutoGenerateID: &autogenerateID,
 				}, container)
 			}
-			repositoryFactories = append(repositoryFactories, categoryRepositoryFactory)
+			h.repositoryFactories[h.Entity+"/"+categoryID] = categoryRepositoryFactory
 			// add default CRUD methods specified for category
 			categoryMethods := category.CreateDefaultActions(h.Entity, h.EntityDescription, metadataSchema, categoriesMetadataSchema[categoryID])
 			maps.Copy(methods, categoryMethods)

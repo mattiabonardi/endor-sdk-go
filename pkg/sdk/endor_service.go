@@ -30,7 +30,7 @@ type EndorHandler struct {
 	Actions             map[string]EndorHandlerActionInterface
 	Priority            *int
 	EntitySchema        RootSchema
-	RepositoryFactories []RepositoryFactory
+	RepositoryFactories map[string]RepositoryFactory
 
 	// optionals
 	Version string

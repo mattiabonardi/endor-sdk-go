@@ -84,7 +84,7 @@ func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk
 		Priority:            h.Priority,
 		Actions:             methods,
 		EntitySchema:        *rootSchemWithMetadata,
-		RepositoryFactories: []sdk.RepositoryFactory{repositoryFactory},
+		RepositoryFactories: map[string]sdk.RepositoryFactory{h.Entity: repositoryFactory},
 	}
 }
 
