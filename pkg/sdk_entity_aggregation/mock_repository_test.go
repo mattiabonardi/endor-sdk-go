@@ -11,7 +11,7 @@ import (
 // testDI is the shared DI container used by all aggregation tests.
 var testDI = &mockDIContainer{repos: map[string]sdk.EndorRepositoryInterface{}}
 
-// mockDIContainer implements sdk.EndorDIContainer for tests.
+// mockDIContainer implements sdk.EndorDIContainerInterface for tests.
 type mockDIContainer struct {
 	repos map[string]sdk.EndorRepositoryInterface
 }

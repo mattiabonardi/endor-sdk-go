@@ -71,11 +71,11 @@ func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk
 	}
 
 	// define repository factory
-	repositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+	repositoryFactory := func(session sdk.Session, container sdk.EndorDIContainerInterface) sdk.EndorRepositoryInterface {
 		autogenerateID := true
 		return NewEntityInstanceRepository[T](h.Entity, *rootSchemWithMetadata, sdk.EntityInstanceRepositoryOptions{
 			AutoGenerateID: &autogenerateID,
-		}, container)
+		}, session, container)
 	}
 
 	return sdk.EndorHandler{

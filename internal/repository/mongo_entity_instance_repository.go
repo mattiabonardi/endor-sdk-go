@@ -28,7 +28,7 @@ type MongoEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	base     *mongoBaseRepository[T]
 	entityId string
 	schema   sdk.RootSchema
-	di       sdk.EndorDIContainer
+	di       sdk.EndorDIContainerInterface
 }
 
 // NewMongoEntityInstanceRepository creates a new repository for the given collection.
@@ -36,7 +36,8 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	schema sdk.RootSchema,
 	options sdk.EntityInstanceRepositoryOptions,
-	di sdk.EndorDIContainer,
+	session sdk.Session,
+	di sdk.EndorDIContainerInterface,
 ) *MongoEntityInstanceRepository[T] {
 	client, err := sdk.GetMongoClient()
 	if client == nil || err != nil {
@@ -47,8 +48,8 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 		}
 	}
 	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
-	if *options.Development == true && *options.UserId != "" {
-		dbName = *options.UserId + "-" + dbName
+	if session.Development == true && session.Username != "" {
+		dbName = session.Username + "-" + dbName
 	}
 	collection := client.Database(dbName).Collection(entityId)
 

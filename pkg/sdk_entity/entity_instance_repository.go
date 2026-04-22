@@ -17,7 +17,7 @@ type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 
 // NewEntityInstanceRepository creates a new repository with default options
 // Default behavior: AutoGenerateID = true (auto-generate ObjectID.Hex() as string)
-func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, schema sdk.RootSchema, options sdk.EntityInstanceRepositoryOptions, di sdk.EndorDIContainer) *EntityInstanceRepository[T] {
+func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string, schema sdk.RootSchema, options sdk.EntityInstanceRepositoryOptions, session sdk.Session, di sdk.EndorDIContainerInterface) *EntityInstanceRepository[T] {
 	if options.AutoGenerateID == nil {
 		def := true
 		options.AutoGenerateID = &def
@@ -25,7 +25,7 @@ func NewEntityInstanceRepository[T sdk.EntityInstanceInterface](entityId string,
 	entity, _, _ := strings.Cut(entityId, "/")
 
 	return &EntityInstanceRepository[T]{
-		repository: repository.NewMongoEntityInstanceRepository[T](entity, schema, options, di),
+		repository: repository.NewMongoEntityInstanceRepository[T](entity, schema, options, session, di),
 		entityId:   entityId,
 		schema:     schema,
 	}

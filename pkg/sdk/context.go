@@ -20,7 +20,7 @@ type EndorContext[T any] struct {
 
 	// DIContainer gives handler code access to all registered handlers and repositories
 	// for the current session (production or per-user development overlay).
-	DIContainer EndorDIContainer
+	DIContainer EndorDIContainerInterface
 
 	GinContext *gin.Context
 	Logger     Logger

@@ -140,6 +140,10 @@ func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCate
 func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorHandler {
 	var methods = make(map[string]sdk.EndorHandlerActionInterface)
 
+	if h.repositoryFactories == nil {
+		h.repositoryFactories = map[string]sdk.RepositoryFactory{}
+	}
+
 	// merge additional categories
 	for _, additionalCategory := range additionalCategories {
 		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedHandlerCategory[T](additionalCategory.ID, additionalCategory.Description)
@@ -161,11 +165,11 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 		maps.Copy(methods, h.methodsFn(getSchemaCallback))
 	}
 
-	masterRepositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+	masterRepositoryFactory := func(session sdk.Session, container sdk.EndorDIContainerInterface) sdk.EndorRepositoryInterface {
 		autogenerateID := true
 		return NewEntityInstanceRepository[T](h.Entity, *rootSchemaWithMetadata, sdk.EntityInstanceRepositoryOptions{
 			AutoGenerateID: &autogenerateID,
-		}, container)
+		}, session, container)
 	}
 	h.repositoryFactories[h.Entity] = masterRepositoryFactory
 
@@ -173,11 +177,11 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 	if len(h.categories) > 0 {
 		// iterate over categories
 		for categoryID, category := range h.categories {
-			categoryRepositoryFactory := func(container sdk.EndorDIContainer) sdk.EndorRepositoryInterface {
+			categoryRepositoryFactory := func(session sdk.Session, container sdk.EndorDIContainerInterface) sdk.EndorRepositoryInterface {
 				autogenerateID := true
 				return NewEntityInstanceRepository[T](h.Entity, *rootSchemaWithMetadata, sdk.EntityInstanceRepositoryOptions{
 					AutoGenerateID: &autogenerateID,
-				}, container)
+				}, session, container)
 			}
 			h.repositoryFactories[h.Entity+"/"+categoryID] = categoryRepositoryFactory
 			// add default CRUD methods specified for category

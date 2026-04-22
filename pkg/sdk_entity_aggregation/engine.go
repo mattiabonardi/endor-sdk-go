@@ -11,7 +11,7 @@ import (
 // RepositoryRegistry. Supported operators (usable at any StageSpec level):
 // $match, $group, $mergeResults.
 type AggregationEngine struct {
-	di                 sdk.EndorDIContainer
+	di                 sdk.EndorDIContainerInterface
 	entityStageHandler EntityStageHandler
 }
 
@@ -29,7 +29,7 @@ func WithEntityStageHandler(h EntityStageHandler) AggregationEngineOption {
 
 // NewAggregationEngine returns a ready-to-use AggregationEngine.
 // Pass AggregationEngineOption values to customise behaviour (e.g. WithEntityStageHandler).
-func NewAggregationEngine(di sdk.EndorDIContainer, opts ...AggregationEngineOption) *AggregationEngine {
+func NewAggregationEngine(di sdk.EndorDIContainerInterface, opts ...AggregationEngineOption) *AggregationEngine {
 	e := &AggregationEngine{
 		di: di,
 	}

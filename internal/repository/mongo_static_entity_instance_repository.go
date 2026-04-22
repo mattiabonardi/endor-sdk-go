@@ -26,7 +26,8 @@ import (
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	options  sdk.StaticEntityInstanceRepositoryOptions[T]
 	entityId string
-	di       sdk.EndorDIContainer
+	session  sdk.Session
+	di       sdk.EndorDIContainerInterface
 	_base    *mongoBaseRepository[T]
 }
 
@@ -34,11 +35,13 @@ type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	options sdk.StaticEntityInstanceRepositoryOptions[T],
-	di sdk.EndorDIContainer,
+	session sdk.Session,
+	di sdk.EndorDIContainerInterface,
 ) *MongoStaticEntityInstanceRepository[T] {
 	return &MongoStaticEntityInstanceRepository[T]{
 		options:  options,
 		entityId: entityId,
+		session:  session,
 		di:       di,
 	}
 }
@@ -256,8 +259,8 @@ func (r *MongoStaticEntityInstanceRepository[T]) getBaseRepository() *mongoBaseR
 	}
 	client, _ := sdk.GetMongoClient()
 	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
-	if *r.options.Development == true && *r.options.UserId != "" {
-		dbName = *r.options.UserId + "-" + dbName
+	if r.session.Development == true && r.session.Username != "" {
+		dbName = r.session.Username + "-" + dbName
 	}
 	collection := client.Database(dbName).Collection(r.entityId)
 	return newMongoBaseRepository[T](collection, *r.options.AutoGenerateID)

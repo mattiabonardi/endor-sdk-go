@@ -12,9 +12,6 @@ type EntityInstanceRepositoryOptions struct {
 	// When true (default): Empty IDs are auto-generated using primitive.ObjectID.Hex()
 	// When false: IDs must be provided by the user, empty IDs cause BadRequestError
 	AutoGenerateID *bool
-
-	UserId      *string
-	Development *bool
 }
 
 // RepositoryInterface defines the common operations shared by all repository types.
@@ -48,9 +45,6 @@ type StaticEntityInstanceRepositoryOptions[T EntityInstanceInterface] struct {
 	AutoGenerateID *bool
 
 	Hooks StaticEntityInstanceRepositoryOptionsHooks[T]
-
-	UserId      *string
-	Development *bool
 }
 
 type StaticEntityInstanceRepositoryOptionsHooks[T EntityInstanceInterface] struct {
