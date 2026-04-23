@@ -77,13 +77,31 @@ type EndorHandlerActionDictionary struct {
 	Container          EndorEntityDictionary
 }
 
+// dslHybridCategory is the YAML structure for hybrid category entries in entityDSLFile.
+// AdditionalSchema is parsed directly as a sdk.RootSchema, unlike sdk.HybridCategory
+// which stores it as a raw YAML string.
+type dslHybridCategory struct {
+	ID               string         `yaml:"id"`
+	Description      string         `yaml:"description"`
+	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
+}
+
+// dslDynamicCategory is the YAML structure for dynamic category entries in entityDSLFile.
+// AdditionalSchema is parsed directly as a sdk.RootSchema, unlike sdk.DynamicCategory
+// which stores it as a raw YAML string.
+type dslDynamicCategory struct {
+	ID               string         `yaml:"id"`
+	Description      string         `yaml:"description"`
+	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
+}
+
 // entityDSLFile is the YAML structure for entity definition files.
 type entityDSLFile struct {
-	Description          string                `yaml:"description"`
-	Type                 string                `yaml:"type"`
-	AdditionalSchema     string                `yaml:"additionalSchema"`
-	Categories           []sdk.HybridCategory  `yaml:"categories"`
-	AdditionalCategories []sdk.DynamicCategory `yaml:"additionalCategories"`
+	Description          string               `yaml:"description"`
+	Type                 string               `yaml:"type"`
+	AdditionalSchema     sdk.RootSchema       `yaml:"additionalSchema"`
+	Categories           []dslHybridCategory  `yaml:"categories"`
+	AdditionalCategories []dslDynamicCategory `yaml:"additionalCategories"`
 }
 
 // #region Public API
@@ -165,6 +183,10 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 	if err := yaml.Unmarshal([]byte(content), &def); err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
 	}
+	additionalSchema, err := def.AdditionalSchema.ToYAML()
+	if err != nil {
+		return nil, fmt.Errorf("marshal additionalSchema: %w", err)
+	}
 	base := sdk.Entity{
 		ID:          entityID,
 		Description: def.Description,
@@ -173,16 +195,58 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 	}
 	switch sdk.EntityType(def.Type) {
 	case sdk.EntityTypeHybrid, sdk.EntityTypeDynamic:
-		return &sdk.EntityHybrid{Entity: base, AdditionalSchema: def.AdditionalSchema}, nil
+		return &sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema}, nil
 	case sdk.EntityTypeHybridSpecialized, sdk.EntityTypeDynamicSpecialized:
+		cats, err := toHybridCategories(def.Categories)
+		if err != nil {
+			return nil, err
+		}
+		addCats, err := toDynamicCategories(def.AdditionalCategories)
+		if err != nil {
+			return nil, err
+		}
 		return &sdk.EntityHybridSpecialized{
-			EntityHybrid:         sdk.EntityHybrid{Entity: base, AdditionalSchema: def.AdditionalSchema},
-			Categories:           def.Categories,
-			AdditionalCategories: def.AdditionalCategories,
+			EntityHybrid:         sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema},
+			Categories:           cats,
+			AdditionalCategories: addCats,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown entity type %q", def.Type)
 	}
+}
+
+// toHybridCategories converts DSL hybrid categories (with sdk.RootSchema) to sdk.HybridCategory (with YAML string).
+func toHybridCategories(dslCats []dslHybridCategory) ([]sdk.HybridCategory, error) {
+	result := make([]sdk.HybridCategory, 0, len(dslCats))
+	for _, c := range dslCats {
+		s, err := c.AdditionalSchema.ToYAML()
+		if err != nil {
+			return nil, fmt.Errorf("marshal category %q additionalSchema: %w", c.ID, err)
+		}
+		result = append(result, sdk.HybridCategory{
+			ID:               c.ID,
+			Description:      c.Description,
+			AdditionalSchema: s,
+		})
+	}
+	return result, nil
+}
+
+// toDynamicCategories converts DSL dynamic categories (with sdk.RootSchema) to sdk.DynamicCategory (with YAML string).
+func toDynamicCategories(dslCats []dslDynamicCategory) ([]sdk.DynamicCategory, error) {
+	result := make([]sdk.DynamicCategory, 0, len(dslCats))
+	for _, c := range dslCats {
+		s, err := c.AdditionalSchema.ToYAML()
+		if err != nil {
+			return nil, fmt.Errorf("marshal additional category %q additionalSchema: %w", c.ID, err)
+		}
+		result = append(result, sdk.DynamicCategory{
+			ID:               c.ID,
+			Description:      c.Description,
+			AdditionalSchema: s,
+		})
+	}
+	return result, nil
 }
 
 // buildCategorySchemas converts the HybridCategory slice of a specialized entity into the
