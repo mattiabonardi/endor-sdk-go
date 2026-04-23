@@ -6,7 +6,6 @@ import (
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type EntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
@@ -35,7 +34,7 @@ func (r *EntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk.Read
 	return r.repository.Instance(ctx, dto)
 }
 
-func (r *EntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+func (r *EntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
 	return r.repository.RawList(ctx, dto)
 }
 

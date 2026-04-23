@@ -3,8 +3,6 @@ package sdk_entity_aggregation
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
-
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
@@ -46,17 +44,15 @@ func (r *mockRepository) FindReferences(_ context.Context, _ sdk.ReadInstancesDT
 	return sdk.EntityReferenceGroupDescriptions{}, nil
 }
 
-// RawList returns documents as []bson.M, applying the filter from ReadDTO when
+// RawList returns documents as []map[string]interface{}, applying the filter from ReadDTO when
 // present so that push-down $match optimizations work correctly in tests.
-func (r *mockRepository) RawList(_ context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+func (r *mockRepository) RawList(_ context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
 	src := r.docs
 	if len(dto.Filter) > 0 {
 		src = applyMatch(r.docs, dto.Filter)
 	}
-	result := make([]bson.M, len(src))
-	for i, d := range src {
-		result[i] = bson.M(d)
-	}
+	result := make([]map[string]interface{}, len(src))
+	copy(result, src)
 	return result, nil
 }
 

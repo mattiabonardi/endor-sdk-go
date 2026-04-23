@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -79,8 +80,31 @@ func (r *MongoEntityInstanceRepository[T]) Instance(ctx context.Context, dto sdk
 	return r.toEntityInstance(rawDoc)
 }
 
-func (r *MongoEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
-	// For static entities, filter and projection are used directly (no metadata separation)
+func (r *MongoEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
+	list, err := r.List(ctx, dto)
+	if err != nil {
+		return nil, err
+	}
+
+	rawList := make([]map[string]interface{}, 0, len(list))
+	for _, instance := range list {
+		// Marshal instance to JSON
+		jsonBytes, err := json.Marshal(instance)
+		if err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		// Unmarshal JSON into map[string]interface{}
+		var m map[string]interface{}
+		if err := json.Unmarshal(jsonBytes, &m); err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		rawList = append(rawList, m)
+	}
+	return rawList, nil
+}
+
+// List retrieves entities matching the filter.
+func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
 	var filter bson.M
 	if dto.Filter != nil {
 		filter = cloneBsonM(dto.Filter)
@@ -92,16 +116,6 @@ func (r *MongoEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.
 	}
 
 	rawDocs, err := r.base.Find(ctx, filter, projection)
-	if err != nil {
-		return nil, err
-	}
-
-	return rawDocs, nil
-}
-
-// List retrieves entities matching the filter.
-func (r *MongoEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], error) {
-	rawDocs, err := r.RawList(ctx, dto)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +213,17 @@ func (r *MongoEntityInstanceRepository[T]) InstanceWithReferences(ctx context.Co
 }
 
 func (r *MongoEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]sdk.EntityInstance[T], sdk.EntityRefererenceGroup, error) {
-	rawDocs, err := r.RawList(ctx, dto)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.base.Find(ctx, filter, projection)
 	if err != nil {
 		return nil, nil, err
 	}

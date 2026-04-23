@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -79,7 +80,21 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 
 // List retrieves entities matching the filter.
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	rawDocs, err := r.RawList(ctx, dto)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +193,17 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.Context, dto sdk.ReadDTO) ([]T, sdk.EntityRefererenceGroup, error) {
-	rawDocs, err := r.RawList(ctx, dto)
+	var filter bson.M
+	if dto.Filter != nil {
+		filter = cloneBsonM(dto.Filter)
+	}
+
+	var projection bson.M
+	if dto.Projection != nil {
+		projection = cloneBsonM(dto.Projection)
+	}
+
+	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -216,24 +241,27 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 	return instances, references, nil
 }
 
-func (r *MongoStaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
-	// For static entities, filter and projection are used directly (no metadata separation)
-	var filter bson.M
-	if dto.Filter != nil {
-		filter = cloneBsonM(dto.Filter)
-	}
-
-	var projection bson.M
-	if dto.Projection != nil {
-		projection = cloneBsonM(dto.Projection)
-	}
-
-	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+func (r *MongoStaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
+	list, err := r.List(ctx, dto)
 	if err != nil {
 		return nil, err
 	}
 
-	return rawDocs, nil
+	rawList := make([]map[string]interface{}, 0, len(list))
+	for _, instance := range list {
+		// Marshal instance to JSON
+		jsonBytes, err := json.Marshal(instance)
+		if err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		// Unmarshal JSON into map[string]interface{}
+		var m map[string]interface{}
+		if err := json.Unmarshal(jsonBytes, &m); err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		rawList = append(rawList, m)
+	}
+	return rawList, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.

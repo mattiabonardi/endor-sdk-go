@@ -126,13 +126,10 @@ func (e *AggregationEngine) executeEntityStage(
 			}
 		}
 
-		rawDocs, err := repo.RawList(ctx, sdk.ReadDTO{Filter: filter})
+		var err error
+		docs, err = repo.RawList(ctx, sdk.ReadDTO{Filter: filter})
 		if err != nil {
 			return nil, nil, nil, err
-		}
-		docs = make([]map[string]interface{}, len(rawDocs))
-		for i, d := range rawDocs {
-			docs[i] = map[string]interface{}(d)
 		}
 	}
 

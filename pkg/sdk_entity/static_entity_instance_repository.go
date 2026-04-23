@@ -5,7 +5,6 @@ import (
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/repository"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 // StaticEntityInstanceRepository provides a repository implementation that works directly
@@ -33,7 +32,7 @@ func (r *StaticEntityInstanceRepository[T]) Instance(ctx context.Context, dto sd
 	return r.repository.Instance(ctx, dto)
 }
 
-func (r *StaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]bson.M, error) {
+func (r *StaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
 	return r.repository.RawList(ctx, dto)
 }
 

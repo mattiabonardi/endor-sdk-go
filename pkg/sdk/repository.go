@@ -2,8 +2,6 @@ package sdk
 
 import (
 	"context"
-
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 // EntityInstanceRepositoryOptions defines configuration options for EntityInstanceRepository
@@ -20,7 +18,7 @@ type EntityInstanceRepositoryOptions struct {
 type EndorRepositoryInterface interface {
 	FindReferences(ctx context.Context, ids ReadInstancesDTO) (EntityReferenceGroupDescriptions, error)
 	GetEntity() string
-	RawList(ctx context.Context, dto ReadDTO) ([]bson.M, error)
+	RawList(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
 	GetSchema() *RootSchema
 }
 
