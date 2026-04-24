@@ -45,14 +45,13 @@ func extractReferenceIDsFromFlatDocs(schema *sdk.Schema, docs []map[string]inter
 
 // resolveReferences looks up entity IDs in the RepositoryRegistry and returns
 // the merged EntityRefererenceGroup.
-func resolveReferences(ctx context.Context, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
+func resolveReferences(ctx context.Context, entityIDs map[string][]string, di sdk.EndorDIContainerInterface) (sdk.EntityRefererenceGroup, error) {
 	if len(entityIDs) == 0 {
 		return nil, nil
 	}
-	registry := sdk.GetRepositoryRegistry()
 	refs := make(sdk.EntityRefererenceGroup)
 	for entityName, ids := range entityIDs {
-		repo, ok := registry.Get(entityName)
+		repo, ok := di.GetRepositories()[entityName]
 		if !ok {
 			continue
 		}

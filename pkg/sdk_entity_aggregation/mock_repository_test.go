@@ -6,6 +6,18 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
+// testDI is the shared DI container used by all aggregation tests.
+var testDI = &mockDIContainer{repos: map[string]sdk.EndorRepositoryInterface{}}
+
+// mockDIContainer implements sdk.EndorDIContainerInterface for tests.
+type mockDIContainer struct {
+	repos map[string]sdk.EndorRepositoryInterface
+}
+
+func (m *mockDIContainer) GetRepositories() map[string]sdk.EndorRepositoryInterface {
+	return m.repos
+}
+
 // mockRepository implements sdk.DocumentRepositoryInterface with an in-memory
 // document set. It is intended for use in unit tests only.
 type mockRepository struct {
@@ -32,20 +44,23 @@ func (r *mockRepository) FindReferences(_ context.Context, _ sdk.ReadInstancesDT
 	return sdk.EntityReferenceGroupDescriptions{}, nil
 }
 
-// ListDocuments returns documents, applying the filter from ReadDTO when present
-// so that push-down $match optimizations work correctly in tests.
-func (r *mockRepository) ListDocuments(_ context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
-	if len(dto.Filter) == 0 {
-		return r.docs, nil
+// RawList returns documents as []map[string]interface{}, applying the filter from ReadDTO when
+// present so that push-down $match optimizations work correctly in tests.
+func (r *mockRepository) RawList(_ context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
+	src := r.docs
+	if len(dto.Filter) > 0 {
+		src = applyMatch(r.docs, dto.Filter)
 	}
-	return applyMatch(r.docs, dto.Filter), nil
+	result := make([]map[string]interface{}, len(src))
+	copy(result, src)
+	return result, nil
 }
 
-// registerMock registers the mock in the global RepositoryRegistry and returns
+// registerMock registers the mock in the shared testDI container and returns
 // a cleanup function that removes it afterwards.
 func registerMock(repo *mockRepository) func() {
-	sdk.GetRepositoryRegistry().Register(repo.entity, repo)
+	testDI.repos[repo.entity] = repo
 	return func() {
-		sdk.GetRepositoryRegistry().Register(repo.entity, nil)
+		delete(testDI.repos, repo.entity)
 	}
 }

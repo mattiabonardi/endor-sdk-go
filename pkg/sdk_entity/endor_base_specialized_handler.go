@@ -5,9 +5,10 @@ import (
 )
 
 type EndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
-	ID          string
-	Description string
-	Actions     map[string]sdk.EndorHandlerActionInterface
+	ID                string
+	Description       string
+	Actions           map[string]sdk.EndorHandlerActionInterface
+	repositoryFactory sdk.RepositoryFactory
 }
 
 func (h *EndorBaseSpecializedHandlerCategory[T]) GetID() string {
@@ -27,8 +28,19 @@ func (h *EndorBaseSpecializedHandlerCategory[T]) GetActions() map[string]sdk.End
 	return h.Actions
 }
 
+func (h *EndorBaseSpecializedHandlerCategory[T]) GetRepository() sdk.RepositoryFactory {
+	return h.repositoryFactory
+}
+
 func (h *EndorBaseSpecializedHandlerCategory[T]) WithActions(actions map[string]sdk.EndorHandlerActionInterface) sdk.EndorBaseSpecializedHandlerCategoryInterface {
 	h.Actions = actions
+	return h
+}
+
+func (h *EndorBaseSpecializedHandlerCategory[T]) WithRepository(
+	fn sdk.RepositoryFactory,
+) sdk.EndorBaseSpecializedHandlerCategoryInterface {
+	h.repositoryFactory = fn
 	return h
 }
 
@@ -40,11 +52,12 @@ func NewEndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInter
 }
 
 type EndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struct {
-	Entity            string
-	EntityDescription string
-	Priority          *int
-	actions           map[string]sdk.EndorHandlerActionInterface
-	categories        map[string]sdk.EndorBaseSpecializedHandlerCategoryInterface
+	Entity              string
+	EntityDescription   string
+	Priority            *int
+	actions             map[string]sdk.EndorHandlerActionInterface
+	categories          map[string]sdk.EndorBaseSpecializedHandlerCategoryInterface
+	repositoryFactories map[string]sdk.RepositoryFactory
 }
 
 func (h EndorBaseSpecializedHandler[T]) GetEntity() string {
@@ -61,6 +74,16 @@ func (h EndorBaseSpecializedHandler[T]) GetPriority() *int {
 
 func (h EndorBaseSpecializedHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
+}
+
+func (h EndorBaseSpecializedHandler[T]) WithRepository(
+	fn sdk.RepositoryFactory,
+) sdk.EndorBaseSpecializedHandlerInterface {
+	if h.repositoryFactories == nil {
+		h.repositoryFactories = map[string]sdk.RepositoryFactory{}
+	}
+	h.repositoryFactories[h.Entity] = fn
+	return h
 }
 
 func NewEndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorBaseSpecializedHandlerInterface {
@@ -110,6 +133,10 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 	// Create a new actions map to avoid modifying shared state
 	actions := make(map[string]sdk.EndorHandlerActionInterface)
 
+	if h.repositoryFactories == nil {
+		h.repositoryFactories = map[string]sdk.RepositoryFactory{}
+	}
+
 	// Copy existing actions
 	for k, v := range h.actions {
 		actions[k] = v
@@ -123,6 +150,7 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 			if len(category.GetActions()) > 0 {
 				for actionName, action := range category.GetActions() {
 					actions[category.GetID()+"/"+actionName] = action
+					h.repositoryFactories[h.Entity+"/"+category.GetID()] = category.GetRepository()
 				}
 			}
 		}
@@ -132,10 +160,11 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 	rootSchema := sdk.NewSchema(baseModel)
 
 	return sdk.EndorHandler{
-		Entity:            h.Entity,
-		EntityDescription: h.EntityDescription,
-		Priority:          h.Priority,
-		Actions:           actions,
-		EntitySchema:      *rootSchema,
+		Entity:              h.Entity,
+		EntityDescription:   h.EntityDescription,
+		Priority:            h.Priority,
+		Actions:             actions,
+		EntitySchema:        *rootSchema,
+		RepositoryFactories: h.repositoryFactories,
 	}
 }

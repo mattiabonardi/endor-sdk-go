@@ -7,7 +7,7 @@ import (
 
 type BaseHandlerModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
-	Attribute string `json:"attribute"`
+	Attribute string `json:"attribute" schema:"title=t(commons.data)"`
 }
 
 func (h BaseHandlerModel) GetID() any {

@@ -55,9 +55,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 
 	// Verify the configuration content
 	t.Run("VerifyRouters", func(t *testing.T) {
+		// Expect: one wildcard router for the microservice + one router per public action
 		expectedRouters := []string{
-			"test-service-router-base-handler-action1",
-			"test-service-router-base-handler-cat_1/action1",
+			"test-service-router",
 			"test-service-router-base-handler-public-action",
 		}
 
@@ -77,18 +77,16 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 				t.Errorf("Router %s has wrong entry points: got %v, want [web]", routerName, router.EntryPoints)
 			}
 
-			// Check middleware assignment based on action type
-			if routerName == "test-service-router-base-handler-public-action" {
-				// Public action should not have auth middleware
+			switch routerName {
+			case "test-service-router":
+				// Wildcard router must have auth middleware
+				if router.Middlewares == nil || len(*router.Middlewares) != 1 || (*router.Middlewares)[0] != "authMiddleware" {
+					t.Errorf("Wildcard router %s should have authMiddleware, got %v", routerName, router.Middlewares)
+				}
+			case "test-service-router-base-handler-public-action":
+				// Public action router must not have auth middleware
 				if router.Middlewares != nil {
 					t.Errorf("Public router %s should not have middlewares, but has: %v", routerName, *router.Middlewares)
-				}
-			} else {
-				// Private actions should have auth middleware
-				if router.Middlewares == nil {
-					t.Errorf("Private router %s should have auth middleware", routerName)
-				} else if len(*router.Middlewares) != 1 || (*router.Middlewares)[0] != "authMiddleware" {
-					t.Errorf("Private router %s has wrong middlewares: got %v, want [authMiddleware]", routerName, *router.Middlewares)
 				}
 			}
 		}
@@ -117,9 +115,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRulePaths", func(t *testing.T) {
 		// Verify that rules have correct path patterns
 		expectedPaths := map[string]string{
-			"test-service-router-base-handler-action1":       "PathPrefix(`/api/v1/base-handler/action1`)",
-			"test-service-router-base-handler-cat_1/action1": "PathPrefix(`/api/v1/base-handler/cat_1/action1`)",
-			"test-service-router-base-handler-public-action": "PathPrefix(`/api/v1/base-handler/public-action`)",
+			"test-service-router":                            "PathPrefix(`/api/test-service`)",
+			"test-service-router-base-handler-public-action": "PathPrefix(`/api/test-service/v1/base-handler/public-action`)",
 		}
 
 		for routerName, expectedRule := range expectedPaths {
@@ -177,11 +174,22 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 		t.Fatalf("Failed to parse configuration YAML: %v", err)
 	}
 
-	// Verify that the version is correctly included in the path
-	for routerName, router := range config.HTTP.Routers {
-		if !strings.Contains(router.Rule, "/api/v2/base-handler/") {
-			t.Errorf("Router %s should contain v2 version in rule: %s", routerName, router.Rule)
-		}
+	// Verify that the version is correctly included in the public action rule
+	publicRouterName := "test-service-v2-router-base-handler-public-action"
+	publicRouter, exists := config.HTTP.Routers[publicRouterName]
+	if !exists {
+		t.Errorf("Expected public action router %s not found", publicRouterName)
+	} else if !strings.Contains(publicRouter.Rule, "/api/test-service-v2/v2/base-handler/") {
+		t.Errorf("Public router %s should contain microserviceId and v2 version in rule: %s", publicRouterName, publicRouter.Rule)
+	}
+
+	// Verify wildcard router uses the microserviceId context
+	wildcardRouterName := "test-service-v2-router"
+	wildcardRouter, exists := config.HTTP.Routers[wildcardRouterName]
+	if !exists {
+		t.Errorf("Expected wildcard router %s not found", wildcardRouterName)
+	} else if wildcardRouter.Rule != "PathPrefix(`/api/test-service-v2`)" {
+		t.Errorf("Wildcard router has wrong rule: %s", wildcardRouter.Rule)
 	}
 
 	// Cleanup
@@ -225,13 +233,26 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 		t.Fatalf("Failed to parse configuration YAML: %v", err)
 	}
 
-	// Verify that all routers have the correct priority
-	for routerName, router := range config.HTTP.Routers {
-		if router.Priority == nil {
-			t.Errorf("Router %s should have priority set", routerName)
-		} else if *router.Priority != priority {
-			t.Errorf("Router %s has wrong priority: got %d, want %d", routerName, *router.Priority, priority)
+	// The wildcard router has no per-service priority; public action routers inherit it
+	publicRouterName := "test-service-priority-router-base-handler-public-action"
+	publicRouter, exists := config.HTTP.Routers[publicRouterName]
+	if !exists {
+		t.Errorf("Expected public action router %s not found", publicRouterName)
+	} else {
+		if publicRouter.Priority == nil {
+			t.Errorf("Public action router %s should have priority set", publicRouterName)
+		} else if *publicRouter.Priority != priority {
+			t.Errorf("Public action router %s has wrong priority: got %d, want %d", publicRouterName, *publicRouter.Priority, priority)
 		}
+	}
+
+	// Wildcard router should not have a priority override
+	wildcardRouterName := "test-service-priority-router"
+	wildcardRouter, exists := config.HTTP.Routers[wildcardRouterName]
+	if !exists {
+		t.Errorf("Expected wildcard router %s not found", wildcardRouterName)
+	} else if wildcardRouter.Priority != nil {
+		t.Errorf("Wildcard router %s should not have a priority override", wildcardRouterName)
 	}
 
 	// Cleanup

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type DSLDAO struct {
@@ -79,6 +80,33 @@ func (dao *DSLDAO) ListFolders() ([]string, error) {
 		return nil
 	})
 	return folders, err
+}
+
+// ListAllEntities returns the entity IDs (filename without extension) found under
+// BasePath/entities/{msId}/. The caller receives only names, with no path or extension.
+func (dao *DSLDAO) ListAllEntities(msId string) ([]string, error) {
+	sub := &DSLDAO{BasePath: filepath.Join(dao.BasePath, "entities", msId)}
+	relFiles, err := sub.ListFile()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0, len(relFiles))
+	for _, f := range relFiles {
+		name := filepath.Base(f)
+		result = append(result, strings.TrimSuffix(name, filepath.Ext(name)))
+	}
+	return result, nil
+}
+
+// ReadEntity returns the YAML content of the entity DSL file identified by msId and
+// entityName (just the name, without extension or path segments).
+func (dao *DSLDAO) ReadEntity(msId, entityName string) (string, error) {
+	fullPath := filepath.Join(dao.BasePath, "entities", msId, entityName+".yaml")
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // GetFileContent returns the content of the given relative file path

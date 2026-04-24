@@ -9,6 +9,7 @@ type EndorBaseHandler[T sdk.EntityInstanceInterface] struct {
 	entityDescription string
 	priority          *int
 	actions           map[string]sdk.EndorHandlerActionInterface
+	repositoryFactory sdk.RepositoryFactory
 }
 
 func (h EndorBaseHandler[T]) GetEntity() string {
@@ -48,15 +49,23 @@ func (h EndorBaseHandler[T]) WithActions(
 	return h
 }
 
+func (h EndorBaseHandler[T]) WithRepository(
+	fn sdk.RepositoryFactory,
+) sdk.EndorBaseHandlerInterface {
+	h.repositoryFactory = fn
+	return h
+}
+
 func (h EndorBaseHandler[T]) ToEndorHandler() sdk.EndorHandler {
 	var baseModel T
 	rootSchema := sdk.NewSchema(baseModel)
 	return sdk.EndorHandler{
-		Entity:            h.entity,
-		EntityDescription: h.entityDescription,
-		Priority:          h.priority,
-		Actions:           h.actions,
-		EntitySchema:      *rootSchema,
+		Entity:              h.entity,
+		EntityDescription:   h.entityDescription,
+		Priority:            h.priority,
+		Actions:             h.actions,
+		EntitySchema:        *rootSchema,
+		RepositoryFactories: map[string]sdk.RepositoryFactory{h.entity: h.repositoryFactory},
 	}
 }
 

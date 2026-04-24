@@ -11,6 +11,7 @@ import (
 // RepositoryRegistry. Supported operators (usable at any StageSpec level):
 // $match, $group, $mergeResults.
 type AggregationEngine struct {
+	di                 sdk.EndorDIContainerInterface
 	entityStageHandler EntityStageHandler
 }
 
@@ -28,8 +29,10 @@ func WithEntityStageHandler(h EntityStageHandler) AggregationEngineOption {
 
 // NewAggregationEngine returns a ready-to-use AggregationEngine.
 // Pass AggregationEngineOption values to customise behaviour (e.g. WithEntityStageHandler).
-func NewAggregationEngine(opts ...AggregationEngineOption) *AggregationEngine {
-	e := &AggregationEngine{}
+func NewAggregationEngine(di sdk.EndorDIContainerInterface, opts ...AggregationEngineOption) *AggregationEngine {
+	e := &AggregationEngine{
+		di: di,
+	}
 	for _, o := range opts {
 		o(e)
 	}
@@ -107,7 +110,7 @@ func (e *AggregationEngine) executeEntityStage(
 			return e.entityStageHandler(ctx, stage)
 		}
 
-		repo, ok := sdk.GetDocumentRepository(stage.Entity)
+		repo, ok := e.di.GetRepositories()[stage.Entity]
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
 		}
@@ -124,7 +127,7 @@ func (e *AggregationEngine) executeEntityStage(
 		}
 
 		var err error
-		docs, err = repo.ListDocuments(ctx, sdk.ReadDTO{Filter: filter})
+		docs, err = repo.RawList(ctx, sdk.ReadDTO{Filter: filter})
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -160,7 +163,7 @@ func (e *AggregationEngine) executeEntityStage(
 // computeStageSchemaAndReferences derives the output schema of the stage pipeline,
 // extracts entity reference IDs from docs, then resolves them via the registry.
 func (e *AggregationEngine) computeStageSchemaAndReferences(ctx context.Context, stage EntityPipelineStage, docs []map[string]interface{}) (*sdk.Schema, sdk.EntityRefererenceGroup, error) {
-	repo, ok := sdk.GetDocumentRepository(stage.Entity)
+	repo, ok := e.di.GetRepositories()[stage.Entity]
 	if !ok {
 		return nil, nil, nil
 	}
@@ -170,7 +173,7 @@ func (e *AggregationEngine) computeStageSchemaAndReferences(ctx context.Context,
 	}
 	finalSchema := deriveSchemaAfterPipeline(&baseSchema.Schema, stage.Pipeline)
 	entityIDs := extractReferenceIDsFromFlatDocs(&finalSchema, docs)
-	refs, err := resolveReferences(ctx, entityIDs)
+	refs, err := resolveReferences(ctx, entityIDs, e.di)
 	return &finalSchema, refs, err
 }
 

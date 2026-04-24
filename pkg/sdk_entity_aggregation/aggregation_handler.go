@@ -14,8 +14,6 @@ const aggregationEntityDescription = "Distributed aggregation pipeline over regi
 // entity and registers the "execute" action, which runs an AggregationPipeline
 // against the local RepositoryRegistry.
 func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
-	engine := NewAggregationEngine(opts...)
-
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
 		aggregationEntityDescription,
@@ -28,9 +26,10 @@ func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.En
 				InputSchema:           buildPipelineSchema(),
 			},
 			func(c *sdk.EndorContext[AggregationPipeline]) (*sdk.Response[[]map[string]interface{}], error) {
+				engine := NewAggregationEngine(c.DIContainer, opts...)
 				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {
-					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err))
+					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err)).WithTranslation("entities.aggregation.failed", nil)
 				}
 				return sdk.NewResponseBuilder[[]map[string]interface{}]().AddData(&result).
 					AddReferences(refs).AddSchema(schema).Build(), nil
@@ -47,8 +46,7 @@ func (a aggregationEntity_) GetID() any { return nil }
 
 // buildPipelineSchema returns a descriptive JSON Schema for the AggregationPipeline payload.
 func buildPipelineSchema() *sdk.RootSchema {
-	description := "Array of pipeline stages. Each stage is either an entity stage " +
-		"{ entity, pipeline } or the top-level $mergeResults operator."
+	description := "t(entities.aggregation.fields.pipeline_description)"
 	return &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type:        sdk.SchemaTypeArray,

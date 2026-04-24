@@ -7,12 +7,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 
 type EndorHandlerActionInterface interface {
-	CreateHTTPCallback(microserviceId string, entity string, action string, category string) func(c *gin.Context)
+	CreateHTTPCallback(microserviceId string, entity string, action string, category string, session Session, container EndorDIContainerInterface) func(c *gin.Context)
 	GetOptions() EndorHandlerActionOptions
 }
 
@@ -24,11 +25,12 @@ type EndorHandlerActionOptions struct {
 }
 
 type EndorHandler struct {
-	Entity            string
-	EntityDescription string
-	Actions           map[string]EndorHandlerActionInterface
-	Priority          *int
-	EntitySchema      RootSchema
+	Entity              string
+	EntityDescription   string
+	Actions             map[string]EndorHandlerActionInterface
+	Priority            *int
+	EntitySchema        RootSchema
+	RepositoryFactories map[string]RepositoryFactory
 
 	// optionals
 	Version string
@@ -70,18 +72,8 @@ type endorHandlerActionImpl[T any, R any] struct {
 	options EndorHandlerActionOptions
 }
 
-func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string) func(c *gin.Context) {
+func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string, entity string, action string, categoryType string, session Session, container EndorDIContainerInterface) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		development := false
-		if c.GetHeader("x-development") == "true" {
-			development = true
-		}
-		session := Session{
-			Id:          c.GetHeader("x-user-session"),
-			Username:    c.GetHeader("x-user-id"),
-			Development: development,
-		}
-
 		// logger
 		configuration := sdk_configuration.GetConfig()
 		logger := NewLogger(LogConfig{
@@ -99,9 +91,11 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 		ec := &EndorContext[T]{
 			MicroServiceId: microserviceId,
 			Session:        session,
+			Locale:         sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language")),
 			GinContext:     c,
 			Logger:         *logger,
 			CategoryType:   categoryType,
+			DIContainer:    container,
 		}
 		var t T
 		if !m.options.SkipPayloadValidation && reflect.TypeOf(t) != reflect.TypeOf(NoPayload{}) {
@@ -118,12 +112,17 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			var endorError *EndorError
 			if errors.As(err, &endorError) {
 				logger.ErrorWithStackTrace(endorError)
-				c.JSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, endorError.Error())).Build())
+				message := endorError.Error()
+				if endorError.TranslationKey != "" {
+					message = sdk_i18n.T(ec.Locale, endorError.TranslationKey, endorError.TranslationArgs)
+				}
+				c.JSON(endorError.StatusCode, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, message)).Build())
 			} else {
 				logger.ErrorWithStackTrace(err)
 				c.JSON(http.StatusInternalServerError, NewDefaultResponseBuilder().AddMessage(NewMessage(ResponseMessageGravityFatal, err.Error())).Build())
 			}
 		} else {
+			response.ResolveTranslations(ec.Locale)
 			c.Header("x-endor-microservice", microserviceId)
 			c.JSON(http.StatusOK, response)
 		}
@@ -147,6 +146,7 @@ type EndorBaseHandlerInterface interface {
 	EndorHandlerInterface
 	WithPriority(priority int) EndorBaseHandlerInterface
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseHandlerInterface
+	WithRepository(fn RepositoryFactory) EndorBaseHandlerInterface
 	ToEndorHandler() EndorHandler
 }
 
@@ -156,6 +156,7 @@ type EndorBaseSpecializedHandlerInterface interface {
 	WithPriority(priority int) EndorBaseSpecializedHandlerInterface
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerInterface
 	WithCategories(categories []EndorBaseSpecializedHandlerCategoryInterface) EndorBaseSpecializedHandlerInterface
+	WithRepository(fn RepositoryFactory) EndorBaseSpecializedHandlerInterface
 	GetCategories() []Category
 	ToEndorHandler() EndorHandler
 }
@@ -165,7 +166,9 @@ type EndorBaseSpecializedHandlerCategoryInterface interface {
 	GetDescription() string
 	GetSchema() string
 	GetActions() map[string]EndorHandlerActionInterface
+	GetRepository() RepositoryFactory
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerCategoryInterface
+	WithRepository(fn RepositoryFactory) EndorBaseSpecializedHandlerCategoryInterface
 }
 
 // hybrid
@@ -191,6 +194,7 @@ type EndorHybridSpecializedHandlerCategoryInterface interface {
 	GetDescription() string
 	GetSchema() string
 	GetActions() func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface
+	GetRepository() RepositoryFactory
 	WithActions(actionFn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerCategoryInterface
 	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorHandlerActionInterface
 }

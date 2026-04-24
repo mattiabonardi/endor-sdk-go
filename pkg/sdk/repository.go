@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"sync"
 )
 
 // EntityInstanceRepositoryOptions defines configuration options for EntityInstanceRepository
@@ -19,6 +18,8 @@ type EntityInstanceRepositoryOptions struct {
 type EndorRepositoryInterface interface {
 	FindReferences(ctx context.Context, ids ReadInstancesDTO) (EntityReferenceGroupDescriptions, error)
 	GetEntity() string
+	RawList(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
+	GetSchema() *RootSchema
 }
 
 type EntityInstanceRepositoryInterface[T EntityInstanceInterface] interface {
@@ -93,99 +94,5 @@ type EntityRefererenceGroup map[string]EntityReferenceGroupDescriptions
 
 // define a map that contains for each id the relative description
 type EntityReferenceGroupDescriptions map[string]string
-
-// #endregion
-
-// #region Repository Registry
-
-// RepositoryRegistry is a unified, thread-safe singleton registry that holds both
-// EntityInstanceRepositoryInterface and StaticEntityInstanceRepositoryInterface instances,
-// keyed by a string name (typically the entity type name).
-// Use Get to retrieve the common RepositoryInterface (e.g. to call FindReferences).
-// Use the typed helpers GetEntityInstanceRepository / GetStaticEntityInstanceRepository
-// when the concrete repository type is known.
-type RepositoryRegistry struct {
-	mu           sync.RWMutex
-	repositories map[string]EndorRepositoryInterface
-}
-
-var (
-	repositoryRegistryInstance *RepositoryRegistry
-	repositoryRegistryOnce     sync.Once
-)
-
-// GetRepositoryRegistry returns the singleton RepositoryRegistry.
-func GetRepositoryRegistry() *RepositoryRegistry {
-	repositoryRegistryOnce.Do(func() {
-		repositoryRegistryInstance = &RepositoryRegistry{
-			repositories: make(map[string]EndorRepositoryInterface),
-		}
-	})
-	return repositoryRegistryInstance
-}
-
-// Register stores a repository (either EntityInstanceRepositoryInterface or
-// StaticEntityInstanceRepositoryInterface) under the given name.
-func (r *RepositoryRegistry) Register(name string, repo EndorRepositoryInterface) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.repositories[name] = repo
-}
-
-// Get retrieves the RepositoryInterface stored under the given name.
-// Use this when only common operations (e.g. FindReferences) are needed.
-func (r *RepositoryRegistry) Get(name string) (EndorRepositoryInterface, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	repo, ok := r.repositories[name]
-	return repo, ok
-}
-
-// DocumentRepositoryInterface extends EndorRepositoryInterface with the ability
-// to list raw documents as a slice of maps, enabling aggregation pipelines to
-// query any entity without knowing its concrete type at compile time.
-// GetSchema returns the entity's root schema, which the aggregation engine uses
-// to track field lineage through pipeline stages and resolve entity references.
-type DocumentRepositoryInterface interface {
-	EndorRepositoryInterface
-	ListDocuments(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
-	GetSchema() *RootSchema
-}
-
-// GetDocumentRepository retrieves a repository from the singleton RepositoryRegistry
-// and asserts it to DocumentRepositoryInterface.
-// Returns (nil, false) if the name is not registered or the type does not match.
-func GetDocumentRepository(name string) (DocumentRepositoryInterface, bool) {
-	repo, ok := GetRepositoryRegistry().Get(name)
-	if !ok {
-		return nil, false
-	}
-	docRepo, ok := repo.(DocumentRepositoryInterface)
-	return docRepo, ok
-}
-
-// GetEntityInstanceRepository retrieves a repository from the singleton RepositoryRegistry
-// and asserts it to EntityInstanceRepositoryInterface[T].
-// Returns (nil, false) if the name is not registered or the type does not match.
-func GetEntityInstanceRepository[T EntityInstanceInterface](name string) (EntityInstanceRepositoryInterface[T], bool) {
-	repo, ok := GetRepositoryRegistry().Get(name)
-	if !ok {
-		return nil, false
-	}
-	typed, ok := repo.(EntityInstanceRepositoryInterface[T])
-	return typed, ok
-}
-
-// GetStaticEntityInstanceRepository retrieves a repository from the singleton RepositoryRegistry
-// and asserts it to StaticEntityInstanceRepositoryInterface[T].
-// Returns (nil, false) if the name is not registered or the type does not match.
-func GetStaticEntityInstanceRepository[T EntityInstanceInterface](name string) (StaticEntityInstanceRepositoryInterface[T], bool) {
-	repo, ok := GetRepositoryRegistry().Get(name)
-	if !ok {
-		return nil, false
-	}
-	typed, ok := repo.(StaticEntityInstanceRepositoryInterface[T])
-	return typed, ok
-}
 
 // #endregion

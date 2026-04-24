@@ -1,0 +1,46 @@
+commons:
+  not_found: "Pagina non trovata (uri: {{uri}}, metodo: {{method}})"
+
+entities:
+  entity:
+    fields:
+      id: "Id"
+      description: "Descrizione"
+      type: "Tipo"
+      service: "Servizio"
+      schema: "Schema"
+      categories: "Categorie"
+      additional_schema: "Schema aggiuntivo"
+      additional_categories: "Categorie aggiuntive"
+    created: "entità {{id}} creata"
+    updated: "entità {{id}} aggiornata"
+    deleted: "entità {{id}} eliminata"
+    not_found: "entità {{id}} non trovata"
+    already_exists: "entità già esistente"
+    create_not_permitted: "creazione dell'entità non consentita"
+    update_not_permitted: "aggiornamento dell'entità non consentito"
+    delete_not_permitted: "eliminazione dell'entità non consentita"
+    action_not_found: "azione dell'entità non trovata"
+    invalid_action_id: "id azione entità non valido"
+    created_specialized: "{{name}} {{id}} creato"
+    updated_category: "{{name}} aggiornato (categoria)"
+  category:
+    fields:
+      id: "ID categoria"
+      description: "Descrizione categoria"
+      schema: "Schema"
+      additional_schema: "Schema categoria aggiuntivo"
+  entity_action:
+    fields:
+      id: "Id"
+      entity: "Entità"
+      description: "Descrizione"
+      input_schema: "Schema di input"
+  dynamic_entity:
+    fields:
+      id: "Id"
+      type: "Tipo"
+  aggregation:
+    fields:
+      pipeline_description: "Array di stage della pipeline. Ogni stage è uno stage entità { entity, pipeline } oppure l'operatore $mergeResults."
+    failed: "Aggregazione fallita"

@@ -898,11 +898,10 @@ func (r *mongoBaseRepository[T]) FindReferences(ctx context.Context, dto sdk.Rea
 
 // resolveEntityReferences calls FindReferences on the RepositoryRegistry for each entry
 // in entityIDs and returns the merged EntityRefererenceGroup.
-func resolveEntityReferences(ctx context.Context, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
-	registry := sdk.GetRepositoryRegistry()
+func resolveEntityReferences(ctx context.Context, di sdk.EndorDIContainerInterface, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
 	references := make(sdk.EntityRefererenceGroup)
 	for entityName, ids := range entityIDs {
-		repo, found := registry.Get(entityName)
+		repo, found := di.GetRepositories()[entityName]
 		if !found {
 			continue
 		}

@@ -144,3 +144,19 @@ func toSlice(v interface{}) []interface{} {
 		return nil
 	}
 }
+
+func entityListToSliceOfMaps(items []interface{}) ([]map[string]interface{}, error) {
+	result := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity instance: %w", err)
+		}
+		var doc map[string]interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal entity instance: %w", err)
+		}
+		result = append(result, doc)
+	}
+	return result, nil
+}

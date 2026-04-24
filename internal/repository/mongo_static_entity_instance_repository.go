@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -26,23 +27,33 @@ import (
 type MongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface] struct {
 	options  sdk.StaticEntityInstanceRepositoryOptions[T]
 	entityId string
-
-	_base *mongoBaseRepository[T]
+	session  sdk.Session
+	di       sdk.EndorDIContainerInterface
+	_base    *mongoBaseRepository[T]
 }
 
 // NewMongoStaticEntityInstanceRepository creates a new repository for the given entity.
 func NewMongoStaticEntityInstanceRepository[T sdk.EntityInstanceInterface](
 	entityId string,
 	options sdk.StaticEntityInstanceRepositoryOptions[T],
+	session sdk.Session,
+	di sdk.EndorDIContainerInterface,
 ) *MongoStaticEntityInstanceRepository[T] {
 	return &MongoStaticEntityInstanceRepository[T]{
 		options:  options,
 		entityId: entityId,
+		session:  session,
+		di:       di,
 	}
 }
 
 func (r *MongoStaticEntityInstanceRepository[T]) GetEntity() string {
 	return r.entityId
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) GetSchema() *sdk.RootSchema {
+	var zero T
+	return sdk.NewSchema(zero)
 }
 
 // Instance retrieves a single entity by ID.
@@ -69,7 +80,6 @@ func (r *MongoStaticEntityInstanceRepository[T]) Instance(ctx context.Context, d
 
 // List retrieves entities matching the filter.
 func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto sdk.ReadDTO) ([]T, error) {
-	// For static entities, filter and projection are used directly (no metadata separation)
 	var filter bson.M
 	if dto.Filter != nil {
 		filter = cloneBsonM(dto.Filter)
@@ -81,6 +91,10 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 	}
 
 	rawDocs, err := r.getBaseRepository().Find(ctx, filter, projection)
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +173,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) InstanceWithReferences(ctx cont
 	}
 
 	entityIDs := extractEntityReferenceIDsFromDoc(sdk.NewSchema(zero), rawDoc)
-	references, err := resolveEntityReferences(ctx, entityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, entityIDs)
 	if err != nil {
 		return zero, nil, err
 	}
@@ -203,7 +217,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 		}
 	}
 
-	references, err := resolveEntityReferences(ctx, allEntityIDs)
+	references, err := resolveEntityReferences(ctx, r.di, allEntityIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,6 +239,29 @@ func (r *MongoStaticEntityInstanceRepository[T]) ListWithReferences(ctx context.
 	}
 
 	return instances, references, nil
+}
+
+func (r *MongoStaticEntityInstanceRepository[T]) RawList(ctx context.Context, dto sdk.ReadDTO) ([]map[string]interface{}, error) {
+	list, err := r.List(ctx, dto)
+	if err != nil {
+		return nil, err
+	}
+
+	rawList := make([]map[string]interface{}, 0, len(list))
+	for _, instance := range list {
+		// Marshal instance to JSON
+		jsonBytes, err := json.Marshal(instance)
+		if err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		// Unmarshal JSON into map[string]interface{}
+		var m map[string]interface{}
+		if err := json.Unmarshal(jsonBytes, &m); err != nil {
+			return nil, sdk.NewInternalServerError(err)
+		}
+		rawList = append(rawList, m)
+	}
+	return rawList, nil
 }
 
 // toModel converts a raw MongoDB document to the model type T.
@@ -249,6 +286,10 @@ func (r *MongoStaticEntityInstanceRepository[T]) getBaseRepository() *mongoBaseR
 		return r._base
 	}
 	client, _ := sdk.GetMongoClient()
-	collection := client.Database(sdk_configuration.GetConfig().DynamicEntityDocumentDBName).Collection(r.entityId)
+	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
+	if r.session.Development == true && r.session.Username != "" {
+		dbName = r.session.Username + "-" + dbName
+	}
+	collection := client.Database(dbName).Collection(r.entityId)
 	return newMongoBaseRepository[T](collection, *r.options.AutoGenerateID)
 }

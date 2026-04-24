@@ -6,8 +6,10 @@ import (
 )
 
 type EndorError struct {
-	StatusCode  int
-	InternalErr error
+	StatusCode      int
+	InternalErr     error
+	TranslationKey  string
+	TranslationArgs map[string]any
 }
 
 func (e *EndorError) Error() string {
@@ -16,6 +18,14 @@ func (e *EndorError) Error() string {
 
 func (e *EndorError) Unwrap() error {
 	return e.InternalErr
+}
+
+// WithTranslation attaches an i18n translation key and optional named interpolation args.
+// The translation is resolved at response time using the request locale.
+func (e *EndorError) WithTranslation(key string, args map[string]any) *EndorError {
+	e.TranslationKey = key
+	e.TranslationArgs = args
+	return e
 }
 
 // Factories

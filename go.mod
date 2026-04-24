@@ -6,6 +6,8 @@ toolchain go1.24.3
 
 require github.com/gin-gonic/gin v1.3.0
 
+require github.com/fsnotify/fsnotify v1.9.0
+
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
@@ -14,7 +16,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
