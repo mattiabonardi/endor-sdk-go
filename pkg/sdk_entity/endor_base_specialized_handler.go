@@ -6,6 +6,7 @@ import (
 
 type EndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
 	ID                string
+	Title             string
 	Description       string
 	Actions           map[string]sdk.EndorHandlerActionInterface
 	repositoryFactory sdk.RepositoryFactory
@@ -13,6 +14,10 @@ type EndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterfac
 
 func (h *EndorBaseSpecializedHandlerCategory[T]) GetID() string {
 	return h.ID
+}
+
+func (h *EndorBaseSpecializedHandlerCategory[T]) GetTitle() string {
+	return h.Title
 }
 
 func (h *EndorBaseSpecializedHandlerCategory[T]) GetDescription() string {
@@ -32,6 +37,11 @@ func (h *EndorBaseSpecializedHandlerCategory[T]) GetRepository() sdk.RepositoryF
 	return h.repositoryFactory
 }
 
+func (h *EndorBaseSpecializedHandlerCategory[T]) WithExtendedDescription(description string) sdk.EndorBaseSpecializedHandlerCategoryInterface {
+	h.Description = description
+	return h
+}
+
 func (h *EndorBaseSpecializedHandlerCategory[T]) WithActions(actions map[string]sdk.EndorHandlerActionInterface) sdk.EndorBaseSpecializedHandlerCategoryInterface {
 	h.Actions = actions
 	return h
@@ -44,15 +54,16 @@ func (h *EndorBaseSpecializedHandlerCategory[T]) WithRepository(
 	return h
 }
 
-func NewEndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorBaseSpecializedHandlerCategoryInterface {
+func NewEndorBaseSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryTitle string) sdk.EndorBaseSpecializedHandlerCategoryInterface {
 	return &EndorBaseSpecializedHandlerCategory[T]{
-		ID:          categoryID,
-		Description: categoryDescription,
+		ID:    categoryID,
+		Title: categoryTitle,
 	}
 }
 
 type EndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struct {
 	Entity              string
+	EntityTitle         string
 	EntityDescription   string
 	Priority            *int
 	actions             map[string]sdk.EndorHandlerActionInterface
@@ -62,6 +73,10 @@ type EndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struc
 
 func (h EndorBaseSpecializedHandler[T]) GetEntity() string {
 	return h.Entity
+}
+
+func (h EndorBaseSpecializedHandler[T]) GetEntityTitle() string {
+	return h.EntityTitle
 }
 
 func (h EndorBaseSpecializedHandler[T]) GetEntityDescription() string {
@@ -86,11 +101,18 @@ func (h EndorBaseSpecializedHandler[T]) WithRepository(
 	return h
 }
 
-func NewEndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorBaseSpecializedHandlerInterface {
+func NewEndorBaseSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityTitle string) sdk.EndorBaseSpecializedHandlerInterface {
 	return EndorBaseSpecializedHandler[T]{
-		Entity:            entity,
-		EntityDescription: entityDescription,
+		Entity:      entity,
+		EntityTitle: entityTitle,
 	}
+}
+
+func (h EndorBaseSpecializedHandler[T]) WithExtendedDescription(
+	description string,
+) sdk.EndorBaseSpecializedHandlerInterface {
+	h.EntityDescription = description
+	return h
 }
 
 func (h EndorBaseSpecializedHandler[T]) WithPriority(
@@ -122,6 +144,7 @@ func (h EndorBaseSpecializedHandler[T]) GetCategories() []sdk.Category {
 	for _, category := range h.categories {
 		categories = append(categories, sdk.Category{
 			ID:          category.GetID(),
+			Title:       category.GetTitle(),
 			Description: category.GetDescription(),
 			Schema:      category.GetSchema(),
 		})
@@ -161,6 +184,7 @@ func (h EndorBaseSpecializedHandler[T]) ToEndorHandler() sdk.EndorHandler {
 
 	return sdk.EndorHandler{
 		Entity:              h.Entity,
+		EntityTitle:         h.EntityTitle,
 		EntityDescription:   h.EntityDescription,
 		Priority:            h.Priority,
 		Actions:             actions,

@@ -6,6 +6,7 @@ import (
 
 type EndorBaseHandler[T sdk.EntityInstanceInterface] struct {
 	entity            string
+	entityTitle       string
 	entityDescription string
 	priority          *int
 	actions           map[string]sdk.EndorHandlerActionInterface
@@ -14,6 +15,10 @@ type EndorBaseHandler[T sdk.EntityInstanceInterface] struct {
 
 func (h EndorBaseHandler[T]) GetEntity() string {
 	return h.entity
+}
+
+func (h EndorBaseHandler[T]) GetEntityTitle() string {
+	return h.entityTitle
 }
 
 func (h EndorBaseHandler[T]) GetEntityDescription() string {
@@ -28,11 +33,18 @@ func (h EndorBaseHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewEndorBaseHandler[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorBaseHandlerInterface {
+func NewEndorBaseHandler[T sdk.EntityInstanceInterface](entity, entityTitle string) sdk.EndorBaseHandlerInterface {
 	return EndorBaseHandler[T]{
-		entity:            entity,
-		entityDescription: entityDescription,
+		entity:      entity,
+		entityTitle: entityTitle,
 	}
+}
+
+func (h EndorBaseHandler[T]) WithExtendedDescription(
+	description string,
+) sdk.EndorBaseHandlerInterface {
+	h.entityDescription = description
+	return h
 }
 
 func (h EndorBaseHandler[T]) WithPriority(
@@ -61,6 +73,7 @@ func (h EndorBaseHandler[T]) ToEndorHandler() sdk.EndorHandler {
 	rootSchema := sdk.NewSchema(baseModel)
 	return sdk.EndorHandler{
 		Entity:              h.entity,
+		EntityTitle:         h.entityTitle,
 		EntityDescription:   h.entityDescription,
 		Priority:            h.priority,
 		Actions:             h.actions,

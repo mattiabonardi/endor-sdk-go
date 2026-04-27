@@ -5,9 +5,10 @@ entities:
   entity:
     fields:
       id: "Id"
-      description: "Descrizione"
+      title: "Descrizione"
+      description: "Descrizione estesa"
       type: "Tipo"
-      service: "Servizio"
+      domain: "Dominio"
       schema: "Schema"
       categories: "Categorie"
       additional_schema: "Schema aggiuntivo"
@@ -27,7 +28,8 @@ entities:
   category:
     fields:
       id: "ID categoria"
-      description: "Descrizione categoria"
+      title: "Descrizione categoria"
+      description: "Descrizione estesa categoria"
       schema: "Schema"
       additional_schema: "Schema categoria aggiuntivo"
   entity_action:

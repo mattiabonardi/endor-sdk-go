@@ -26,6 +26,7 @@ type EndorHandlerActionOptions struct {
 
 type EndorHandler struct {
 	Entity              string
+	EntityTitle         string
 	EntityDescription   string
 	Actions             map[string]EndorHandlerActionInterface
 	Priority            *int
@@ -38,6 +39,10 @@ type EndorHandler struct {
 
 func (h EndorHandler) GetEntity() string {
 	return h.Entity
+}
+
+func (h EndorHandler) GetEntityTitle() string {
+	return h.EntityTitle
 }
 
 func (h EndorHandler) GetEntityDescription() string {
@@ -136,6 +141,7 @@ func (m *endorHandlerActionImpl[T, R]) GetOptions() EndorHandlerActionOptions {
 // generic
 type EndorHandlerInterface interface {
 	GetEntity() string
+	GetEntityTitle() string
 	GetEntityDescription() string
 	GetPriority() *int
 	GetSchema() *RootSchema
@@ -144,6 +150,7 @@ type EndorHandlerInterface interface {
 // base
 type EndorBaseHandlerInterface interface {
 	EndorHandlerInterface
+	WithExtendedDescription(description string) EndorBaseHandlerInterface
 	WithPriority(priority int) EndorBaseHandlerInterface
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseHandlerInterface
 	WithRepository(fn RepositoryFactory) EndorBaseHandlerInterface
@@ -153,6 +160,7 @@ type EndorBaseHandlerInterface interface {
 // base specialized
 type EndorBaseSpecializedHandlerInterface interface {
 	EndorHandlerInterface
+	WithExtendedDescription(description string) EndorBaseSpecializedHandlerInterface
 	WithPriority(priority int) EndorBaseSpecializedHandlerInterface
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerInterface
 	WithCategories(categories []EndorBaseSpecializedHandlerCategoryInterface) EndorBaseSpecializedHandlerInterface
@@ -163,10 +171,12 @@ type EndorBaseSpecializedHandlerInterface interface {
 
 type EndorBaseSpecializedHandlerCategoryInterface interface {
 	GetID() string
+	GetTitle() string
 	GetDescription() string
 	GetSchema() string
 	GetActions() map[string]EndorHandlerActionInterface
 	GetRepository() RepositoryFactory
+	WithExtendedDescription(description string) EndorBaseSpecializedHandlerCategoryInterface
 	WithActions(actions map[string]EndorHandlerActionInterface) EndorBaseSpecializedHandlerCategoryInterface
 	WithRepository(fn RepositoryFactory) EndorBaseSpecializedHandlerCategoryInterface
 }
@@ -174,6 +184,7 @@ type EndorBaseSpecializedHandlerCategoryInterface interface {
 // hybrid
 type EndorHybridHandlerInterface interface {
 	EndorHandlerInterface
+	WithExtendedDescription(description string) EndorHybridHandlerInterface
 	WithPriority(priority int) EndorHybridHandlerInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridHandlerInterface
 	ToEndorHandler(metadataSchema RootSchema) EndorHandler
@@ -182,6 +193,7 @@ type EndorHybridHandlerInterface interface {
 // hybrid specialized
 type EndorHybridSpecializedHandlerInterface interface {
 	EndorHandlerInterface
+	WithExtendedDescription(description string) EndorHybridSpecializedHandlerInterface
 	WithPriority(priority int) EndorHybridSpecializedHandlerInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerInterface
 	WithHybridCategories(categories []EndorHybridSpecializedHandlerCategoryInterface) EndorHybridSpecializedHandlerInterface
@@ -191,10 +203,12 @@ type EndorHybridSpecializedHandlerInterface interface {
 
 type EndorHybridSpecializedHandlerCategoryInterface interface {
 	GetID() string
+	GetTitle() string
 	GetDescription() string
 	GetSchema() string
 	GetActions() func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface
 	GetRepository() RepositoryFactory
+	WithExtendedDescription(description string) EndorHybridSpecializedHandlerCategoryInterface
 	WithActions(actionFn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerCategoryInterface
 	CreateDefaultActions(entity string, entityDescription string, metadataSchema RootSchema, categoryMetadataSchema RootSchema) map[string]EndorHandlerActionInterface
 }

@@ -13,7 +13,7 @@ func TestEndorBaseHandler(t *testing.T) {
 
 	// check attribute
 	assert.Equal(t, endorHandler.Entity, "base-handler")
-	assert.Equal(t, endorHandler.EntityDescription, "Base Handler (EndorBaseHandler)")
+	assert.Equal(t, endorHandler.EntityTitle, "Base Handler (EndorBaseHandler)")
 	// check schema
 	assert.Equal(t, len(*endorHandler.EntitySchema.Properties), 2)
 

@@ -5,9 +5,10 @@ entities:
   entity:
     fields:
       id: "Id"
+      title: "Title"
       description: "Description"
       type: "Type"
-      service: "Service"
+      domain: "Domain"
       schema: "Schema"
       categories: "Categories"
       additional_schema: "Additional schema"
@@ -27,6 +28,7 @@ entities:
   category:
     fields:
       id: "Category ID"
+      title: "Title"
       description: "Category description"
       schema: "Schema"
       additional_schema: "Additional category schema"

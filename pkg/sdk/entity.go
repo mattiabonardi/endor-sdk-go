@@ -8,12 +8,14 @@ import (
 
 type Category struct {
 	ID          string `json:"id" bson:"id" schema:"title=t(entities.category.fields.id)"`
+	Title       string `json:"title" bson:"title" schema:"title=t(entities.category.fields.title)"`
 	Description string `json:"description" bson:"description" schema:"title=t(entities.category.fields.description)"`
 	Schema      string `json:"schema" bson:"-" schema:"title=t(entities.category.fields.schema),format=yaml,readOnly=true"`
 }
 
 type HybridCategory struct {
 	ID               string `json:"id" bson:"id" schema:"title=t(entities.category.fields.id),readOnly=true"`
+	Title            string `json:"title" bson:"title" schema:"title=t(entities.category.fields.title)"`
 	Description      string `json:"description" bson:"description" schema:"title=t(entities.category.fields.description),readOnly=true"`
 	Schema           string `json:"schema" bson:"-" schema:"title=t(entities.category.fields.schema),format=yaml,readOnly=true"`
 	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=t(entities.category.fields.additional_schema),format=yaml"`
@@ -21,6 +23,7 @@ type HybridCategory struct {
 
 type DynamicCategory struct {
 	ID               string `json:"id" bson:"id" schema:"title=t(entities.category.fields.id)"`
+	Title            string `json:"title" bson:"title" schema:"title=t(entities.category.fields.title)"`
 	Description      string `json:"description" bson:"description" schema:"title=t(entities.category.fields.description)"`
 	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=t(entities.category.fields.additional_schema),format=yaml"`
 }
@@ -47,8 +50,8 @@ type EntityInterface interface {
 	GetID() any
 	GetCategoryType() string
 	SetCategoryType(entityType string)
-	GetService() string
-	SetService(service string)
+	GetDomain() string
+	SetDomain(domain string)
 }
 
 type EntityType string
@@ -66,9 +69,10 @@ const (
 
 type Entity struct {
 	ID          string `json:"id" bson:"_id" schema:"title=t(entities.entity.fields.id),readOnly=true"`
+	Title       string `json:"title" schema:"title=t(entities.entity.fields.title),readOnly=true"`
 	Description string `json:"description" schema:"title=t(entities.entity.fields.description),readOnly=true"`
 	Type        string `json:"type" schema:"title=t(entities.entity.fields.type),readOnly=true"`
-	Service     string `json:"service" schema:"title=t(entities.entity.fields.service),readOnly=true" ui-schema:"entity=microservice"`
+	Domain      string `json:"domain" schema:"title=t(entities.entity.fields.domain),readOnly=true" ui-schema:"entity=domain"`
 	Schema      string `json:"schema" bson:"-" schema:"title=t(entities.entity.fields.schema),format=yaml,readOnly=true"`
 }
 
@@ -84,12 +88,12 @@ func (r *Entity) SetCategoryType(t string) {
 	r.Type = t
 }
 
-func (h *Entity) GetService() string {
-	return h.Service
+func (h *Entity) GetDomain() string {
+	return h.Domain
 }
 
-func (r *Entity) SetService(service string) {
-	r.Service = service
+func (r *Entity) SetDomain(domain string) {
+	r.Domain = domain
 }
 
 // #endregion
@@ -141,7 +145,7 @@ func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, 
 // #endregion
 
 type EntityAction struct {
-	// version/entity/action
+	// domain/version/entity/action
 	ID          string `json:"id" schema:"title=t(entities.entity_action.fields.id)"`
 	Entity      string `json:"entity" schema:"title=t(entities.entity_action.fields.entity)" ui-schema:"entity=entity"`
 	Description string `json:"description" schema:"title=t(entities.entity_action.fields.description)"`

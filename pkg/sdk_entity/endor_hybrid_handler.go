@@ -10,6 +10,7 @@ import (
 
 type EndorHybridHandler[T sdk.EntityInstanceInterface] struct {
 	Entity            string
+	EntityTitle       string
 	EntityDescription string
 	Priority          *int
 	methodsFn         func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
@@ -17,6 +18,10 @@ type EndorHybridHandler[T sdk.EntityInstanceInterface] struct {
 
 func (h EndorHybridHandler[T]) GetEntity() string {
 	return h.Entity
+}
+
+func (h EndorHybridHandler[T]) GetEntityTitle() string {
+	return h.EntityTitle
 }
 
 func (h EndorHybridHandler[T]) GetEntityDescription() string {
@@ -31,11 +36,18 @@ func (h EndorHybridHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewEndorHybridHandler[T sdk.EntityInstanceInterface](entity, entityDescription string) sdk.EndorHybridHandlerInterface {
+func NewEndorHybridHandler[T sdk.EntityInstanceInterface](entity, entityTitle string) sdk.EndorHybridHandlerInterface {
 	return EndorHybridHandler[T]{
-		Entity:            entity,
-		EntityDescription: entityDescription,
+		Entity:      entity,
+		EntityTitle: entityTitle,
 	}
+}
+
+func (h EndorHybridHandler[T]) WithExtendedDescription(
+	description string,
+) sdk.EndorHybridHandlerInterface {
+	h.EntityDescription = description
+	return h
 }
 
 func (h EndorHybridHandler[T]) WithPriority(
@@ -80,6 +92,7 @@ func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk
 
 	return sdk.EndorHandler{
 		Entity:              h.Entity,
+		EntityTitle:         h.EntityTitle,
 		EntityDescription:   h.EntityDescription,
 		Priority:            h.Priority,
 		Actions:             methods,

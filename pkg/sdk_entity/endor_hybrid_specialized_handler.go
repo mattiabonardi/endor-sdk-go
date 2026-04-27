@@ -11,6 +11,7 @@ import (
 
 type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
 	ID                string
+	Title             string
 	Description       string
 	ActionFn          func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
 	repositoryFactory sdk.RepositoryFactory
@@ -18,6 +19,10 @@ type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterf
 
 func (h *EndorHybridSpecializedHandlerCategory[T]) GetID() string {
 	return h.ID
+}
+
+func (h *EndorHybridSpecializedHandlerCategory[T]) GetTitle() string {
+	return h.Title
 }
 
 func (h *EndorHybridSpecializedHandlerCategory[T]) GetDescription() string {
@@ -38,6 +43,11 @@ func (h *EndorHybridSpecializedHandlerCategory[T]) GetRepository() sdk.Repositor
 	return h.repositoryFactory
 }
 
+func (h *EndorHybridSpecializedHandlerCategory[T]) WithExtendedDescription(description string) sdk.EndorHybridSpecializedHandlerCategoryInterface {
+	h.Description = description
+	return h
+}
+
 func (h *EndorHybridSpecializedHandlerCategory[T]) WithActions(actionFn func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface) sdk.EndorHybridSpecializedHandlerCategoryInterface {
 	h.ActionFn = actionFn
 	return h
@@ -55,15 +65,16 @@ func (h *EndorHybridSpecializedHandlerCategory[T]) CreateDefaultActions(entity s
 	return getDefaultActionsForCategory[T](entity, *rootSchemWithCategory, entityDescription, h.ID)
 }
 
-func NewEndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryDescription string) sdk.EndorHybridSpecializedHandlerCategoryInterface {
+func NewEndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryTile string) sdk.EndorHybridSpecializedHandlerCategoryInterface {
 	return &EndorHybridSpecializedHandlerCategory[T]{
-		ID:          categoryID,
-		Description: categoryDescription,
+		ID:    categoryID,
+		Title: categoryTile,
 	}
 }
 
 type EndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] struct {
 	Entity              string
+	EntityTitle         string
 	EntityDescription   string
 	Priority            *int
 	methodsFn           func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface
@@ -74,6 +85,10 @@ type EndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface] str
 
 func (h EndorHybridSpecializedHandler[T]) GetEntity() string {
 	return h.Entity
+}
+
+func (h EndorHybridSpecializedHandler[T]) GetEntityTitle() string {
+	return h.EntityTitle
 }
 
 func (h EndorHybridSpecializedHandler[T]) GetEntityDescription() string {
@@ -88,11 +103,18 @@ func (h EndorHybridSpecializedHandler[T]) GetSchema() *sdk.RootSchema {
 	return getRootSchema[T]()
 }
 
-func NewEndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityDescription string) sdk.EndorHybridSpecializedHandlerInterface {
+func NewEndorHybridSpecializedHandler[T sdk.EntityInstanceSpecializedInterface](entity, entityTitle string) sdk.EndorHybridSpecializedHandlerInterface {
 	return EndorHybridSpecializedHandler[T]{
-		Entity:            entity,
-		EntityDescription: entityDescription,
+		Entity:      entity,
+		EntityTitle: entityTitle,
 	}
+}
+
+func (h EndorHybridSpecializedHandler[T]) WithExtendedDescription(
+	description string,
+) sdk.EndorHybridSpecializedHandlerInterface {
+	h.EntityDescription = description
+	return h
 }
 
 func (h EndorHybridSpecializedHandler[T]) WithPriority(
@@ -129,6 +151,7 @@ func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCate
 	for _, categoryID := range h.staticCategories {
 		staticCategories = append(staticCategories, sdk.HybridCategory{
 			ID:          h.categories[categoryID].GetID(),
+			Title:       h.categories[categoryID].GetTitle(),
 			Description: h.categories[categoryID].GetDescription(),
 			Schema:      h.categories[categoryID].GetSchema(),
 		})
@@ -146,7 +169,8 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 
 	// merge additional categories
 	for _, additionalCategory := range additionalCategories {
-		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedHandlerCategory[T](additionalCategory.ID, additionalCategory.Description)
+		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedHandlerCategory[T](additionalCategory.ID, additionalCategory.Title).
+			WithExtendedDescription(additionalCategory.Description)
 		additionalCategorySchema, _ := additionalCategory.UnmarshalAdditionalAttributes()
 		categoriesMetadataSchema[additionalCategory.ID] = *additionalCategorySchema
 	}
@@ -192,6 +216,7 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 
 	return sdk.EndorHandler{
 		Entity:              h.Entity,
+		EntityTitle:         h.EntityTitle,
 		EntityDescription:   h.EntityDescription,
 		Priority:            h.Priority,
 		Actions:             methods,

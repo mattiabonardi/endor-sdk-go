@@ -296,7 +296,7 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,
-			Description: service.EntityDescription,
+			Description: service.EntityTitle,
 		}
 		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}

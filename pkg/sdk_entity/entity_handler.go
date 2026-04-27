@@ -59,11 +59,11 @@ func NewEntityHandler(microServiceId string, handlers *[]sdk.EndorHandlerInterfa
 	dynamicSpecializedActions := map[string]sdk.EndorHandlerActionInterface{}
 
 	if dynamicEntitiesEnabled {
-		dynamicActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybrid{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
+		dynamicActions["schema"] = sdk.NewAction(entityService.schema(sdk.NewSchema(&sdk.EntityHybrid{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic))
 		dynamicActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})), "Search for available entities of type "+string(sdk.EntityTypeDynamic))
 
-		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(entityService.getDynamicSchema(&sdk.EntityHybridSpecialized{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
+		dynamicSpecializedActions["schema"] = sdk.NewAction(entityService.schema(sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["instance"] = sdk.NewAction(entityService.instance(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 		dynamicSpecializedActions["list"] = sdk.NewAction(entityService.list(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})), "Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized))
 	}
@@ -156,25 +156,4 @@ func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSche
 		}
 		return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(entity).AddSchema(schema).Build(), nil
 	}
-}
-
-func (h *EntityHandler) getDynamicSchema(baseSchema sdk.EntityInterface) *sdk.RootSchema {
-	schema := sdk.NewSchema(baseSchema)
-	readOnly := false
-	properties := *schema.Schema.Properties
-	// define id as readOnly
-	idSchema := properties["id"]
-	idSchema.ReadOnly = &readOnly
-	properties["id"] = idSchema
-	// define description as readOnly
-	descriptionSchema := properties["description"]
-	descriptionSchema.ReadOnly = &readOnly
-	properties["description"] = descriptionSchema
-	// define service as readOnly
-	serviceSchema := properties["service"]
-	serviceSchema.ReadOnly = &readOnly
-	query := "$filter(dynamicResourceEnabled == true)"
-	serviceSchema.UISchema.Query = &query
-	properties["service"] = serviceSchema
-	return schema
 }

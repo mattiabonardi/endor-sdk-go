@@ -37,21 +37,21 @@ func (h *BaseHandler) publicAction(c *sdk.EndorContext[BaseHandlerAction1Payload
 func NewBaseHandlerHandler() sdk.EndorBaseHandlerInterface {
 	baseHandler := BaseHandler{}
 	return sdk_entity.NewEndorBaseHandler[*BaseHandlerModel]("base-handler", "Base Handler (EndorBaseHandler)").
-		WithActions(map[string]sdk.EndorHandlerActionInterface{
-			"action1": sdk.NewAction(
-				baseHandler.action1,
-				"Action 1",
-			),
-			"cat_1/action1": sdk.NewAction(
-				baseHandler.action1,
-				"Category 1 Action 1",
-			),
-			"public-action": sdk.NewConfigurableAction(
-				sdk.EndorHandlerActionOptions{
-					Description: "Public Action",
-					Public:      true,
-				},
-				baseHandler.publicAction,
-			),
-		})
+		WithExtendedDescription("Extended description").WithActions(map[string]sdk.EndorHandlerActionInterface{
+		"action1": sdk.NewAction(
+			baseHandler.action1,
+			"Action 1",
+		),
+		"cat_1/action1": sdk.NewAction(
+			baseHandler.action1,
+			"Category 1 Action 1",
+		),
+		"public-action": sdk.NewConfigurableAction(
+			sdk.EndorHandlerActionOptions{
+				Description: "Public Action",
+				Public:      true,
+			},
+			baseHandler.publicAction,
+		),
+	})
 }

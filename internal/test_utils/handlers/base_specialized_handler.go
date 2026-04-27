@@ -66,6 +66,7 @@ func NewBaseSpecializedHandler() sdk.EndorBaseSpecializedHandlerInterface {
 		WithCategories(
 			[]sdk.EndorBaseSpecializedHandlerCategoryInterface{
 				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory1]("cat-1", "Category 1").
+					WithExtendedDescription("Extended description").
 					WithActions(map[string]sdk.EndorHandlerActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedHandler.category1Action1,
