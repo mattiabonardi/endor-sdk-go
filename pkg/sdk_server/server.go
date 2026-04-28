@@ -20,6 +20,7 @@ import (
 type Endor struct {
 	endorHandlers *[]sdk.EndorHandlerInterface
 	postInitFunc  func()
+	version       string
 }
 
 type EndorInitializer struct {
@@ -28,12 +29,19 @@ type EndorInitializer struct {
 
 func NewEndorInitializer() *EndorInitializer {
 	return &EndorInitializer{
-		endor: &Endor{},
+		endor: &Endor{
+			version: "v1",
+		},
 	}
 }
 
 func (b *EndorInitializer) WithEndorHandlers(handlers *[]sdk.EndorHandlerInterface) *EndorInitializer {
 	b.endor.endorHandlers = handlers
+	return b
+}
+
+func (b *EndorInitializer) WithVersion(version string) *EndorInitializer {
+	b.endor.version = version
 	return b
 }
 
@@ -49,6 +57,7 @@ func (b *EndorInitializer) Build() *Endor {
 func (h *Endor) Init(domainId string) {
 	// load configuration
 	config := sdk_configuration.GetConfig()
+	config.DomainDBName = domainId
 
 	// create initialization logger
 	logger := sdk.NewLogger(sdk.LogConfig{
@@ -59,9 +68,6 @@ func (h *Endor) Init(domainId string) {
 	if err := sdk_i18n.Init("./locales"); err != nil {
 		logger.Info("i18n: failed to initialize translations: " + err.Error())
 	}
-
-	// define runtime configuration
-	config.DynamicEntityDocumentDBName = domainId
 
 	// create router
 	router := gin.New()
@@ -100,12 +106,12 @@ func (h *Endor) Init(domainId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(domainId, h.endorHandlers, nil, logger, 0, config.HybridEntitiesEnabled, config.DynamicEntitiesEnabled))
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(domainId, h.endorHandlers))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(domainId, h.version, h.endorHandlers, nil, logger, 0))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(domainId, h.version, h.endorHandlers, logger))
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(domainId, h.endorHandlers, logger)
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(domainId, h.version, h.endorHandlers, logger)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
@@ -147,11 +153,11 @@ func (h *Endor) Init(domainId string) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err = api_gateway.InitializeApiGatewayConfiguration(domainId, fmt.Sprintf("http://%s:%s", domainId, config.ServerPort), entities)
+	err = api_gateway.InitializeApiGatewayConfiguration(domainId, h.version, fmt.Sprintf("http://%s:%s", domainId, config.ServerPort), entities)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := swagger.CreateSwaggerConfiguration(domainId, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(domainId, h.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	if err != nil {
 		log.Fatal(err)
 	}

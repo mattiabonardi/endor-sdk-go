@@ -29,7 +29,7 @@ func (r *EndorHandlerActionRepository) DictionaryActionMap(session sdk.Session) 
 	for entityName, entityContainer := range dict {
 		containerCopy := entityContainer
 		for actionName, endorHandlerAction := range entityContainer.EndorHandler.Actions {
-			action, err := r.core.createAction(entityName, entityContainer.EndorHandler.Version, actionName, endorHandlerAction)
+			action, err := r.core.createAction(entityName, actionName, endorHandlerAction)
 			if err == nil {
 				action.Container = containerCopy
 				actions[action.entityAction.ID] = *action

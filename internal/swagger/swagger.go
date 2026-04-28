@@ -88,8 +88,8 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
-	definition, err := CreateSwaggerDefinition(microServiceId, microServiceAddress, services, baseApiPath)
+func CreateSwaggerConfiguration(domain string, version string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
+	definition, err := CreateSwaggerDefinition(domain, version, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +97,7 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	if err != nil {
 		return "", err
 	}
-	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, microServiceId)
+	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, domain)
 
 	err = copySwagger(swaggerFolder)
 	if err != nil {
@@ -125,12 +125,12 @@ func CreateSwaggerConfiguration(microServiceId string, microServiceAddress strin
 	return swaggerFolder, err
 }
 
-func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(domain string, version string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
-			Title:       microServiceId,
-			Description: fmt.Sprintf("%s docs", microServiceId),
+			Title:       domain,
+			Description: fmt.Sprintf("%s docs", domain),
 		},
 		Servers: []OpenAPIServer{
 			{
@@ -285,14 +285,9 @@ func CreateSwaggerDefinition(microServiceId string, microServiceAddress string, 
 				}
 			}
 
-			version := service.Version
-			if version == "" {
-				version = "v1"
-			}
-
 			path := map[string]OpenAPIOperation{}
 			path["post"] = operation
-			paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, microServiceId, version, service.Entity, methodKey)] = path
+			paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, domain, version, service.Entity, methodKey)] = path
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,

@@ -11,7 +11,7 @@ import (
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
+	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "v1", "endorsdkservice.com", []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
 	require.NoError(t, err, "Failed to create swagger definition")
 	assert.Equal(t, "3.1.0", def.OpenAPI, "Expected OpenAPI version '3.1.0'")
 	assert.Equal(t, "endor-sdk-service", def.Info.Title, "Expected correct title")

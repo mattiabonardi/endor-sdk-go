@@ -40,36 +40,32 @@ type ApiGatewayConfigurationServer struct {
 	URL string `yaml:"url"`
 }
 
-func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddress string, services []sdk.EndorHandler) error {
+func InitializeApiGatewayConfiguration(domain string, version string, microServiceAddress string, services []sdk.EndorHandler) error {
 	// Create model
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
 	// Single wildcard rule for the entire microservice context with forward auth enabled
-	routers[fmt.Sprintf("%s-router", microServiceId)] = ApiGatewayConfigurationRouter{
-		Rule:        fmt.Sprintf("PathPrefix(`/api/%s`)", microServiceId),
-		Service:     microServiceId,
+	routers[fmt.Sprintf("%s-router", domain)] = ApiGatewayConfigurationRouter{
+		Rule:        fmt.Sprintf("PathPrefix(`/api/%s`)", domain),
+		Service:     domain,
 		EntryPoints: []string{"web"},
 		Middlewares: &[]string{"authMiddleware"},
 	}
 
 	for _, service := range services {
-		basePath := fmt.Sprintf("/api/%s/", microServiceId)
+		basePath := fmt.Sprintf("/api/%s/", domain)
 		// version
-		if service.Version != "" {
-			basePath += service.Version + "/"
-		} else {
-			basePath += "v1/"
-		}
+		basePath += version + "/"
 		// entity
 		basePath += service.Entity
 
 		// Individual routes only for public actions (override the wildcard, no auth)
 		for methodKey, method := range service.Actions {
 			if method.GetOptions().Public {
-				key := fmt.Sprintf("%s-router-%s-%s", microServiceId, service.Entity, methodKey)
+				key := fmt.Sprintf("%s-router-%s-%s", domain, service.Entity, methodKey)
 				router := ApiGatewayConfigurationRouter{
 					Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
-					Service:     microServiceId,
+					Service:     domain,
 					Priority:    service.Priority,
 					EntryPoints: []string{"web"},
 				}
@@ -84,7 +80,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	}
 
 	discoveryServices := make(map[string]ApiGatewayConfigurationService)
-	discoveryServices[microServiceId] = ApiGatewayConfigurationService{
+	discoveryServices[domain] = ApiGatewayConfigurationService{
 		LoadBalancer: ApiGatewayConfigurationLoadBalancer{
 			Servers: []ApiGatewayConfigurationServer{
 				{URL: microServiceAddress},
@@ -103,7 +99,7 @@ func InitializeApiGatewayConfiguration(microServiceId string, microServiceAddres
 	if err != nil {
 		return err
 	}
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", domain))
 
 	data, err := yaml.Marshal(discoveryConfiguration)
 	if err != nil {

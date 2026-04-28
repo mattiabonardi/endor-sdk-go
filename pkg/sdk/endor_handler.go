@@ -32,9 +32,6 @@ type EndorHandler struct {
 	Priority            *int
 	EntitySchema        RootSchema
 	RepositoryFactories map[string]RepositoryFactory
-
-	// optionals
-	Version string
 }
 
 func (h EndorHandler) GetEntity() string {

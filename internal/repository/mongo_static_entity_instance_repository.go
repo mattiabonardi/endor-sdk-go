@@ -286,7 +286,7 @@ func (r *MongoStaticEntityInstanceRepository[T]) getBaseRepository() *mongoBaseR
 		return r._base
 	}
 	client, _ := sdk.GetMongoClient()
-	dbName := sdk_configuration.GetConfig().DynamicEntityDocumentDBName
+	dbName := sdk_configuration.GetConfig().DomainDBName
 	if r.session.Development == true && r.session.Username != "" {
 		dbName = r.session.Username + "-" + dbName
 	}

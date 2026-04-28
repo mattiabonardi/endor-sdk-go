@@ -26,11 +26,15 @@ func GetRegistryCore() *RegistryCore {
 	return registryCoreInstance
 }
 
-func InitRegistryCore(domain string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
+func InitRegistryCore(domain string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
+	if version == "" {
+		version = "v1"
+	}
 	registryCoreOnce.Do(func() {
 		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
 			domain:                domain,
+			version:               version,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
 			mu:                    &sync.RWMutex{},
@@ -49,6 +53,7 @@ func InitRegistryCore(domain string, internalEndorHandlers *[]sdk.EndorHandlerIn
 // get a per-user ephemeral overlay built on top of the production dictionary.
 type RegistryCore struct {
 	domain                string
+	version               string
 	internalEndorHandlers *[]sdk.EndorHandlerInterface
 	prodDAO               *sdk.DSLDAO
 	logger                *sdk.Logger
@@ -82,6 +87,7 @@ type EndorHandlerActionDictionary struct {
 // which stores it as a raw YAML string.
 type dslHybridCategory struct {
 	ID               string         `yaml:"id"`
+	Title            string         `yaml:"title"`
 	Description      string         `yaml:"description"`
 	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
 }
@@ -91,12 +97,14 @@ type dslHybridCategory struct {
 // which stores it as a raw YAML string.
 type dslDynamicCategory struct {
 	ID               string         `yaml:"id"`
+	Title            string         `yaml:"title"`
 	Description      string         `yaml:"description"`
 	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
 }
 
 // entityDSLFile is the YAML structure for entity definition files.
 type entityDSLFile struct {
+	Title                string               `yaml:"title"`
 	Description          string               `yaml:"description"`
 	Type                 string               `yaml:"type"`
 	AdditionalSchema     sdk.RootSchema       `yaml:"additionalSchema"`
@@ -189,6 +197,7 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 	}
 	base := sdk.Entity{
 		ID:          entityID,
+		Title:       def.Title,
 		Description: def.Description,
 		Type:        def.Type,
 		Domain:      c.domain,
@@ -225,6 +234,7 @@ func toHybridCategories(dslCats []dslHybridCategory) ([]sdk.HybridCategory, erro
 		}
 		result = append(result, sdk.HybridCategory{
 			ID:               c.ID,
+			Title:            c.Title,
 			Description:      c.Description,
 			AdditionalSchema: s,
 		})
@@ -242,6 +252,7 @@ func toDynamicCategories(dslCats []dslDynamicCategory) ([]sdk.DynamicCategory, e
 		}
 		result = append(result, sdk.DynamicCategory{
 			ID:               c.ID,
+			Title:            c.Title,
 			Description:      c.Description,
 			AdditionalSchema: s,
 		})
@@ -460,9 +471,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 		}
 	}
 
-	if sdk_configuration.GetConfig().HybridEntitiesEnabled || sdk_configuration.GetConfig().DynamicEntitiesEnabled {
-		c.applyDSLOverlay(sdk.Session{}, dict, c.prodDAO)
-	}
+	c.applyDSLOverlay(sdk.Session{}, dict, c.prodDAO)
 
 	injectAllRepositories(dict)
 
@@ -528,25 +537,22 @@ func (c *RegistryCore) endorHandlerList() ([]sdk.EndorHandler, error) {
 	return list, nil
 }
 
-func (c *RegistryCore) reloadRouteConfiguration(microserviceId string) error {
+func (c *RegistryCore) reloadRouteConfiguration() error {
 	config := sdk_configuration.GetConfig()
 	entities, err := c.endorHandlerList()
 	if err != nil {
 		return err
 	}
-	if err = api_gateway.InitializeApiGatewayConfiguration(microserviceId, fmt.Sprintf("http://%s:%s", microserviceId, config.ServerPort), entities); err != nil {
+	if err = api_gateway.InitializeApiGatewayConfiguration(c.domain, c.version, fmt.Sprintf("http://%s:%s", c.domain, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(microserviceId, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	_, err = swagger.CreateSwaggerConfiguration(c.domain, c.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	return err
 }
 
 // createAction builds an EndorHandlerActionDictionary from a handler action.
-func (c *RegistryCore) createAction(entityName string, version string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
-	if version == "" {
-		version = "v1"
-	}
-	actionId := path.Join(c.domain, version, entityName, actionName)
+func (c *RegistryCore) createAction(entityName string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
+	actionId := path.Join(c.domain, c.version, entityName, actionName)
 	action := sdk.EntityAction{
 		ID:          actionId,
 		Entity:      entityName,
@@ -620,7 +626,7 @@ func (c *RegistryCore) startEntityWatcher() error {
 				debounceTimer = time.AfterFunc(1*time.Second, func() {
 					c.logger.Info(fmt.Sprintf("prod DSL change detected (%s), syncing registry", capturedName))
 					c.Sync()
-					if reloadErr := c.reloadRouteConfiguration(c.domain); reloadErr != nil {
+					if reloadErr := c.reloadRouteConfiguration(); reloadErr != nil {
 						c.logger.Warn(fmt.Sprintf("unable to reload route configuration after DSL change: %s", reloadErr.Error()))
 					}
 				})
