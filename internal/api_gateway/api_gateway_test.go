@@ -15,7 +15,7 @@ import (
 
 func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	// Setup test data
-	domain := "test-service"
+	module := "test-service"
 	version := "v1"
 	microHandlerAddress := "http://localhost:8080"
 
@@ -24,7 +24,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
-	err := api_gateway.InitializeApiGatewayConfiguration(domain, version, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", domain))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -70,8 +70,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 			}
 
 			// Verify router properties
-			if router.Service != domain {
-				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, domain)
+			if router.Service != module {
+				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, module)
 			}
 
 			if len(router.EntryPoints) != 1 || router.EntryPoints[0] != "web" {
@@ -99,9 +99,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	})
 
 	t.Run("VerifyHandlers", func(t *testing.T) {
-		service, exists := config.HTTP.Services[domain]
+		service, exists := config.HTTP.Services[module]
 		if !exists {
-			t.Fatalf("Expected service %s not found", domain)
+			t.Fatalf("Expected service %s not found", module)
 		}
 
 		if len(service.LoadBalancer.Servers) != 1 {
@@ -142,7 +142,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 }
 
 func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
-	domain := "test-service-v2"
+	module := "test-service-v2"
 	version := "v2"
 	microHandlerAddress := "http://localhost:8081"
 
@@ -151,7 +151,7 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 	endorHandler := baseHandler.ToEndorHandler()
 	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(domain, version, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", domain))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read configuration file: %v", err)
@@ -201,7 +201,7 @@ func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
 
 func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	// Test with priority setting
-	domain := "test-service-priority"
+	module := "test-service-priority"
 	version := "v1"
 	microHandlerAddress := "http://localhost:8082"
 
@@ -211,7 +211,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	endorHandler.Priority = &priority
 	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(domain, version, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", domain))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read configuration file: %v", err)

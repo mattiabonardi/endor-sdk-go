@@ -26,14 +26,14 @@ func GetRegistryCore() *RegistryCore {
 	return registryCoreInstance
 }
 
-func InitRegistryCore(domain string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
+func InitRegistryCore(module string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
 	if version == "" {
 		version = "v1"
 	}
 	registryCoreOnce.Do(func() {
 		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
-			domain:                domain,
+			module:                module,
 			version:               version,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
@@ -52,7 +52,7 @@ func InitRegistryCore(domain string, version string, internalEndorHandlers *[]sd
 // Production requests use a cached dictionary; development requests (x-development: true)
 // get a per-user ephemeral overlay built on top of the production dictionary.
 type RegistryCore struct {
-	domain                string
+	module                string
 	version               string
 	internalEndorHandlers *[]sdk.EndorHandlerInterface
 	prodDAO               *sdk.DSLDAO
@@ -147,7 +147,7 @@ func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInsta
 
 // DynamicEntityList returns all entity definitions read from the production DSL filesystem.
 func (c *RegistryCore) DynamicEntityList() ([]sdk.EntityInterface, error) {
-	entityIDs, err := c.prodDAO.ListAllEntities(c.domain)
+	entityIDs, err := c.prodDAO.ListAllEntities(c.module)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -156,7 +156,7 @@ func (c *RegistryCore) DynamicEntityList() ([]sdk.EntityInterface, error) {
 	}
 	var entities []sdk.EntityInterface
 	for _, entityID := range entityIDs {
-		content, err := c.prodDAO.ReadEntity(c.domain, entityID)
+		content, err := c.prodDAO.ReadEntity(c.module, entityID)
 		if err != nil {
 			c.logger.Warn(fmt.Sprintf("unable to read entity DSL file %s: %s", entityID, err.Error()))
 			continue
@@ -196,11 +196,11 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 		return nil, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
 	base := sdk.Entity{
-		ID:          path.Join(c.domain, c.version, entityID),
+		ID:          path.Join(c.module, c.version, entityID),
 		Title:       def.Title,
 		Description: def.Description,
 		Type:        def.Type,
-		Domain:      c.domain,
+		Module:      c.module,
 	}
 	switch sdk.EntityType(def.Type) {
 	case sdk.EntityTypeHybrid, sdk.EntityTypeDynamic:
@@ -352,7 +352,7 @@ func (c *RegistryCore) buildHybridSpecializedEntry(session sdk.Session, e *sdk.E
 
 // applyDSLOverlay reads entity DSL files from dao and merges them into dict in-place.
 func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO) {
-	entityIDs, err := dao.ListAllEntities(c.domain)
+	entityIDs, err := dao.ListAllEntities(c.module)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			c.logger.Warn(fmt.Sprintf("unable to list DSL entities: %s", err.Error()))
@@ -360,7 +360,7 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 		return
 	}
 	for _, entityID := range entityIDs {
-		content, err := dao.ReadEntity(c.domain, entityID)
+		content, err := dao.ReadEntity(c.module, entityID)
 		if err != nil {
 			c.logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityID, err.Error()))
 			continue
@@ -370,7 +370,7 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
-		fullID := path.Join(c.domain, c.version, entityID)
+		fullID := path.Join(c.module, c.version, entityID)
 		var existingPtr *EndorEntityDictionary
 		if existing, ok := dict[fullID]; ok {
 			existingPtr = &existing
@@ -391,10 +391,10 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 		c.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
 	}
 	base := sdk.Entity{
-		ID:          path.Join(c.domain, c.version, h.GetEntity()),
+		ID:          path.Join(c.module, c.version, h.GetEntity()),
 		Title:       h.GetEntityTitle(),
 		Description: h.GetEntityDescription(),
-		Domain:      c.domain,
+		Module:      c.module,
 		Type:        string(sdk.EntityTypeBase),
 		Schema:      schema,
 	}
@@ -468,7 +468,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
 				continue
 			}
-			dict[path.Join(c.domain, c.version, h.GetEntity())] = entry
+			dict[path.Join(c.module, c.version, h.GetEntity())] = entry
 		}
 	}
 
@@ -544,15 +544,15 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 	if err != nil {
 		return err
 	}
-	if err = api_gateway.InitializeApiGatewayConfiguration(c.domain, c.version, fmt.Sprintf("http://%s:%s", c.domain, config.ServerPort), entities); err != nil {
+	if err = api_gateway.InitializeApiGatewayConfiguration(c.module, c.version, fmt.Sprintf("http://%s:%s", c.module, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(c.domain, c.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	_, err = swagger.CreateSwaggerConfiguration(c.module, c.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	return err
 }
 
 // createAction builds an EndorHandlerActionDictionary from a handler action.
-// entityName is the full entity ID (domain/version/entity).
+// entityName is the full entity ID (module/version/entity).
 func (c *RegistryCore) createAction(entityName string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
 	actionId := path.Join(entityName, actionName)
 	action := sdk.EntityAction{

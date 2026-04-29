@@ -8,7 +8,7 @@ entities:
       title: "Descrizione"
       description: "Descrizione estesa"
       type: "Tipo"
-      domain: "Dominio"
+      module: "Modulo"
       schema: "Schema"
       categories: "Categorie"
       additional_schema: "Schema aggiuntivo"

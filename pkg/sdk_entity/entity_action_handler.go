@@ -4,8 +4,8 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewEntityActionHandler(domain string, version string, services *[]sdk.EndorHandlerInterface, logger *sdk.Logger) sdk.EndorHandlerInterface {
-	actionRepo := NewEndorHandlerActionRepository(InitRegistryCore(domain, version, services, logger))
+func NewEntityActionHandler(module string, version string, services *[]sdk.EndorHandlerInterface, logger *sdk.Logger) sdk.EndorHandlerInterface {
+	actionRepo := NewEndorHandlerActionRepository(InitRegistryCore(module, version, services, logger))
 	entityMethodService := EntityActionHandler{
 		repository: *actionRepo,
 		services:   services,

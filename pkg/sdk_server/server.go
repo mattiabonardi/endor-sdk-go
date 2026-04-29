@@ -54,10 +54,10 @@ func (b *EndorInitializer) Build() *Endor {
 	return b.endor
 }
 
-func (h *Endor) Init(domainId string) {
+func (h *Endor) Init(moduleId string) {
 	// load configuration
 	config := sdk_configuration.GetConfig()
-	config.DomainDBName = domainId
+	config.DomainDBName = moduleId
 
 	// create initialization logger
 	logger := sdk.NewLogger(sdk.LogConfig{
@@ -106,12 +106,12 @@ func (h *Endor) Init(domainId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(domainId, h.version, h.endorHandlers, nil, logger, 0))
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(domainId, h.version, h.endorHandlers, logger))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(moduleId, h.version, h.endorHandlers, nil, logger, 0))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(moduleId, h.version, h.endorHandlers, logger))
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(domainId, h.version, h.endorHandlers, logger)
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(moduleId, h.version, h.endorHandlers, logger)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
@@ -143,7 +143,7 @@ func (h *Endor) Init(domainId string) {
 						category = segments[3]
 					}
 				}
-				dict.EndorHandlerAction.CreateHTTPCallback(domainId, entity, actionKey, category, session, &dict.Container)(c)
+				dict.EndorHandlerAction.CreateHTTPCallback(moduleId, entity, actionKey, category, session, &dict.Container)(c)
 				return
 			}
 		}
@@ -153,11 +153,11 @@ func (h *Endor) Init(domainId string) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err = api_gateway.InitializeApiGatewayConfiguration(domainId, h.version, fmt.Sprintf("http://%s:%s", domainId, config.ServerPort), entities)
+	err = api_gateway.InitializeApiGatewayConfiguration(moduleId, h.version, fmt.Sprintf("http://%s:%s", moduleId, config.ServerPort), entities)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := swagger.CreateSwaggerConfiguration(domainId, h.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(moduleId, h.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	if err != nil {
 		log.Fatal(err)
 	}

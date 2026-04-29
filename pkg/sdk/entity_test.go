@@ -19,7 +19,7 @@ properties:
 		Entity: sdk.Entity{
 			ID:          "customer",
 			Description: "Customers",
-			Domain:      "",
+			Module:      "",
 		},
 		AdditionalSchema: yamlInput,
 	}

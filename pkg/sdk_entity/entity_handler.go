@@ -4,7 +4,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewEntityHandler(domain string, version string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
+func NewEntityHandler(module string, version string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
 	var repo sdk.EntityRepositoryInterface
 	if repository == nil {
 		// Use the singleton repository to ensure cache consistency
@@ -12,7 +12,7 @@ func NewEntityHandler(domain string, version string, handlers *[]sdk.EndorHandle
 			repo = singletonRepo
 		} else {
 			// Fallback: initialize if not yet initialized (should not happen in normal flow)
-			repo = InitEndorHandlerRepository(domain, version, handlers, logger)
+			repo = InitEndorHandlerRepository(module, version, handlers, logger)
 		}
 	} else {
 		repo = *repository
