@@ -196,7 +196,7 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 		return nil, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
 	base := sdk.Entity{
-		ID:          entityID,
+		ID:          path.Join(c.domain, c.version, entityID),
 		Title:       def.Title,
 		Description: def.Description,
 		Type:        def.Type,
@@ -370,8 +370,9 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
+		fullID := path.Join(c.domain, c.version, entityID)
 		var existingPtr *EndorEntityDictionary
-		if existing, ok := dict[entityID]; ok {
+		if existing, ok := dict[fullID]; ok {
 			existingPtr = &existing
 		}
 		entry, err := c.buildDSLEntry(session, entity, existingPtr)
@@ -379,7 +380,7 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
-		dict[entityID] = entry
+		dict[fullID] = entry
 	}
 }
 
@@ -390,7 +391,7 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 		c.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
 	}
 	base := sdk.Entity{
-		ID:          h.GetEntity(),
+		ID:          path.Join(c.domain, c.version, h.GetEntity()),
 		Title:       h.GetEntityTitle(),
 		Description: h.GetEntityDescription(),
 		Domain:      c.domain,
@@ -467,7 +468,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
 				continue
 			}
-			dict[h.GetEntity()] = entry
+			dict[path.Join(c.domain, c.version, h.GetEntity())] = entry
 		}
 	}
 
@@ -551,8 +552,9 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 }
 
 // createAction builds an EndorHandlerActionDictionary from a handler action.
+// entityName is the full entity ID (domain/version/entity).
 func (c *RegistryCore) createAction(entityName string, actionName string, endorServiceAction sdk.EndorHandlerActionInterface) (*EndorHandlerActionDictionary, error) {
-	actionId := path.Join(c.domain, c.version, entityName, actionName)
+	actionId := path.Join(entityName, actionName)
 	action := sdk.EntityAction{
 		ID:          actionId,
 		Entity:      entityName,

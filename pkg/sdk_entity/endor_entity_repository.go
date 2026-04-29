@@ -2,6 +2,7 @@ package sdk_entity
 
 import (
 	"fmt"
+	"path"
 	"sync"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -48,6 +49,8 @@ func (h *EndorHandlerRepository) List(session sdk.Session, entityType *sdk.Entit
 	if err != nil {
 		return []sdk.EntityInterface{}, err
 	}
+	entityEntityID := path.Join(h.core.domain, h.core.version, "entity")
+	entityActionEntityID := path.Join(h.core.domain, h.core.version, "entity-action")
 	entityList := make([]sdk.EntityInterface, 0, len(dict))
 	for _, v := range dict {
 		entityList = append(entityList, v.entity)
@@ -55,7 +58,7 @@ func (h *EndorHandlerRepository) List(session sdk.Session, entityType *sdk.Entit
 	// filter by entity type
 	filtered := make([]sdk.EntityInterface, 0, len(dict))
 	for _, r := range entityList {
-		if r.GetID() != "entity" && r.GetID() != "entity-action" {
+		if r.GetID() != entityEntityID && r.GetID() != entityActionEntityID {
 			if r.GetCategoryType() == string(*entityType) {
 				filtered = append(filtered, r)
 			} else {
