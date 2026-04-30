@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -179,4 +180,37 @@ func (h *DynamicEntitySpecialized) SetCategoryType(categoryType string) {
 type EntityRepositoryInterface interface {
 	List(session Session, entityType *EntityType) ([]EntityInterface, error)
 	Instance(session Session, entityType *EntityType, dto ReadInstanceDTO) (*EntityInterface, error)
+}
+
+// Parse entity ID <domain>/<entity>
+func ParseEntityID(entityId string) (string, string, error) {
+	parts := strings.Split(entityId, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid entity id (<domain>/<entity>)")
+	}
+
+	return parts[0], parts[1], nil
+}
+
+// Parse entity ID <domain>/<entity>/<category (optional)>/<action>
+func ParseEntityActionID(entityActionId string) (string, string, string, error) {
+	parts := strings.Split(entityActionId, "/")
+
+	if len(parts) < 3 || len(parts) > 4 {
+		return "", "", "", fmt.Errorf("invalid entity action id (<domain>/<entity>/<category optional>/<action>)")
+	}
+
+	domain := parts[0]
+	entity := parts[1]
+
+	var action string
+	if len(parts) == 4 {
+		// category + action
+		action = parts[2] + "/" + parts[3]
+	} else {
+		// only action
+		action = parts[2]
+	}
+
+	return domain, entity, action, nil
 }

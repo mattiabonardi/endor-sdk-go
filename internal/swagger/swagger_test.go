@@ -11,7 +11,7 @@ import (
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "v1", "endorsdkservice.com", []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
+	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
 	require.NoError(t, err, "Failed to create swagger definition")
 	assert.Equal(t, "3.1.0", def.OpenAPI, "Expected OpenAPI version '3.1.0'")
 	assert.Equal(t, "endor-sdk-service", def.Info.Title, "Expected correct title")
@@ -21,7 +21,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	assert.Equal(t, "Base Handler (EndorBaseHandler)", def.Tags[0].Description, "Expected correct tag description")
 	// check paths
 	assert.Len(t, def.Paths, 3, "Expected 3 paths")
-	assert.Contains(t, def.Paths, "/api/endor-sdk-service/v1/base-handler/action1", "Expected '/api/endor-sdk-service/v1/base-handler/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/endor-sdk-service/v1/base-handler/cat_1/action1", "Expected '/api/endor-sdk-service/v1/base-handler/cat_1/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/endor-sdk-service/v1/base-handler/public-action", "Expected '/api/endor-sdk-service/v1/base-handler/public-action' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/action1", "Expected '/api/v1/endor-sdk-service/base-handler/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/cat_1/action1", "Expected '/api/v1/endor-sdk-service/base-handler/cat_1/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/public-action", "Expected '/api/v1/endor-sdk-service/base-handler/public-action' path to exist")
 }

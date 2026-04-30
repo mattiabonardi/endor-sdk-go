@@ -26,15 +26,11 @@ func GetRegistryCore() *RegistryCore {
 	return registryCoreInstance
 }
 
-func InitRegistryCore(module string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
-	if version == "" {
-		version = "v1"
-	}
+func InitRegistryCore(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
 	registryCoreOnce.Do(func() {
 		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
 			module:                module,
-			version:               version,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
 			mu:                    &sync.RWMutex{},
@@ -53,7 +49,6 @@ func InitRegistryCore(module string, version string, internalEndorHandlers *[]sd
 // get a per-user ephemeral overlay built on top of the production dictionary.
 type RegistryCore struct {
 	module                string
-	version               string
 	internalEndorHandlers *[]sdk.EndorHandlerInterface
 	prodDAO               *sdk.DSLDAO
 	logger                *sdk.Logger
@@ -196,7 +191,7 @@ func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInter
 		return nil, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
 	base := sdk.Entity{
-		ID:          path.Join(c.module, c.version, entityID),
+		ID:          path.Join(c.module, entityID),
 		Title:       def.Title,
 		Description: def.Description,
 		Type:        def.Type,
@@ -370,7 +365,7 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
-		fullID := path.Join(c.module, c.version, entityID)
+		fullID := path.Join(c.module, entityID)
 		var existingPtr *EndorEntityDictionary
 		if existing, ok := dict[fullID]; ok {
 			existingPtr = &existing
@@ -391,7 +386,7 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 		c.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
 	}
 	base := sdk.Entity{
-		ID:          path.Join(c.module, c.version, h.GetEntity()),
+		ID:          path.Join(c.module, h.GetEntity()),
 		Title:       h.GetEntityTitle(),
 		Description: h.GetEntityDescription(),
 		Module:      c.module,
@@ -468,7 +463,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
 				continue
 			}
-			dict[path.Join(c.module, c.version, h.GetEntity())] = entry
+			dict[path.Join(c.module, h.GetEntity())] = entry
 		}
 	}
 
@@ -544,10 +539,10 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 	if err != nil {
 		return err
 	}
-	if err = api_gateway.InitializeApiGatewayConfiguration(c.module, c.version, fmt.Sprintf("http://%s:%s", c.module, config.ServerPort), entities); err != nil {
+	if err = api_gateway.InitializeApiGatewayConfiguration(c.module, fmt.Sprintf("http://%s:%s", c.module, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(c.module, c.version, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	_, err = swagger.CreateSwaggerConfiguration(c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	return err
 }
 

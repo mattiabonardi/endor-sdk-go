@@ -88,8 +88,8 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(module string, version string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
-	definition, err := CreateSwaggerDefinition(module, version, microServiceAddress, services, baseApiPath)
+func CreateSwaggerConfiguration(module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
+	definition, err := CreateSwaggerDefinition(module, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +125,7 @@ func CreateSwaggerConfiguration(module string, version string, microServiceAddre
 	return swaggerFolder, err
 }
 
-func CreateSwaggerDefinition(module string, version string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
@@ -287,7 +287,7 @@ func CreateSwaggerDefinition(module string, version string, microServiceAddress 
 
 			path := map[string]OpenAPIOperation{}
 			path["post"] = operation
-			paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, module, version, service.Entity, methodKey)] = path
+			paths[fmt.Sprintf("%s/%s/%s/%s/%s", baseApiPath, "v1", module, service.Entity, methodKey)] = path
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,

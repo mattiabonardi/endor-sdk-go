@@ -11,7 +11,7 @@ import (
 type ServerConfig struct {
 	ServerPort    string
 	DocumentDBUri string
-	DomainDBName  string
+	ModuleDBName  string
 	LogType       string
 	Development   bool
 }

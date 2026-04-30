@@ -48,7 +48,7 @@ func NewMongoEntityInstanceRepository[T sdk.EntityInstanceInterface](
 			di:     di,
 		}
 	}
-	dbName := sdk_configuration.GetConfig().DomainDBName
+	dbName := sdk_configuration.GetConfig().ModuleDBName
 	if session.Development == true && session.Username != "" {
 		dbName = session.Username + "-" + dbName
 	}

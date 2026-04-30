@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
@@ -16,7 +15,6 @@ import (
 func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	// Setup test data
 	module := "test-service"
-	version := "v1"
 	microHandlerAddress := "http://localhost:8080"
 
 	// Use BaseHandler as test EndorHandler
@@ -24,7 +22,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
-	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(module, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -116,8 +114,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRulePaths", func(t *testing.T) {
 		// Verify that rules have correct path patterns
 		expectedPaths := map[string]string{
-			"test-service-router":                            "PathPrefix(`/api/test-service`)",
-			"test-service-router-base-handler-public-action": "PathPrefix(`/api/test-service/v1/base-handler/public-action`)",
+			"test-service-router":                            "PathPrefix(`/api/v1/test-service`)",
+			"test-service-router-base-handler-public-action": "PathPrefix(`/api/v1/test-service/base-handler/public-action`)",
 		}
 
 		for routerName, expectedRule := range expectedPaths {
@@ -141,68 +139,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	}()
 }
 
-func TestInitializeApiGatewayConfigurationWithVersion(t *testing.T) {
-	module := "test-service-v2"
-	version := "v2"
-	microHandlerAddress := "http://localhost:8081"
-
-	// Create a service with custom version
-	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
-	endorHandler := baseHandler.ToEndorHandler()
-	services := []sdk.EndorHandler{endorHandler}
-
-	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
-	if err != nil {
-		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
-	}
-
-	// Read the configuration
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("Failed to read configuration file: %v", err)
-	}
-
-	var config api_gateway.ApiGatewayConfiguration
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		t.Fatalf("Failed to parse configuration YAML: %v", err)
-	}
-
-	// Verify that the version is correctly included in the public action rule
-	publicRouterName := "test-service-v2-router-base-handler-public-action"
-	publicRouter, exists := config.HTTP.Routers[publicRouterName]
-	if !exists {
-		t.Errorf("Expected public action router %s not found", publicRouterName)
-	} else if !strings.Contains(publicRouter.Rule, "/api/test-service-v2/v2/base-handler/") {
-		t.Errorf("Public router %s should contain microserviceId and v2 version in rule: %s", publicRouterName, publicRouter.Rule)
-	}
-
-	// Verify wildcard router uses the microserviceId context
-	wildcardRouterName := "test-service-v2-router"
-	wildcardRouter, exists := config.HTTP.Routers[wildcardRouterName]
-	if !exists {
-		t.Errorf("Expected wildcard router %s not found", wildcardRouterName)
-	} else if wildcardRouter.Rule != "PathPrefix(`/api/test-service-v2`)" {
-		t.Errorf("Wildcard router has wrong rule: %s", wildcardRouter.Rule)
-	}
-
-	// Cleanup
-	defer func() {
-		os.Remove(filePath)
-		os.Remove(filepath.Dir(filePath))
-	}()
-}
-
 func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	// Test with priority setting
 	module := "test-service-priority"
-	version := "v1"
 	microHandlerAddress := "http://localhost:8082"
 
 	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
@@ -211,7 +150,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	endorHandler.Priority = &priority
 	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(module, version, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(module, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}

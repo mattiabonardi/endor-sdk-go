@@ -40,33 +40,32 @@ type ApiGatewayConfigurationServer struct {
 	URL string `yaml:"url"`
 }
 
-func InitializeApiGatewayConfiguration(module string, version string, microServiceAddress string, services []sdk.EndorHandler) error {
+func InitializeApiGatewayConfiguration(module string, microServiceAddress string, services []sdk.EndorHandler) error {
 	// Create model
 	routers := make(map[string]ApiGatewayConfigurationRouter)
 
+	basePath := fmt.Sprintf("/api/v1/%s", module)
+
 	// Single wildcard rule for the entire microservice context with forward auth enabled
 	routers[fmt.Sprintf("%s-router", module)] = ApiGatewayConfigurationRouter{
-		Rule:        fmt.Sprintf("PathPrefix(`/api/%s`)", module),
+		Rule:        fmt.Sprintf("PathPrefix(`%s`)", basePath),
 		Service:     module,
 		EntryPoints: []string{"web"},
 		Middlewares: &[]string{"authMiddleware"},
 	}
 
-	for _, service := range services {
-		basePath := fmt.Sprintf("/api/%s/", module)
-		// version
-		basePath += version + "/"
-		// entity
-		basePath += service.Entity
+	for _, s := range services {
+		// entity path per service (do not mutate basePath)
+		entityPath := basePath + "/" + s.Entity
 
 		// Individual routes only for public actions (override the wildcard, no auth)
-		for methodKey, method := range service.Actions {
+		for methodKey, method := range s.Actions {
 			if method.GetOptions().Public {
-				key := fmt.Sprintf("%s-router-%s-%s", module, service.Entity, methodKey)
+				key := fmt.Sprintf("%s-router-%s-%s", module, s.Entity, methodKey)
 				router := ApiGatewayConfigurationRouter{
-					Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(basePath, methodKey)),
+					Rule:        fmt.Sprintf("PathPrefix(`%s`)", path.Join(entityPath, methodKey)),
 					Service:     module,
-					Priority:    service.Priority,
+					Priority:    s.Priority,
 					EntryPoints: []string{"web"},
 				}
 				routers[key] = router

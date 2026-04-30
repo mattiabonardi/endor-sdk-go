@@ -21,9 +21,9 @@ func GetEndorHandlerRepository() *EndorHandlerRepository {
 
 // InitEndorHandlerRepository initializes the singleton EndorHandlerRepository.
 // It also initializes the underlying RegistryCore engine if not yet done.
-func InitEndorHandlerRepository(module string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+func InitEndorHandlerRepository(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
 	endorHandlerRepositoryOnce.Do(func() {
-		core := InitRegistryCore(module, version, internalEndorHandlers, logger)
+		core := InitRegistryCore(module, internalEndorHandlers, logger)
 		endorHandlerRepositoryInstance = &EndorHandlerRepository{core: core}
 	})
 	return endorHandlerRepositoryInstance
@@ -31,8 +31,8 @@ func InitEndorHandlerRepository(module string, version string, internalEndorHand
 
 // NewEndorHandlerRepository returns the singleton EndorHandlerRepository instance.
 // Deprecated: Use InitEndorHandlerRepository for explicit initialization or GetEndorHandlerRepository to retrieve it.
-func NewEndorHandlerRepository(module string, version string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
-	return InitEndorHandlerRepository(module, version, internalEndorHandlers, logger)
+func NewEndorHandlerRepository(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+	return InitEndorHandlerRepository(module, internalEndorHandlers, logger)
 }
 
 // EndorHandlerRepository provides entity-level access to the handler registry.
@@ -49,8 +49,8 @@ func (h *EndorHandlerRepository) List(session sdk.Session, entityType *sdk.Entit
 	if err != nil {
 		return []sdk.EntityInterface{}, err
 	}
-	entityEntityID := path.Join(h.core.module, h.core.version, "entity")
-	entityActionEntityID := path.Join(h.core.module, h.core.version, "entity-action")
+	entityEntityID := path.Join(h.core.module, "entity")
+	entityActionEntityID := path.Join(h.core.module, "entity-action")
 	entityList := make([]sdk.EntityInterface, 0, len(dict))
 	for _, v := range dict {
 		entityList = append(entityList, v.entity)
