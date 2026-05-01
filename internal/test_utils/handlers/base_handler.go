@@ -42,10 +42,6 @@ func NewBaseHandlerHandler() sdk.EndorBaseHandlerInterface {
 			baseHandler.action1,
 			"Action 1",
 		),
-		"cat_1/action1": sdk.NewAction(
-			baseHandler.action1,
-			"Category 1 Action 1",
-		),
 		"public-action": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
 				Description: "Public Action",

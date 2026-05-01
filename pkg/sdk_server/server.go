@@ -116,30 +116,23 @@ func (h *Endor) Init(moduleId string) {
 
 	router.NoRoute(func(c *gin.Context) {
 		urlPath := c.Request.URL.Path
-		if strings.HasPrefix(urlPath, "/api/") {
-			// actionId format: ms-id/version/entity/[category/]action
-			actionId := strings.TrimPrefix(urlPath, "/api/")
-			// Build the session here: single point of header parsing.
-			// Development=true activates the per-user ephemeral registry overlay.
-			session := sdk.Session{
-				Id:          c.GetHeader("x-user-session"),
-				Username:    c.GetHeader("x-user-id"),
-				Development: c.GetHeader("x-development") == "true",
-			}
-			dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
+		if strings.HasPrefix(urlPath, "/api/v1/") {
+			// actionId format: module/entity/[category/]action
+			actionId := strings.TrimPrefix(urlPath, "/api/v1/")
+			_, entity, category, action, err := sdk.ParseEntityActionID(actionId)
 			if err == nil {
-				// segments: [0]=ms-id [1]=version [2]=entity [3+]=action parts
-				segments := strings.Split(actionId, "/")
-				entity, actionKey, category := "", "", ""
-				if len(segments) >= 4 {
-					entity = segments[2]
-					actionKey = strings.Join(segments[3:], "/")
-					if len(segments) >= 5 {
-						category = segments[3]
-					}
+				// Build the session here: single point of header parsing.
+				// Development=true activates the per-user ephemeral registry overlay.
+				session := sdk.Session{
+					Id:          c.GetHeader("x-user-session"),
+					Username:    c.GetHeader("x-user-id"),
+					Development: c.GetHeader("x-development") == "true",
 				}
-				dict.EndorHandlerAction.CreateHTTPCallback(moduleId, entity, actionKey, category, session, &dict.Container)(c)
-				return
+				dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
+				if err == nil {
+					dict.EndorHandlerAction.CreateHTTPCallback(moduleId, entity, action, category, session, &dict.Container)(c)
+					return
+				}
 			}
 		}
 		response := sdk.NewDefaultResponseBuilder()

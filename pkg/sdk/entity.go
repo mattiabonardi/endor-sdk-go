@@ -193,24 +193,25 @@ func ParseEntityID(entityId string) (string, string, error) {
 }
 
 // Parse entity ID <domain>/<entity>/<category (optional)>/<action>
-func ParseEntityActionID(entityActionId string) (string, string, string, error) {
+func ParseEntityActionID(entityActionId string) (string, string, string, string, error) {
 	parts := strings.Split(entityActionId, "/")
 
 	if len(parts) < 3 || len(parts) > 4 {
-		return "", "", "", fmt.Errorf("invalid entity action id (<domain>/<entity>/<category optional>/<action>)")
+		return "", "", "", "", fmt.Errorf("invalid entity action id (<domain>/<entity>/<category optional>/<action>)")
 	}
 
 	domain := parts[0]
 	entity := parts[1]
+	category := ""
+	action := ""
 
-	var action string
 	if len(parts) == 4 {
-		// category + action
-		action = parts[2] + "/" + parts[3]
+		category = parts[2]
+		action = parts[3]
 	} else {
-		// only action
+		category = ""
 		action = parts[2]
 	}
 
-	return domain, entity, action, nil
+	return domain, entity, category, action, nil
 }
