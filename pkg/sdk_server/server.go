@@ -53,7 +53,7 @@ func (h *Endor) Init(module string) {
 	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	// load configuration
 	config := sdk_configuration.GetConfig()
-	config.ModuleDBName = module
+	config.ModuleDBName = microServiceId
 
 	// create initialization logger
 	logger := sdk.NewLogger(sdk.LogConfig{
