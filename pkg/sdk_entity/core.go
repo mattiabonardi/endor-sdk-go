@@ -26,10 +26,11 @@ func GetRegistryCore() *RegistryCore {
 	return registryCoreInstance
 }
 
-func InitRegistryCore(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
+func InitRegistryCore(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
 	registryCoreOnce.Do(func() {
 		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
+			microServiceId:        microServiceId,
 			module:                module,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
@@ -49,6 +50,7 @@ func InitRegistryCore(module string, internalEndorHandlers *[]sdk.EndorHandlerIn
 // get a per-user ephemeral overlay built on top of the production dictionary.
 type RegistryCore struct {
 	module                string
+	microServiceId        string
 	internalEndorHandlers *[]sdk.EndorHandlerInterface
 	prodDAO               *sdk.DSLDAO
 	logger                *sdk.Logger
@@ -539,10 +541,10 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 	if err != nil {
 		return err
 	}
-	if err = api_gateway.InitializeApiGatewayConfiguration(c.module, fmt.Sprintf("http://%s:%s", c.module, config.ServerPort), entities); err != nil {
+	if err = api_gateway.InitializeApiGatewayConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://%s:%s", c.microServiceId, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	_, err = swagger.CreateSwaggerConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	return err
 }
 

@@ -49,10 +49,11 @@ func (b *EndorInitializer) Build() *Endor {
 	return b.endor
 }
 
-func (h *Endor) Init(moduleId string) {
+func (h *Endor) Init(module string) {
+	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	// load configuration
 	config := sdk_configuration.GetConfig()
-	config.ModuleDBName = moduleId
+	config.ModuleDBName = module
 
 	// create initialization logger
 	logger := sdk.NewLogger(sdk.LogConfig{
@@ -101,12 +102,12 @@ func (h *Endor) Init(moduleId string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(moduleId, h.endorHandlers, nil, logger, 0))
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(moduleId, h.endorHandlers, logger))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(microServiceId, module, h.endorHandlers, nil, logger, 0))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(microServiceId, module, h.endorHandlers, logger))
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(moduleId, h.endorHandlers, logger)
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microServiceId, module, h.endorHandlers, logger)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
@@ -130,7 +131,7 @@ func (h *Endor) Init(moduleId string) {
 				}
 				dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
 				if err == nil {
-					dict.EndorHandlerAction.CreateHTTPCallback(moduleId, entity, action, category, session, &dict.Container)(c)
+					dict.EndorHandlerAction.CreateHTTPCallback(module, entity, action, category, session, &dict.Container)(c)
 					return
 				}
 			}
@@ -141,11 +142,11 @@ func (h *Endor) Init(moduleId string) {
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 
-	err = api_gateway.InitializeApiGatewayConfiguration(moduleId, fmt.Sprintf("http://%s:%s", moduleId, config.ServerPort), entities)
+	err = api_gateway.InitializeApiGatewayConfiguration(microServiceId, module, fmt.Sprintf("http://%s:%s", microServiceId, config.ServerPort), entities)
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := swagger.CreateSwaggerConfiguration(moduleId, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(microServiceId, module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
 	if err != nil {
 		log.Fatal(err)
 	}

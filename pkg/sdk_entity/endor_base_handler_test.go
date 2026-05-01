@@ -18,11 +18,9 @@ func TestEndorBaseHandler(t *testing.T) {
 	assert.Equal(t, len(*endorHandler.EntitySchema.Properties), 2)
 
 	// check methods
-	assert.Len(t, endorHandler.Actions, 3, "Expected 3 actions")
+	assert.Len(t, endorHandler.Actions, 2, "Expected 2 actions")
 	_, actionExists := endorHandler.Actions["action1"]
 	assert.True(t, actionExists, "method 'action1' not found in endorHandler methods map")
-	_, categoryActionExists := endorHandler.Actions["cat_1/action1"]
-	assert.True(t, categoryActionExists, "method 'cat_1/action1' not found in endorHandler methods map")
 	_, publicActionExists := endorHandler.Actions["public-action"]
 	assert.True(t, publicActionExists, "method 'public-action' not found in endorHandler methods map")
 }

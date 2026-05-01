@@ -11,17 +11,19 @@ import (
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
-	def, err := swagger.CreateSwaggerDefinition("endor-sdk-service", "endorsdkservice.com", []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
+	microServiceId := "endor-sdk-service"
+	module := "sdk"
+	microServiceAddress := "http://localhost:8080"
+	def, err := swagger.CreateSwaggerDefinition(microServiceId, module, microServiceAddress, []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
 	require.NoError(t, err, "Failed to create swagger definition")
 	assert.Equal(t, "3.1.0", def.OpenAPI, "Expected OpenAPI version '3.1.0'")
-	assert.Equal(t, "endor-sdk-service", def.Info.Title, "Expected correct title")
-	assert.Equal(t, "endor-sdk-service docs", def.Info.Description, "Expected correct description")
+	assert.Equal(t, microServiceId, def.Info.Title, "Expected correct title")
+	assert.Equal(t, microServiceId+" docs", def.Info.Description, "Expected correct description")
 	assert.Equal(t, "/", def.Servers[0].URL, "Expected correct server URL")
 	// endor entities
 	assert.Equal(t, "Base Handler (EndorBaseHandler)", def.Tags[0].Description, "Expected correct tag description")
 	// check paths
-	assert.Len(t, def.Paths, 3, "Expected 3 paths")
-	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/action1", "Expected '/api/v1/endor-sdk-service/base-handler/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/cat_1/action1", "Expected '/api/v1/endor-sdk-service/base-handler/cat_1/action1' path to exist")
-	assert.Contains(t, def.Paths, "/api/v1/endor-sdk-service/base-handler/public-action", "Expected '/api/v1/endor-sdk-service/base-handler/public-action' path to exist")
+	assert.Len(t, def.Paths, 2, "Expected 2 paths")
+	assert.Contains(t, def.Paths, "/api/v1/sdk/base-handler/action1", "Expected '/api/v1/sdk/base-handler/action1' path to exist")
+	assert.Contains(t, def.Paths, "/api/v1/sdk/base-handler/public-action", "Expected '/api/v1/sdk/base-handler/public-action' path to exist")
 }

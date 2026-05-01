@@ -15,6 +15,7 @@ import (
 func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	// Setup test data
 	module := "test-service"
+	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	microHandlerAddress := "http://localhost:8080"
 
 	// Use BaseHandler as test EndorHandler
@@ -22,7 +23,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
-	err := api_gateway.InitializeApiGatewayConfiguration(module, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, module, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -56,8 +57,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRouters", func(t *testing.T) {
 		// Expect: one wildcard router for the microservice + one router per public action
 		expectedRouters := []string{
-			"test-service-router",
-			"test-service-router-base-handler-public-action",
+			fmt.Sprintf("%s-router", microServiceId),
+			fmt.Sprintf("%s-router-base-handler-public-action", microServiceId),
 		}
 
 		for _, routerName := range expectedRouters {
@@ -68,8 +69,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 			}
 
 			// Verify router properties
-			if router.Service != module {
-				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, module)
+			if router.Service != microServiceId {
+				t.Errorf("Router %s has wrong service: got %s, want %s", routerName, router.Service, microServiceId)
 			}
 
 			if len(router.EntryPoints) != 1 || router.EntryPoints[0] != "web" {
@@ -77,12 +78,12 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 			}
 
 			switch routerName {
-			case "test-service-router":
+			case fmt.Sprintf("%s-router", microServiceId):
 				// Wildcard router must have auth middleware
 				if router.Middlewares == nil || len(*router.Middlewares) != 1 || (*router.Middlewares)[0] != "authMiddleware" {
 					t.Errorf("Wildcard router %s should have authMiddleware, got %v", routerName, router.Middlewares)
 				}
-			case "test-service-router-base-handler-public-action":
+			case fmt.Sprintf("%s-router-base-handler-public-action", microServiceId):
 				// Public action router must not have auth middleware
 				if router.Middlewares != nil {
 					t.Errorf("Public router %s should not have middlewares, but has: %v", routerName, *router.Middlewares)
@@ -97,9 +98,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	})
 
 	t.Run("VerifyHandlers", func(t *testing.T) {
-		service, exists := config.HTTP.Services[module]
+		service, exists := config.HTTP.Services[microServiceId]
 		if !exists {
-			t.Fatalf("Expected service %s not found", module)
+			t.Fatalf("Expected service %s not found", microServiceId)
 		}
 
 		if len(service.LoadBalancer.Servers) != 1 {
@@ -114,8 +115,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRulePaths", func(t *testing.T) {
 		// Verify that rules have correct path patterns
 		expectedPaths := map[string]string{
-			"test-service-router":                            "PathPrefix(`/api/v1/test-service`)",
-			"test-service-router-base-handler-public-action": "PathPrefix(`/api/v1/test-service/base-handler/public-action`)",
+			fmt.Sprintf("%s-router", microServiceId):                            fmt.Sprintf("PathPrefix(`/api/v1/%s`)", module),
+			fmt.Sprintf("%s-router-base-handler-public-action", microServiceId): fmt.Sprintf("PathPrefix(`/api/v1/%s/base-handler/public-action`)", module),
 		}
 
 		for routerName, expectedRule := range expectedPaths {
@@ -141,7 +142,9 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 
 func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	// Test with priority setting
+
 	module := "test-service-priority"
+	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	microHandlerAddress := "http://localhost:8082"
 
 	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
@@ -150,7 +153,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	endorHandler.Priority = &priority
 	services := []sdk.EndorHandler{endorHandler}
 
-	err := api_gateway.InitializeApiGatewayConfiguration(module, microHandlerAddress, services)
+	err := api_gateway.InitializeApiGatewayConfiguration(microServiceId, module, microHandlerAddress, services)
 	if err != nil {
 		t.Fatalf("InitializeApiGatewayConfiguration failed: %v", err)
 	}
@@ -161,7 +164,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
-	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", module))
+	filePath := filepath.Join(homeDir, fmt.Sprintf("etc/endor/endor-api-gateway/dynamic/%s.yaml", microServiceId))
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read configuration file: %v", err)
@@ -174,7 +177,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	}
 
 	// The wildcard router has no per-service priority; public action routers inherit it
-	publicRouterName := "test-service-priority-router-base-handler-public-action"
+	publicRouterName := fmt.Sprintf("%s-router-base-handler-public-action", microServiceId)
 	publicRouter, exists := config.HTTP.Routers[publicRouterName]
 	if !exists {
 		t.Errorf("Expected public action router %s not found", publicRouterName)
@@ -187,7 +190,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	}
 
 	// Wildcard router should not have a priority override
-	wildcardRouterName := "test-service-priority-router"
+	wildcardRouterName := fmt.Sprintf("%s-router", microServiceId)
 	wildcardRouter, exists := config.HTTP.Routers[wildcardRouterName]
 	if !exists {
 		t.Errorf("Expected wildcard router %s not found", wildcardRouterName)

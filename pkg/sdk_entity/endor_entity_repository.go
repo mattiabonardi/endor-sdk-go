@@ -21,9 +21,9 @@ func GetEndorHandlerRepository() *EndorHandlerRepository {
 
 // InitEndorHandlerRepository initializes the singleton EndorHandlerRepository.
 // It also initializes the underlying RegistryCore engine if not yet done.
-func InitEndorHandlerRepository(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+func InitEndorHandlerRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
 	endorHandlerRepositoryOnce.Do(func() {
-		core := InitRegistryCore(module, internalEndorHandlers, logger)
+		core := InitRegistryCore(microServiceId, module, internalEndorHandlers, logger)
 		endorHandlerRepositoryInstance = &EndorHandlerRepository{core: core}
 	})
 	return endorHandlerRepositoryInstance
@@ -31,8 +31,8 @@ func InitEndorHandlerRepository(module string, internalEndorHandlers *[]sdk.Endo
 
 // NewEndorHandlerRepository returns the singleton EndorHandlerRepository instance.
 // Deprecated: Use InitEndorHandlerRepository for explicit initialization or GetEndorHandlerRepository to retrieve it.
-func NewEndorHandlerRepository(module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
-	return InitEndorHandlerRepository(module, internalEndorHandlers, logger)
+func NewEndorHandlerRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+	return InitEndorHandlerRepository(microServiceId, module, internalEndorHandlers, logger)
 }
 
 // EndorHandlerRepository provides entity-level access to the handler registry.

@@ -18,5 +18,5 @@ func main() {
 		test_utils_handlers.NewBaseSpecializedHandler(),
 		test_utils_handlers.NewHybridHandler(),
 		test_utils_handlers.NewHybridSpecializedHandler(),
-	}).Build().Init("endor-sdk-service")
+	}).Build().Init("sdk")
 }

@@ -88,8 +88,8 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
-	definition, err := CreateSwaggerDefinition(module, microServiceAddress, services, baseApiPath)
+func CreateSwaggerConfiguration(microServiceId string, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
+	definition, err := CreateSwaggerDefinition(microServiceId, module, microServiceAddress, services, baseApiPath)
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +97,7 @@ func CreateSwaggerConfiguration(module string, microServiceAddress string, servi
 	if err != nil {
 		return "", err
 	}
-	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, module)
+	swaggerFolder := filepath.Join(homeDir, baseSwaggerFolder, microServiceId)
 
 	err = copySwagger(swaggerFolder)
 	if err != nil {
@@ -125,12 +125,12 @@ func CreateSwaggerConfiguration(module string, microServiceAddress string, servi
 	return swaggerFolder, err
 }
 
-func CreateSwaggerDefinition(module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
+func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
-			Title:       module,
-			Description: fmt.Sprintf("%s docs", module),
+			Title:       microServiceId,
+			Description: fmt.Sprintf("%s docs", microServiceId),
 		},
 		Servers: []OpenAPIServer{
 			{
