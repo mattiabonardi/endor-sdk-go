@@ -72,7 +72,7 @@ type Entity struct {
 	Title       string `json:"title" schema:"title=t(entities.entity.fields.title),readOnly=true"`
 	Description string `json:"description" schema:"title=t(entities.entity.fields.description),readOnly=true"`
 	Type        string `json:"type" schema:"title=t(entities.entity.fields.type),readOnly=true"`
-	Module      string `json:"module" schema:"title=t(entities.entity.fields.module),readOnly=true" ui-schema:"entity=platform/module"`
+	Module      string `json:"module" schema:"title=t(entities.entity.fields.module),readOnly=true" ui-schema:"entity=core/module"`
 	Schema      string `json:"schema" schema:"title=t(entities.entity.fields.schema),format=yaml,readOnly=true"`
 }
 
@@ -143,7 +143,7 @@ func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, 
 type EntityAction struct {
 	// module/version/entity/action
 	ID          string `json:"id" schema:"title=t(entities.entity_action.fields.id)"`
-	Entity      string `json:"entity" schema:"title=t(entities.entity_action.fields.entity)" ui-schema:"platform/entity"`
+	Entity      string `json:"entity" schema:"title=t(entities.entity_action.fields.entity)" ui-schema:"core/entity"`
 	Description string `json:"description" schema:"title=t(entities.entity_action.fields.description)"`
 	InputSchema string `json:"inputSchema" schema:"title=t(entities.entity_action.fields.input_schema),format=yaml"`
 }
