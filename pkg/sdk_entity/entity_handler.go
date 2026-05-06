@@ -22,105 +22,105 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 		repository: repo,
 	}
 
-	return NewEndorBaseSpecializedHandler[*sdk.Entity]("entity", "Entity").
+	return NewEndorBaseSpecializedHandler[*sdk.Entity]("entity", "t(sdk.entity.handler.title)").
 		WithPriority(priority).
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"schema": sdk.NewAction(
 				entityService.schema(sdk.NewSchema(&sdk.Entity{})),
-				"Get the schema of the entity",
+				"t(sdk.entity.handler.actions.schema)",
 			),
 			"instance": sdk.NewAction(
 				entityService.instance("", sdk.NewSchema(&sdk.Entity{})),
-				"Get the specified instance of entities",
+				"t(sdk.entity.handler.actions.instance)",
 			),
 			"list": sdk.NewAction(
 				entityService.list("", sdk.NewSchema(&sdk.Entity{})),
-				"Search for available entities",
+				"t(sdk.entity.handler.actions.list)",
 			)}).WithCategories(
 		[]sdk.EndorBaseSpecializedHandlerCategoryInterface{
-			NewEndorBaseSpecializedHandlerCategory[*sdk.Entity](string(sdk.EntityTypeBase), "Base").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.Entity](string(sdk.EntityTypeBase), "t(sdk.entity.handler.categories.base.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.Entity{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeBase),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeBase),
 					),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeBase, sdk.NewSchema(&sdk.Entity{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeBase),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeBase),
 					),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeBase, sdk.NewSchema(&sdk.Entity{})),
-						"Search for available entities of type "+string(sdk.EntityTypeBase),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeBase),
 					),
 				}),
-			NewEndorBaseSpecializedHandlerCategory[*sdk.EntitySpecialized](string(sdk.EntityTypeBaseSpecialized), "Base specialized").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.EntitySpecialized](string(sdk.EntityTypeBaseSpecialized), "t(sdk.entity.handler.categories.base_specialized.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.EntitySpecialized{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeBaseSpecialized),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeBaseSpecialized),
 					),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeBaseSpecialized, sdk.NewSchema(&sdk.EntitySpecialized{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeBaseSpecialized),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeBaseSpecialized),
 					),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeBaseSpecialized, sdk.NewSchema(&sdk.EntitySpecialized{})),
-						"Search for available entities of type "+string(sdk.EntityTypeBaseSpecialized),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeBaseSpecialized),
 					),
 				}),
-			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybrid](string(sdk.EntityTypeHybrid), "Hybrid").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybrid](string(sdk.EntityTypeHybrid), "t(sdk.entity.handler.categories.hybrid.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeHybrid),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeHybrid),
 					),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeHybrid, sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeHybrid),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeHybrid),
 					),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeHybrid, sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Search for available entities of type "+string(sdk.EntityTypeHybrid),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeHybrid),
 					),
 				}),
-			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybridSpecialized](string(sdk.EntityTypeHybridSpecialized), "Hybrid specialized").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybridSpecialized](string(sdk.EntityTypeHybridSpecialized), "t(sdk.entity.handler.categories.hybrid_specialized.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeHybridSpecialized),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeHybridSpecialized),
 					),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeHybridSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeHybridSpecialized),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeHybridSpecialized),
 					),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeHybridSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Search for available entities of type "+string(sdk.EntityTypeHybridSpecialized),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeHybridSpecialized),
 					),
 				}),
-			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybrid](string(sdk.EntityTypeDynamic), "Dynamic").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybrid](string(sdk.EntityTypeDynamic), "t(sdk.entity.handler.categories.dynamic.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeDynamic)),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeDynamic)),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeDynamic)),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeDynamic)),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeDynamic, sdk.NewSchema(&sdk.EntityHybrid{})),
-						"Search for available entities of type "+string(sdk.EntityTypeDynamic)),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeDynamic)),
 				}),
-			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybridSpecialized](string(sdk.EntityTypeDynamicSpecialized), "Dynamic specialized").
+			NewEndorBaseSpecializedHandlerCategory[*sdk.EntityHybridSpecialized](string(sdk.EntityTypeDynamicSpecialized), "t(sdk.entity.handler.categories.dynamic_specialized.title)").
 				WithActions(map[string]sdk.EndorHandlerActionInterface{
 					"schema": sdk.NewAction(
 						entityService.schema(sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Get the schema of the entity of type "+string(sdk.EntityTypeDynamicSpecialized)),
+						"t(sdk.entity.handler.actions.schema) "+string(sdk.EntityTypeDynamicSpecialized)),
 					"instance": sdk.NewAction(
 						entityService.instance(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Get the specified instance of entities of type "+string(sdk.EntityTypeDynamicSpecialized)),
+						"t(sdk.entity.handler.actions.instance) "+string(sdk.EntityTypeDynamicSpecialized)),
 					"list": sdk.NewAction(
 						entityService.list(sdk.EntityTypeDynamicSpecialized, sdk.NewSchema(&sdk.EntityHybridSpecialized{})),
-						"Search for available entities of type "+string(sdk.EntityTypeDynamicSpecialized)),
+						"t(sdk.entity.handler.actions.list) "+string(sdk.EntityTypeDynamicSpecialized)),
 				}),
 		},
 	)

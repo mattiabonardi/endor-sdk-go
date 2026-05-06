@@ -139,7 +139,7 @@ func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInsta
 	if entry, ok := dict[dto.Id]; ok {
 		return &entry, nil
 	}
-	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("entities.entity.not_found", map[string]any{"id": dto.Id})
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("sdk.entity.messages.not_found", map[string]any{"id": dto.Id})
 }
 
 // DynamicEntityList returns all entity definitions read from the production DSL filesystem.

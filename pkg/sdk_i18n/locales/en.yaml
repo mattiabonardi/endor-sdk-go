@@ -1,8 +1,36 @@
-commons:
-  not_found: "Page not found (uri: {{uri}}, method: {{method}})"
+sdk:
+  commons:
+    not_found: "Page not found (uri: {{uri}}, method: {{method}})"
 
-entities:
+  handler:
+    actions:
+      schema: "Get the schema of"
+      instance: "Get the instance of"
+      list: "Search for available"
+      create: "Create the instance of"
+      update: "Update the existing instance of"
+      delete: "Delete the existing instance of"
+
   entity:
+    handler:
+      title: "Entity"
+      actions:
+        schema: "Get the schema of the entity"
+        instance: "Get the specified instance of entities"
+        list: "Search for available entities"
+      categories:
+        base:
+          title: "Base"
+        base_specialized:
+          title: "Base Specialized"
+        hybrid:
+          title: "Hybrid"
+        hybrid_specialized:
+          title: "Hybrid Specialized"
+        dynamic:
+          title: "Dynamic"
+        dynamic_specialized:
+          title: "Dynamic Specialized"
     fields:
       id: "Id"
       title: "Title"
@@ -13,36 +41,96 @@ entities:
       categories: "Categories"
       additional_schema: "Additional schema"
       additional_categories: "Additional categories"
-    created: "entity {{id}} created"
-    updated: "entity {{id}} updated"
-    deleted: "entity {{id}} deleted"
-    not_found: "entity {{id}} not found"
-    already_exists: "entity already exists"
-    create_not_permitted: "creating entity is not permitted"
-    update_not_permitted: "updating entity is not permitted"
-    delete_not_permitted: "deleting entity is not permitted"
-    action_not_found: "entity action not found"
-    invalid_action_id: "invalid entity action id"
-    created_specialized: "{{name}} {{id}} created"
-    updated_category: "{{name}} updated (category)"
-  category:
-    fields:
-      id: "Category ID"
-      title: "Title"
-      description: "Category description"
-      schema: "Schema"
-      additional_schema: "Additional category schema"
+      category:
+        id: "Category ID"
+        title: "Title"
+        description: "Category description"
+        schema: "Schema"
+        additional_schema: "Additional category schema"
+    messages:
+      created: "entity {{id}} created"
+      updated: "entity {{id}} updated"
+      deleted: "entity {{id}} deleted"
+      not_found: "entity {{id}} not found"
+      already_exists: "entity already exists"
+      create_not_permitted: "creating entity is not permitted"
+      update_not_permitted: "updating entity is not permitted"
+      delete_not_permitted: "deleting entity is not permitted"
+      action_not_found: "entity action not found"
+      invalid_action_id: "invalid entity action id"
+      created_specialized: "{{name}} {{id}} created"
+      updated_category: "{{name}} updated (category)"
+
   entity_action:
+    handler:
+      title: "Entity Action"
+      actions:
+        schema: "Get the schema of the entity action"
+        instance: "Get the specified instance of entity actions"
+        list: "Search for available entity actions"
     fields:
       id: "Id"
       entity: "Entity"
       description: "Description"
       input_schema: "Input schema"
+
   dynamic_entity:
     fields:
       id: "Id"
       type: "Type"
+
   aggregation:
     fields:
       pipeline_description: "Array of pipeline stages. Each stage is either an entity stage { entity, pipeline } or the top-level $mergeResults operator."
-    failed: "Aggregation failed"
+    messages:
+      failed: "Aggregation failed"
+    handler:
+      title: Distributed aggregation pipeline over registered entity repositories
+      actions:
+        execute: Execute an aggregation pipeline over entity repositories
+
+  examples:
+    base-handler:
+      fields:
+        attribute: Attribute
+      handler:
+        title: Base Handler (EndorBaseHandler)
+        description: Extended description
+        action1: Action 1
+        public-actions: Public action
+      messages:
+        hello: Hello from Base Handler
+        hello-public: Hello from public action
+    base-specialized-handler:
+      handler:
+        title: Base Specialized Handler (EndorBaseSpecializedHandler)
+        action1: Action 1
+      categories:
+        cat-1:
+          title: Category 1
+          description: Extended description
+          action1: Action 1
+        cat-2:
+          title: Category 2
+          action1: Action 1
+      messages:
+        hello: Hello from Base Specialized Handler
+        hello-cat1: Hello from category 1 action 1
+        hello-cat2: Hello from category 2 action 1
+    hybrid-handler:
+      handler:
+        title: Hybrid Handler (EndorHybridHandler)
+        action1: Test hybrid action
+      messages:
+        hello: Hello from Hybrid Handler
+    hybrid-specialized-handler:
+      handler:
+        title: Hybrid Specialized Handler (EndorHybridSpecializedHandler)
+        action1: Test hybrid action
+      categories:
+        cat-1:
+          title: Category 1
+        cat-2:
+          title: Category 2
+      messages:
+        hello: Hello from Hybrid Specialized Handler

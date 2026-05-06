@@ -82,7 +82,7 @@ func (h *EndorHandlerRepository) Instance(session sdk.Session, entityType *sdk.E
 	if entry.entity.GetCategoryType() == string(*entityType) {
 		return &entry.entity, nil
 	}
-	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("entities.entity.not_found", map[string]any{"id": dto.Id})
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("sdk.entity.messages.not_found", map[string]any{"id": dto.Id})
 }
 
 // EndorHandlerList returns all registered EndorHandlers.

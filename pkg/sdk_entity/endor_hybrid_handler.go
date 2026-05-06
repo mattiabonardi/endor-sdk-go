@@ -2,7 +2,6 @@ package sdk_entity
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
@@ -121,23 +120,23 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
-			fmt.Sprintf("Get the schema of the %s (%s)", entity, entityDescription),
+			"t(sdk.handler.actions.schema) "+entity,
 		),
 		"instance": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
 				return defaultInstance[T](c, schema, entity)
 			},
-			fmt.Sprintf("Get the instance of %s (%s)", entity, entityDescription),
+			"t(sdk.handler.actions.instance) "+entity,
 		),
 		"list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 				return defaultList[T](c, schema, entity)
 			},
-			fmt.Sprintf("Search for available list of %s (%s)", entity, entityDescription),
+			"t(sdk.handler.actions.list) "+entity,
 		),
 		"create": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: fmt.Sprintf("Create the instance of %s (%s)", entity, entityDescription),
+				Description: "t(sdk.handler.actions.create) " + entity,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -153,7 +152,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 		),
 		"update": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: fmt.Sprintf("Update the existing instance of %s (%s)", entity, entityDescription),
+				Description: "t(sdk.handler.actions.update) " + entity,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -174,7 +173,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
 				return defaultDelete[T](c, entity)
 			},
-			fmt.Sprintf("Delete the existing instance of %s (%s)", entity, entityDescription),
+			"t(sdk.handler.actions.delete) "+entity,
 		),
 	}
 }

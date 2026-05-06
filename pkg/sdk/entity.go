@@ -8,25 +8,25 @@ import (
 )
 
 type Category struct {
-	ID          string `json:"id" schema:"title=t(entities.category.fields.id)"`
-	Title       string `json:"title" schema:"title=t(entities.category.fields.title)"`
-	Description string `json:"description" schema:"title=t(entities.category.fields.description)"`
-	Schema      string `json:"schema" schema:"title=t(entities.category.fields.schema),format=yaml,readOnly=true"`
+	ID          string `json:"id" schema:"title=t(sdk.entity.fields.category.id)"`
+	Title       string `json:"title" schema:"title=t(sdk.entity.fields.category.title)"`
+	Description string `json:"description" schema:"title=t(sdk.entity.fields.category.description)"`
+	Schema      string `json:"schema" schema:"title=t(sdk.entity.fields.category.schema),format=yaml,readOnly=true"`
 }
 
 type HybridCategory struct {
-	ID               string `json:"id" schema:"title=t(entities.category.fields.id),readOnly=true"`
-	Title            string `json:"title" schema:"title=t(entities.category.fields.title)"`
-	Description      string `json:"description" schema:"title=t(entities.category.fields.description),readOnly=true"`
-	Schema           string `json:"schema" schema:"title=t(entities.category.fields.schema),format=yaml,readOnly=true"`
-	AdditionalSchema string `json:"additionalSchema" schema:"title=t(entities.category.fields.additional_schema),format=yaml"`
+	ID               string `json:"id" schema:"title=t(sdk.entity.fields.category.id),readOnly=true"`
+	Title            string `json:"title" schema:"title=t(sdk.entity.fields.category.title)"`
+	Description      string `json:"description" schema:"title=t(sdk.entity.fields.category.description),readOnly=true"`
+	Schema           string `json:"schema" schema:"title=t(sdk.entity.fields.category.schema),format=yaml,readOnly=true"`
+	AdditionalSchema string `json:"additionalSchema" schema:"title=t(sdk.entity.fields.category.additional_schema),format=yaml"`
 }
 
 type DynamicCategory struct {
-	ID               string `json:"id" schema:"title=t(entities.category.fields.id)"`
-	Title            string `json:"title" schema:"title=t(entities.category.fields.title)"`
-	Description      string `json:"description" schema:"title=t(entities.category.fields.description)"`
-	AdditionalSchema string `json:"additionalSchema" schema:"title=t(entities.category.fields.additional_schema),format=yaml"`
+	ID               string `json:"id" schema:"title=t(sdk.entity.fields.category.id)"`
+	Title            string `json:"title" schema:"title=t(sdk.entity.fields.category.title)"`
+	Description      string `json:"description" schema:"title=t(sdk.entity.fields.category.description)"`
+	AdditionalSchema string `json:"additionalSchema" schema:"title=t(sdk.entity.fields.category.additional_schema),format=yaml"`
 }
 
 func (c *HybridCategory) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -68,12 +68,12 @@ const (
 // #region Entity
 
 type Entity struct {
-	ID          string `json:"id" schema:"title=t(entities.entity.fields.id),readOnly=true"`
-	Title       string `json:"title" schema:"title=t(entities.entity.fields.title),readOnly=true"`
-	Description string `json:"description" schema:"title=t(entities.entity.fields.description),readOnly=true"`
-	Type        string `json:"type" schema:"title=t(entities.entity.fields.type),readOnly=true"`
-	Module      string `json:"module" schema:"title=t(entities.entity.fields.module),readOnly=true" ui-schema:"entity=core/module"`
-	Schema      string `json:"schema" schema:"title=t(entities.entity.fields.schema),format=yaml,readOnly=true"`
+	ID          string `json:"id" schema:"title=t(sdk.entity.fields.id),readOnly=true"`
+	Title       string `json:"title" schema:"title=t(sdk.entity.fields.title),readOnly=true"`
+	Description string `json:"description" schema:"title=t(sdk.entity.fields.description),readOnly=true"`
+	Type        string `json:"type" schema:"title=t(sdk.entity.fields.type),readOnly=true"`
+	Module      string `json:"module" schema:"title=t(sdk.entity.fields.module),readOnly=true" ui-schema:"entity=core/module"`
+	Schema      string `json:"schema" schema:"title=t(sdk.entity.fields.schema),format=yaml,readOnly=true"`
 }
 
 func (h *Entity) GetID() any {
@@ -98,7 +98,7 @@ func (h *Entity) GetModule() string {
 
 type EntitySpecialized struct {
 	Entity     `json:",inline" bson:",inline"`
-	Categories []Category `json:"categories,omitempty" schema:"title=t(entities.entity.fields.categories),readOnly=true"`
+	Categories []Category `json:"categories,omitempty" schema:"title=t(sdk.entity.fields.categories),readOnly=true"`
 }
 
 // #endregion
@@ -107,7 +107,7 @@ type EntitySpecialized struct {
 
 type EntityHybrid struct {
 	Entity           `json:",inline" bson:",inline"`
-	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=t(entities.entity.fields.additional_schema),format=yaml"` // YAML string, raw
+	AdditionalSchema string `json:"additionalSchema" bson:"additionalSchema" schema:"title=t(sdk.entity.fields.additional_schema),format=yaml"` // YAML string, raw
 }
 
 func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -125,8 +125,8 @@ func (h *EntityHybrid) UnmarshalAdditionalAttributes() (*RootSchema, error) {
 
 type EntityHybridSpecialized struct {
 	EntityHybrid         `json:",inline" bson:",inline"`
-	Categories           []HybridCategory  `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=t(entities.entity.fields.categories),readOnly=true"`
-	AdditionalCategories []DynamicCategory `json:"additionalCategories,omitempty" bson:"additionalCategories,omitempty" schema:"title=t(entities.entity.fields.additional_categories)"`
+	Categories           []HybridCategory  `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=t(sdk.entity.fields.categories),readOnly=true"`
+	AdditionalCategories []DynamicCategory `json:"additionalCategories,omitempty" bson:"additionalCategories,omitempty" schema:"title=t(sdk.entity.fields.additional_categories)"`
 }
 
 func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, error) {
@@ -142,10 +142,10 @@ func (h *EntityHybridSpecialized) UnmarshalAdditionalAttributes() (*RootSchema, 
 
 type EntityAction struct {
 	// module/version/entity/action
-	ID          string `json:"id" schema:"title=t(entities.entity_action.fields.id)"`
-	Entity      string `json:"entity" schema:"title=t(entities.entity_action.fields.entity)" ui-schema:"core/entity"`
-	Description string `json:"description" schema:"title=t(entities.entity_action.fields.description)"`
-	InputSchema string `json:"inputSchema" schema:"title=t(entities.entity_action.fields.input_schema),format=yaml"`
+	ID          string `json:"id" schema:"title=t(sdk.entity_action.fields.id)"`
+	Entity      string `json:"entity" schema:"title=t(sdk.entity_action.fields.entity)" ui-schema:"core/entity"`
+	Description string `json:"description" schema:"title=t(sdk.entity_action.fields.description)"`
+	InputSchema string `json:"inputSchema" schema:"title=t(sdk.entity_action.fields.input_schema),format=yaml"`
 }
 
 func (h *EntityAction) GetID() any {

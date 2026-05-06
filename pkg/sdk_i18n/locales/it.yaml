@@ -1,48 +1,136 @@
-commons:
-  not_found: "Pagina non trovata (uri: {{uri}}, metodo: {{method}})"
+sdk:
+  commons:
+    not_found: "Pagina non trovata (uri: {{uri}}, method: {{method}})"
 
-entities:
+  handler:
+    actions:
+      schema: "Ottieni lo schema di"
+      instance: "Ottieni l'istanza di"
+      list: "Cerca i disponibili"
+      create: "Crea l'istanza di"
+      update: "Aggiorna l'istanza esistente di"
+      delete: "Elimina l'istanza esistente di"
+
   entity:
+    handler:
+      title: "Entità"
+      actions:
+        schema: "Ottieni lo schema dell'entità"
+        instance: "Ottieni l'istanza specificata delle entità"
+        list: "Cerca le entità disponibili"
+      categories:
+        base:
+          title: "Base"
+        base_specialized:
+          title: "Base Specializzata"
+        hybrid:
+          title: "Ibrida"
+        hybrid_specialized:
+          title: "Ibrida Specializzata"
+        dynamic:
+          title: "Dinamica"
+        dynamic_specialized:
+          title: "Dinamica Specializzata"
     fields:
       id: "Id"
-      title: "Descrizione"
-      description: "Descrizione estesa"
+      title: "Titolo"
+      description: "Descrizione"
       type: "Tipo"
       module: "Modulo"
       schema: "Schema"
       categories: "Categorie"
       additional_schema: "Schema aggiuntivo"
       additional_categories: "Categorie aggiuntive"
-    created: "entità {{id}} creata"
-    updated: "entità {{id}} aggiornata"
-    deleted: "entità {{id}} eliminata"
-    not_found: "entità {{id}} non trovata"
-    already_exists: "entità già esistente"
-    create_not_permitted: "creazione dell'entità non consentita"
-    update_not_permitted: "aggiornamento dell'entità non consentito"
-    delete_not_permitted: "eliminazione dell'entità non consentita"
-    action_not_found: "azione dell'entità non trovata"
-    invalid_action_id: "id azione entità non valido"
-    created_specialized: "{{name}} {{id}} creato"
-    updated_category: "{{name}} aggiornato (categoria)"
-  category:
-    fields:
-      id: "ID categoria"
-      title: "Descrizione categoria"
-      description: "Descrizione estesa categoria"
-      schema: "Schema"
-      additional_schema: "Schema categoria aggiuntivo"
+      category:
+        id: "ID categoria"
+        title: "Titolo"
+        description: "Descrizione categoria"
+        schema: "Schema"
+        additional_schema: "Schema categoria aggiuntivo"
+    messages:
+      created: "entità {{id}} creata"
+      updated: "entità {{id}} aggiornata"
+      deleted: "entità {{id}} eliminata"
+      not_found: "entità {{id}} non trovata"
+      already_exists: "l'entità esiste già"
+      create_not_permitted: "la creazione dell'entità non è consentita"
+      update_not_permitted: "l'aggiornamento dell'entità non è consentito"
+      delete_not_permitted: "l'eliminazione dell'entità non è consentita"
+      action_not_found: "azione entità non trovata"
+      invalid_action_id: "id azione entità non valido"
+      created_specialized: "{{name}} {{id}} creato"
+      updated_category: "{{name}} aggiornato (categoria)"
+
   entity_action:
+    handler:
+      title: "Azione Entità"
+      actions:
+        schema: "Ottieni lo schema dell'azione entità"
+        instance: "Ottieni l'istanza specificata delle azioni entità"
+        list: "Cerca le azioni entità disponibili"
     fields:
       id: "Id"
       entity: "Entità"
       description: "Descrizione"
       input_schema: "Schema di input"
+
   dynamic_entity:
     fields:
       id: "Id"
       type: "Tipo"
+
   aggregation:
     fields:
-      pipeline_description: "Array di stage della pipeline. Ogni stage è uno stage entità { entity, pipeline } oppure l'operatore $mergeResults."
-    failed: "Aggregazione fallita"
+      pipeline_description: "Array di stadi della pipeline. Ogni stadio è un'entità { entity, pipeline } oppure l'operatore $mergeResults."
+    messages:
+      failed: "Aggregazione fallita"
+    handler:
+      title: Pipeline di aggregazione distribuita sui repository di entità registrati
+      actions:
+        execute: Esegui una pipeline di aggregazione sui repository di entità
+
+  examples:
+    base-handler:
+      fields:
+        attribute: Attributo
+      handler:
+        title: Handler Base (EndorBaseHandler)
+        description: Descrizione estesa
+        action1: Azione 1
+        public-actions: Azione pubblica
+      messages:
+        hello: Ciao dall'Handler Base
+        hello-public: Ciao dall'azione pubblica
+    base-specialized-handler:
+      handler:
+        title: Handler Base Specializzato (EndorBaseSpecializedHandler)
+        action1: Azione 1
+      categories:
+        cat-1:
+          title: Categoria 1
+          description: Descrizione estesa
+          action1: Azione 1
+        cat-2:
+          title: Categoria 2
+          action1: Azione 1
+      messages:
+        hello: Ciao dall'Handler Base Specializzato
+        hello-cat1: Ciao dall'azione 1 della categoria 1
+        hello-cat2: Ciao dall'azione 1 della categoria 2
+    hybrid-handler:
+      handler:
+        title: Handler Ibrido (EndorHybridHandler)
+        action1: Azione ibrida di test
+      messages:
+        hello: Ciao dall'Handler Ibrido
+    hybrid-specialized-handler:
+      handler:
+        title: Handler Ibrido Specializzato (EndorHybridSpecializedHandler)
+        action1: Azione ibrida di test
+      categories:
+        cat-1:
+          title: Categoria 1
+        cat-2:
+          title: Categoria 2
+      messages:
+        hello: Ciao dall'Handler Ibrido Specializzato

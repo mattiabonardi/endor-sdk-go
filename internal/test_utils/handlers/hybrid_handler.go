@@ -24,18 +24,18 @@ type HybridHandler struct {
 
 func (h *HybridHandler) action1(c *sdk.EndorContext[HybridHandlerModelAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Handler")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("sdk.examples.hybrid-handler.messages.hello", nil))).
 		Build(), nil
 }
 
 func NewHybridHandler() sdk.EndorHybridHandlerInterface {
 	hybridHandler := HybridHandler{}
-	return sdk_entity.NewEndorHybridHandler[*HybridHandlerModel]("hybrid-handler", "Hybrid Handler (EndorHybridHandler)").
+	return sdk_entity.NewEndorHybridHandler[*HybridHandlerModel]("hybrid-handler", "t(sdk.examples.hybrid-handler.handler.title)").
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 			return map[string]sdk.EndorHandlerActionInterface{
 				"action-1": sdk.NewAction(
 					hybridHandler.action1,
-					"Test hybrid action",
+					"t(sdk.examples.hybrid-handler.handler.action1)",
 				),
 			}
 		})

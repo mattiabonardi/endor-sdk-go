@@ -43,25 +43,25 @@ type HybridSpecializedHandler struct {
 
 func (h *HybridSpecializedHandler) action1(c *sdk.EndorContext[HybridSpecializedAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, "Hello from Hybrid Specialized Handler")).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("sdk.examples.hybrid-specialized-handler.messages.hello", nil))).
 		Build(), nil
 }
 
 func NewHybridSpecializedHandler() sdk.EndorHybridSpecializedHandlerInterface {
 	hybridSpecializedHandler := HybridSpecializedHandler{}
 
-	return sdk_entity.NewEndorHybridSpecializedHandler[*HybridSpecializedModel]("hybrid-specialized-handler", "Hybrid Specialized Handler (EndorHybridSpecializedHandler)").
+	return sdk_entity.NewEndorHybridSpecializedHandler[*HybridSpecializedModel]("hybrid-specialized-handler", "t(sdk.examples.hybrid-specialized-handler.handler.title)").
 		WithHybridCategories(
 			[]sdk.EndorHybridSpecializedHandlerCategoryInterface{
-				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory1Schema]("cat-1", "Category 1"),
-				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory2Schema]("cat-2", "Category 2"),
+				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory1Schema]("cat-1", "t(sdk.examples.hybrid-specialized-handler.categories.cat-1.title)"),
+				sdk_entity.NewEndorHybridSpecializedHandlerCategory[*HybridCategory2Schema]("cat-2", "t(sdk.examples.hybrid-specialized-handler.categories.cat-2.title)"),
 			},
 		).
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 			return map[string]sdk.EndorHandlerActionInterface{
 				"action-1": sdk.NewAction(
 					hybridSpecializedHandler.action1,
-					"Test hybrid action",
+					"t(sdk.examples.hybrid-specialized-handler.handler.action1)",
 				),
 			}
 		})

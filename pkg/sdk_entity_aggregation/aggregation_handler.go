@@ -8,7 +8,6 @@ import (
 )
 
 const aggregationEntity = "aggregation"
-const aggregationEntityDescription = "Distributed aggregation pipeline over registered entity repositories"
 
 // NewAggregationHandler builds an EndorBaseHandlerInterface for the "aggregation"
 // entity and registers the "execute" action, which runs an AggregationPipeline
@@ -16,11 +15,11 @@ const aggregationEntityDescription = "Distributed aggregation pipeline over regi
 func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
-		aggregationEntityDescription,
+		"t(sdk.aggregation.handler.title)",
 	).WithPriority(priority).WithActions(map[string]sdk.EndorHandlerActionInterface{
 		"execute": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description:           "Execute an aggregation pipeline over entity repositories",
+				Description:           "t(sdk.aggregation.handler.actions.execute)",
 				Public:                false,
 				SkipPayloadValidation: false,
 				InputSchema:           buildPipelineSchema(),

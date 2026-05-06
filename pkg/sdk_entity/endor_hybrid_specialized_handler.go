@@ -2,7 +2,6 @@ package sdk_entity
 
 import (
 	"context"
-	"fmt"
 	"maps"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
@@ -248,17 +247,17 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
-			fmt.Sprintf("Get the schema of the %s (%s) for category %s", entity, entityDescription, categoryID),
+			"t(sdk.handler.actions.schema) "+entityPath,
 		),
 		categoryID + "/list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 				return defaultListSpecialized[T](c, schema, entityPath)
 			},
-			fmt.Sprintf("Search for available list of %s (%s) for category %s", entity, entityDescription, categoryID),
+			"t(sdk.handler.actions.list) "+entityPath,
 		),
 		categoryID + "/create": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: fmt.Sprintf("Create the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
+				Description: "t(sdk.handler.actions.create) " + entityPath,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -276,11 +275,11 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
 				return defaultInstanceSpecialized[T](c, schema, entityPath)
 			},
-			fmt.Sprintf("Get the instance of %s (%s) for category %s", entity, entityDescription, categoryID),
+			"t(sdk.handler.actions.instance) "+entityPath,
 		),
 		categoryID + "/update": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: fmt.Sprintf("Update the existing instance of %s (%s) for category %s", entity, entityDescription, categoryID),
+				Description: "t(sdk.handler.actions.update) " + entityPath,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
