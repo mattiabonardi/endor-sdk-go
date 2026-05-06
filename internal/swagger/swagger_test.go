@@ -6,11 +6,13 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
 	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCreateSwaggerDefinition(t *testing.T) {
+	require.NoError(t, sdk_i18n.Init(""), "Failed to init sdk_i18n")
 	microServiceId := "endor-sdk-service"
 	module := "sdk"
 	microServiceAddress := "http://localhost:8080"

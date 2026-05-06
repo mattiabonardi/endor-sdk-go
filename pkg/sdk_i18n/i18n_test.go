@@ -52,7 +52,7 @@ func TestT_LocaleFallbackToDefault(t *testing.T) {
 func TestT_ProjectOverridesSDK(t *testing.T) {
 	// Write a temporary project locale file that overrides the SDK translation.
 	dir := t.TempDir()
-	content := "entities:\n  entity:\n    not_found: \"Risorsa non trovata\"\n"
+	content := "sdk:\n  entity:\n    messages:\n      not_found: \"Risorsa non trovata\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "it.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
