@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -15,6 +16,8 @@ import (
 var sdkLocalesFS embed.FS
 
 const DefaultLocale = "en"
+
+var i18nTokenRegexp = regexp.MustCompile(`t\(([^)]+)\)`)
 
 // flatMap is a map of dot-separated keys to translated strings.
 type flatMap map[string]string
@@ -101,6 +104,14 @@ func NormalizeLocale(acceptLanguage string) string {
 		return DefaultLocale
 	}
 	return lang
+}
+
+// resolve t(<token>) expression
+func ResolveTExpr(locale, value string) string {
+	return i18nTokenRegexp.ReplaceAllStringFunc(value, func(match string) string {
+		key := match[2 : len(match)-1] // strip leading "t(" and trailing ")"
+		return T(locale, key, nil)
+	})
 }
 
 // T translates key for the given locale and performs named placeholder interpolation

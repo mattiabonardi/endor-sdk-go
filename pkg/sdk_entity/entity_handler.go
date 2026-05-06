@@ -2,6 +2,7 @@ package sdk_entity
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
@@ -131,6 +132,46 @@ type EntityHandler struct {
 	repository sdk.EntityRepositoryInterface
 }
 
+func resolveEntityTranslations(locale string, entity sdk.EntityInterface) sdk.EntityInterface {
+	switch e := entity.(type) {
+	case *sdk.Entity:
+		copy := *e
+		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
+		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		return &copy
+	case *sdk.EntitySpecialized:
+		copy := *e
+		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
+		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		resolvedCats := make([]sdk.Category, len(e.Categories))
+		for i, cat := range e.Categories {
+			cat.Title = sdk_i18n.ResolveTExpr(locale, cat.Title)
+			cat.Description = sdk_i18n.ResolveTExpr(locale, cat.Description)
+			resolvedCats[i] = cat
+		}
+		copy.Categories = resolvedCats
+		return &copy
+	case *sdk.EntityHybrid:
+		copy := *e
+		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
+		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		return &copy
+	case *sdk.EntityHybridSpecialized:
+		copy := *e
+		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
+		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		resolvedCats := make([]sdk.HybridCategory, len(e.Categories))
+		for i, cat := range e.Categories {
+			cat.Title = sdk_i18n.ResolveTExpr(locale, cat.Title)
+			cat.Description = sdk_i18n.ResolveTExpr(locale, cat.Description)
+			resolvedCats[i] = cat
+		}
+		copy.Categories = resolvedCats
+		return &copy
+	}
+	return entity
+}
+
 func (h *EntityHandler) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 		return sdk.NewResponseBuilder[any]().AddSchema(schema).Build(), nil
@@ -143,7 +184,11 @@ func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) 
 		if err != nil {
 			return nil, err
 		}
-		return sdk.NewResponseBuilder[[]sdk.EntityInterface]().AddData(&entities).AddSchema(schema).Build(), nil
+		resolved := make([]sdk.EntityInterface, len(entities))
+		for i, entity := range entities {
+			resolved[i] = resolveEntityTranslations(c.Locale, entity)
+		}
+		return sdk.NewResponseBuilder[[]sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
 }
 
@@ -153,6 +198,10 @@ func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSche
 		if err != nil {
 			return nil, err
 		}
-		return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(entity).AddSchema(schema).Build(), nil
+		var resolved sdk.EntityInterface
+		if entity != nil {
+			resolved = resolveEntityTranslations(c.Locale, *entity)
+		}
+		return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
 }

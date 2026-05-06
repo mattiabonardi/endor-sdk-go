@@ -73,7 +73,7 @@ func (h EndorHybridHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema) sdk
 	getSchemaCallback := func() sdk.RootSchema { return *rootSchemWithMetadata }
 
 	// add default CRUD methods
-	methods = getDefaultActions[T](h.Entity, *rootSchemWithMetadata, h.EntityDescription)
+	methods = getDefaultActions[T](h.Entity, *rootSchemWithMetadata)
 	// add custom methods
 	if h.methodsFn != nil {
 		for methodName, method := range h.methodsFn(getSchemaCallback) {
@@ -114,7 +114,7 @@ func getRootSchemaWithMetadata[T sdk.EntityInstanceInterface](metadataSchema sdk
 	return rootSchema
 }
 
-func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema, entityDescription string) map[string]sdk.EndorHandlerActionInterface {
+func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 	return map[string]sdk.EndorHandlerActionInterface{
 		"schema": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 //go:embed swagger/*
@@ -219,7 +220,7 @@ func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress 
 				OperationID: fmt.Sprintf("%s - %s", service.Entity, methodKey),
 				Tags:        []string{service.Entity},
 				Parameters:  parameters,
-				Summary:     method.GetOptions().Description,
+				Summary:     sdk_i18n.ResolveTExpr("en", method.GetOptions().Description),
 				Responses: OpenApiResponses{
 					"default": OpenApiResponse{
 						Description: "Default response",
@@ -291,7 +292,7 @@ func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress 
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,
-			Description: service.EntityTitle,
+			Description: sdk_i18n.ResolveTExpr("en", service.EntityTitle),
 		}
 		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}

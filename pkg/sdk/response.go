@@ -1,21 +1,5 @@
 package sdk
 
-import (
-	"regexp"
-
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
-)
-
-var i18nTokenRegexp = regexp.MustCompile(`t\(([^)]+)\)`)
-
-// resolveI18nValue replaces every t(key) token inside value with its translation for the given locale.
-func resolveI18nValue(locale, value string) string {
-	return i18nTokenRegexp.ReplaceAllStringFunc(value, func(match string) string {
-		key := match[2 : len(match)-1] // strip leading "t(" and trailing ")"
-		return sdk_i18n.T(locale, key, nil)
-	})
-}
-
 // Response with Generics
 type Response[T any] struct {
 	Messages   []ResponseMessage       `json:"messages"`

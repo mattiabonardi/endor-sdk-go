@@ -61,7 +61,7 @@ func (h *EndorHybridSpecializedHandlerCategory[T]) WithRepository(
 
 func (h *EndorHybridSpecializedHandlerCategory[T]) CreateDefaultActions(entity string, entityDescription string, metadataSchema sdk.RootSchema, categoryMetadataSchema sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 	rootSchemWithCategory := getCategorySchemaWithMetadata[T](metadataSchema, categoryMetadataSchema)
-	return getDefaultActionsForCategory[T](entity, *rootSchemWithCategory, entityDescription, h.ID)
+	return getDefaultActionsForCategory[T](entity, *rootSchemWithCategory, h.ID)
 }
 
 func NewEndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface](categoryID string, categoryTile string) sdk.EndorHybridSpecializedHandlerCategoryInterface {
@@ -179,7 +179,7 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 	getSchemaCallback := func() sdk.RootSchema { return *rootSchemaWithMetadata }
 
 	// add default CRUD methods
-	methods = getDefaultActions[T](h.Entity, *rootSchemaWithMetadata, h.EntityDescription)
+	methods = getDefaultActions[T](h.Entity, *rootSchemaWithMetadata)
 	// remove delete and update
 	delete(methods, "create")
 	delete(methods, "update")
@@ -239,7 +239,7 @@ func getCategorySchemaWithMetadata[T sdk.EntityInstanceSpecializedInterface](met
 	return rootSchema
 }
 
-func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](entity string, schema sdk.RootSchema, entityDescription string, categoryID string) map[string]sdk.EndorHandlerActionInterface {
+func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](entity string, schema sdk.RootSchema, categoryID string) map[string]sdk.EndorHandlerActionInterface {
 	entityPath := entity + "/" + categoryID
 
 	return map[string]sdk.EndorHandlerActionInterface{

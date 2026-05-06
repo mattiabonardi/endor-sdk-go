@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 	"gopkg.in/yaml.v3"
 )
 
@@ -95,11 +96,11 @@ func (rs *RootSchema) ResolveTranslations(locale string) {
 
 func (s *Schema) resolveTranslations(locale string) {
 	if s.Title != nil {
-		v := resolveI18nValue(locale, *s.Title)
+		v := sdk_i18n.ResolveTExpr(locale, *s.Title)
 		s.Title = &v
 	}
 	if s.Description != nil {
-		v := resolveI18nValue(locale, *s.Description)
+		v := sdk_i18n.ResolveTExpr(locale, *s.Description)
 		s.Description = &v
 	}
 	if s.Properties != nil {
