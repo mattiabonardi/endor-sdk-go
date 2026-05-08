@@ -39,7 +39,7 @@ func InitRegistryCore(microServiceId string, module string, internalEndorHandler
 			prodDAO:               &sdk.DSLDAO{BasePath: absProdRoot},
 			ephemeralCache:        newEphemeralCacheManager(),
 		}
-		if err := registryCoreInstance.startEntityWatcher(); err != nil {
+		if err := registryCoreInstance.startDslProdWatcher(); err != nil {
 			logger.Warn(fmt.Sprintf("unable to start entity DSL watcher: %s", err.Error()))
 		}
 	})
@@ -511,9 +511,10 @@ func (c *RegistryCore) createAction(entityName string, actionName string, endorS
 	}, nil
 }
 
-// startEntityWatcher installs an fsnotify watcher on ./prod/ and calls
+// startDslProdWatcher installs an fsnotify watcher on ./prod/ and ./prod/locales/ and calls
 // Sync() + reloadRouteConfiguration() with a 1-second debounce on any file-system event.
-func (c *RegistryCore) startEntityWatcher() error {
+// If prod/ or prod/locales/ do not exist yet, they are registered as soon as they are created.
+func (c *RegistryCore) startDslProdWatcher() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -537,6 +538,12 @@ func (c *RegistryCore) startEntityWatcher() error {
 		return err
 	}
 
+	// If prod/ already exists, also register locales/ immediately if present.
+	localesPath := c.prodDAO.LocalesPath()
+	if info, statErr := os.Stat(localesPath); statErr == nil && info.IsDir() {
+		_ = watcher.Add(localesPath)
+	}
+
 	var (
 		debounceMu    sync.Mutex
 		debounceTimer *time.Timer
@@ -551,8 +558,9 @@ func (c *RegistryCore) startEntityWatcher() error {
 					return
 				}
 				if event.Has(fsnotify.Create) {
-					if isAncestorOrEqual(c.prodDAO.BasePath, event.Name) {
-						if info, statErr := os.Stat(event.Name); statErr == nil && info.IsDir() {
+					if info, statErr := os.Stat(event.Name); statErr == nil && info.IsDir() {
+						// Register any new directory created under prod/ (covers locales/ created later).
+						if isAncestorOrEqual(c.prodDAO.BasePath, event.Name) {
 							_ = watcher.Add(event.Name)
 						}
 					}

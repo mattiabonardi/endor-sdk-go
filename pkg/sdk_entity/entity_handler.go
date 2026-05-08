@@ -137,15 +137,18 @@ func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.Entit
 		copy := *e
 		copy.Title = resolveExpr(e.Title)
 		copy.Description = resolveExpr(e.Description)
+		copy.Schema = resolveExpr(e.Schema)
 		return &copy
 	case *sdk.EntitySpecialized:
 		copy := *e
 		copy.Title = resolveExpr(e.Title)
 		copy.Description = resolveExpr(e.Description)
+		copy.Schema = resolveExpr(e.Schema)
 		resolvedCats := make([]sdk.Category, len(e.Categories))
 		for i, cat := range e.Categories {
 			cat.Title = resolveExpr(cat.Title)
 			cat.Description = resolveExpr(cat.Description)
+			cat.Schema = resolveExpr(cat.Schema)
 			resolvedCats[i] = cat
 		}
 		copy.Categories = resolvedCats
@@ -154,15 +157,21 @@ func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.Entit
 		copy := *e
 		copy.Title = resolveExpr(e.Title)
 		copy.Description = resolveExpr(e.Description)
+		copy.Schema = resolveExpr(e.Schema)
+		copy.AdditionalSchema = resolveExpr(e.AdditionalSchema)
 		return &copy
 	case *sdk.EntityHybridSpecialized:
 		copy := *e
 		copy.Title = resolveExpr(e.Title)
 		copy.Description = resolveExpr(e.Description)
+		copy.Schema = resolveExpr(e.Schema)
+		copy.AdditionalSchema = resolveExpr(e.AdditionalSchema)
 		resolvedCats := make([]sdk.HybridCategory, len(e.Categories))
 		for i, cat := range e.Categories {
 			cat.Title = resolveExpr(cat.Title)
 			cat.Description = resolveExpr(cat.Description)
+			cat.Schema = resolveExpr(cat.Schema)
+			cat.AdditionalSchema = resolveExpr(cat.AdditionalSchema)
 			resolvedCats[i] = cat
 		}
 		copy.Categories = resolvedCats
