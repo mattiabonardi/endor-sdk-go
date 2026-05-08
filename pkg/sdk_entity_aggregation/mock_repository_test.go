@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 // testDI is the shared DI container used by all aggregation tests.
@@ -16,6 +17,10 @@ type mockDIContainer struct {
 
 func (m *mockDIContainer) GetRepositories() map[string]sdk.EndorRepositoryInterface {
 	return m.repos
+}
+
+func (m *mockDIContainer) GetTranslator() *sdk_i18n.Translator {
+	return sdk_i18n.NewTranslator("")
 }
 
 // mockRepository implements sdk.DocumentRepositoryInterface with an in-memory

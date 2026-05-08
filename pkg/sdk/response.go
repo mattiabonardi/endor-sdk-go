@@ -42,7 +42,9 @@ func (h *ResponseBuilder[T]) AddData(data *T) *ResponseBuilder[T] {
 }
 
 func (h *ResponseBuilder[T]) AddSchema(schema *RootSchema) *ResponseBuilder[T] {
-	h.response.Schema = schema
+	if schema != nil {
+		h.response.Schema = schema.Clone()
+	}
 	return h
 }
 
@@ -78,8 +80,8 @@ func NewMessage(gravity ResponseMessageGravity, value string) ResponseMessage {
 }
 
 // ResolveTranslations resolves t(key) tokens in the schema (if present).
-func (r *Response[T]) ResolveTranslations(locale string) {
+func (r *Response[T]) ResolveTranslations(resolveExpr func(string) string) {
 	if r.Schema != nil {
-		r.Schema.ResolveTranslations(locale)
+		r.Schema.ResolveTranslations(resolveExpr)
 	}
 }

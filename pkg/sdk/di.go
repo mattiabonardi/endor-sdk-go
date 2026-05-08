@@ -2,10 +2,13 @@ package sdk
 
 import (
 	"fmt"
+
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type EndorDIContainerInterface interface {
 	GetRepositories() map[string]EndorRepositoryInterface
+	GetTranslator() *sdk_i18n.Translator
 }
 
 type RepositoryFactory func(session Session, container EndorDIContainerInterface) EndorRepositoryInterface

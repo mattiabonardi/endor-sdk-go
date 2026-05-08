@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type EndorHybridHandler[T sdk.EntityInstanceInterface] struct {
@@ -215,7 +214,7 @@ func defaultCreate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Create
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.created", map[string]any{"id": entity}))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(created).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("entities.entity.created", map[string]any{"id": entity}))).Build(), nil
 }
 
 func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.UpdateByIdDTO[sdk.PartialEntityInstance[T]]], schema sdk.RootSchema, entity string) (*sdk.Response[sdk.EntityInstance[T]], error) {
@@ -227,7 +226,7 @@ func defaultUpdate[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.Update
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.updated", map[string]any{"id": entity}))).Build(), nil
+	return sdk.NewResponseBuilder[sdk.EntityInstance[T]]().AddData(updated).AddSchema(&schema).AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("entities.entity.updated", map[string]any{"id": entity}))).Build(), nil
 }
 
 func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadInstanceDTO], entity string) (*sdk.Response[any], error) {
@@ -239,5 +238,5 @@ func defaultDelete[T sdk.EntityInstanceInterface](c *sdk.EndorContext[sdk.ReadIn
 	if err != nil {
 		return nil, err
 	}
-	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, sdk_i18n.T(c.Locale, "entities.entity.deleted", map[string]any{"id": entity}))).Build(), nil
+	return sdk.NewResponseBuilder[any]().AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("entities.entity.deleted", map[string]any{"id": entity}))).Build(), nil
 }

@@ -25,13 +25,16 @@ func (r *EndorHandlerActionRepository) DictionaryActionMap(session sdk.Session) 
 	if err != nil {
 		return nil, err
 	}
+	container, err := r.core.Container(session)
+	if err != nil {
+		return nil, err
+	}
 	actions := make(map[string]EndorHandlerActionDictionary)
 	for entityName, entityContainer := range dict {
-		containerCopy := entityContainer
 		for actionName, endorHandlerAction := range entityContainer.EndorHandler.Actions {
 			action, err := r.core.createAction(entityName, actionName, endorHandlerAction)
 			if err == nil {
-				action.Container = containerCopy
+				action.Container = container
 				actions[action.entityAction.ID] = *action
 			}
 		}

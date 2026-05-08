@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 type Session struct {
@@ -28,7 +27,12 @@ type EndorContext[T any] struct {
 
 // T translates the given key using named placeholder interpolation {{key}}.
 func (ec *EndorContext[T]) T(key string, args map[string]any) string {
-	return sdk_i18n.T(ec.Locale, key, args)
+	return ec.DIContainer.GetTranslator().T(ec.Locale, key, args)
+}
+
+// ResolveTExpr resolves t(<token>) expressions in value using the request locale.
+func (ec *EndorContext[T]) ResolveTExpr(value string) string {
+	return ec.DIContainer.GetTranslator().ResolveTExpr(ec.Locale, value)
 }
 
 type NoPayload struct{}

@@ -2,7 +2,6 @@ package sdk_entity
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 func NewEntityActionHandler(microServiceId string, module string, services *[]sdk.EndorHandlerInterface, logger *sdk.Logger) sdk.EndorHandlerInterface {
@@ -42,7 +41,7 @@ func (h *EntityActionHandler) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Res
 		return nil, err
 	}
 	for i := range entityMethods {
-		entityMethods[i].Description = sdk_i18n.ResolveTExpr(c.Locale, entityMethods[i].Description)
+		entityMethods[i].Description = c.ResolveTExpr(entityMethods[i].Description)
 	}
 	return sdk.NewResponseBuilder[[]sdk.EntityAction]().AddData(&entityMethods).AddSchema(sdk.NewSchema(&sdk.EntityAction{})).Build(), nil
 }
@@ -52,6 +51,6 @@ func (h *EntityActionHandler) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO])
 	if err != nil {
 		return nil, err
 	}
-	entityAction.entityAction.Description = sdk_i18n.ResolveTExpr(c.Locale, entityAction.entityAction.Description)
+	entityAction.entityAction.Description = c.ResolveTExpr(entityAction.entityAction.Description)
 	return sdk.NewResponseBuilder[sdk.EntityAction]().AddData(&entityAction.entityAction).AddSchema(sdk.NewSchema(&sdk.EntityAction{})).Build(), nil
 }

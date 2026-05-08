@@ -14,6 +14,7 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_configuration"
+	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,43 +57,28 @@ type RegistryCore struct {
 	logger                *sdk.Logger
 	mu                    *sync.RWMutex
 	cachedDictionary      map[string]EndorEntityDictionary
+	cachedDIContainer     *EndorDIContainer
 	cacheInitialized      bool
 	ephemeralCache        *EphemeralCacheManager
 }
 
-// EndorEntityDictionary is the per-entity DI container: compiled handler, entity metadata,
-// and instantiated repositories.
+// EndorEntityDictionary is the per-entity descriptor: compiled handler and entity metadata.
 type EndorEntityDictionary struct {
 	OriginalInstance *sdk.EndorHandlerInterface
 	EndorHandler     sdk.EndorHandler
 	entity           sdk.EntityInterface
-	repositories     map[string]sdk.EndorRepositoryInterface
-}
-
-func (c *EndorEntityDictionary) GetRepositories() map[string]sdk.EndorRepositoryInterface {
-	return c.repositories
 }
 
 type EndorHandlerActionDictionary struct {
 	EndorHandlerAction sdk.EndorHandlerActionInterface
 	entityAction       sdk.EntityAction
-	Container          EndorEntityDictionary
+	Container          *EndorDIContainer
 }
 
-// dslHybridCategory is the YAML structure for hybrid category entries in entityDSLFile.
-// AdditionalSchema is parsed directly as a sdk.RootSchema, unlike sdk.HybridCategory
-// which stores it as a raw YAML string.
-type dslHybridCategory struct {
-	ID               string         `yaml:"id"`
-	Title            string         `yaml:"title"`
-	Description      string         `yaml:"description"`
-	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
-}
-
-// dslDynamicCategory is the YAML structure for dynamic category entries in entityDSLFile.
+// dslCategory is the YAML structure for category entries in entityDSLFile.
 // AdditionalSchema is parsed directly as a sdk.RootSchema, unlike sdk.DynamicCategory
 // which stores it as a raw YAML string.
-type dslDynamicCategory struct {
+type dslCategory struct {
 	ID               string         `yaml:"id"`
 	Title            string         `yaml:"title"`
 	Description      string         `yaml:"description"`
@@ -100,13 +86,12 @@ type dslDynamicCategory struct {
 }
 
 // entityDSLFile is the YAML structure for entity definition files.
+// The entity type is inferred: no categories → dynamic, with categories → dynamic-specialized.
 type entityDSLFile struct {
-	Title                string               `yaml:"title"`
-	Description          string               `yaml:"description"`
-	Type                 string               `yaml:"type"`
-	AdditionalSchema     sdk.RootSchema       `yaml:"additionalSchema"`
-	Categories           []dslHybridCategory  `yaml:"categories"`
-	AdditionalCategories []dslDynamicCategory `yaml:"additionalCategories"`
+	Title            string         `yaml:"title"`
+	Description      string         `yaml:"description"`
+	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
+	Categories       []dslCategory  `yaml:"categories"`
 }
 
 // #region Public API
@@ -118,16 +103,45 @@ func (c *RegistryCore) Dictionary(session sdk.Session) (map[string]EndorEntityDi
 	if !session.Development || session.Username == "" {
 		return c.dictionaryMap()
 	}
-	if cached := c.ephemeralCache.Get(session.Username); cached != nil {
+	if cached, _ := c.ephemeralCache.Get(session.Username); cached != nil {
 		return cached, nil
 	}
-	devDict, err := c.buildDevDictionary(session)
+	devDict, devContainer, err := c.buildDevDictionary(session)
 	if err != nil {
 		c.logger.Warn(fmt.Sprintf("failed to build ephemeral registry, falling back to prod: %s", err.Error()))
 		return c.dictionaryMap()
 	}
-	c.ephemeralCache.Set(session.Username, devDict)
+	c.ephemeralCache.Set(session.Username, devDict, devContainer)
 	return devDict, nil
+}
+
+// Container returns the unified EndorDIContainer for the given session.
+// Production sessions get the cached container; development sessions get the per-user one.
+func (c *RegistryCore) Container(session sdk.Session) (*EndorDIContainer, error) {
+	if !session.Development || session.Username == "" {
+		_, err := c.dictionaryMap()
+		if err != nil {
+			return nil, err
+		}
+		c.mu.RLock()
+		container := c.cachedDIContainer
+		c.mu.RUnlock()
+		return container, nil
+	}
+	if _, container := c.ephemeralCache.Get(session.Username); container != nil {
+		return container, nil
+	}
+	// Trigger rebuild which also caches the container
+	_, err := c.Dictionary(session)
+	if err != nil {
+		return nil, err
+	}
+	_, container := c.ephemeralCache.Get(session.Username)
+	if container != nil {
+		return container, nil
+	}
+	// Fallback to prod container
+	return c.Container(sdk.Session{})
 }
 
 // DictionaryInstance resolves a single entry by entity ID for the given session.
@@ -142,38 +156,13 @@ func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInsta
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("sdk.entity.messages.not_found", map[string]any{"id": dto.Id})
 }
 
-// DynamicEntityList returns all entity definitions read from the production DSL filesystem.
-func (c *RegistryCore) DynamicEntityList() ([]sdk.EntityInterface, error) {
-	entityIDs, err := c.prodDAO.ListAllEntities(c.module)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var entities []sdk.EntityInterface
-	for _, entityID := range entityIDs {
-		content, err := c.prodDAO.ReadEntity(c.module, entityID)
-		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to read entity DSL file %s: %s", entityID, err.Error()))
-			continue
-		}
-		entity, err := c.parseEntityDSL(entityID, content)
-		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to parse entity DSL file %s: %s", entityID, err.Error()))
-			continue
-		}
-		entities = append(entities, entity)
-	}
-	return entities, nil
-}
-
 // Sync invalidates the production cache and all per-user ephemeral overlays,
 // forcing a full rebuild on the next access.
 func (c *RegistryCore) Sync() {
 	c.mu.Lock()
 	c.cacheInitialized = false
 	c.cachedDictionary = nil
+	c.cachedDIContainer = nil
 	c.mu.Unlock()
 	c.ephemeralCache.InvalidateAll()
 }
@@ -182,65 +171,8 @@ func (c *RegistryCore) Sync() {
 
 // #region Internal machinery
 
-// parseEntityDSL parses a raw YAML DSL string into an EntityInterface.
-func (c *RegistryCore) parseEntityDSL(entityID, content string) (sdk.EntityInterface, error) {
-	var def entityDSLFile
-	if err := yaml.Unmarshal([]byte(content), &def); err != nil {
-		return nil, fmt.Errorf("parse error: %w", err)
-	}
-	additionalSchema, err := def.AdditionalSchema.ToYAML()
-	if err != nil {
-		return nil, fmt.Errorf("marshal additionalSchema: %w", err)
-	}
-	base := sdk.Entity{
-		ID:          path.Join(c.module, entityID),
-		Title:       def.Title,
-		Description: def.Description,
-		Type:        def.Type,
-		Module:      c.module,
-	}
-	switch sdk.EntityType(def.Type) {
-	case sdk.EntityTypeHybrid, sdk.EntityTypeDynamic:
-		return &sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema}, nil
-	case sdk.EntityTypeHybridSpecialized, sdk.EntityTypeDynamicSpecialized:
-		cats, err := toHybridCategories(def.Categories)
-		if err != nil {
-			return nil, err
-		}
-		addCats, err := toDynamicCategories(def.AdditionalCategories)
-		if err != nil {
-			return nil, err
-		}
-		return &sdk.EntityHybridSpecialized{
-			EntityHybrid:         sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema},
-			Categories:           cats,
-			AdditionalCategories: addCats,
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown entity type %q", def.Type)
-	}
-}
-
-// toHybridCategories converts DSL hybrid categories (with sdk.RootSchema) to sdk.HybridCategory (with YAML string).
-func toHybridCategories(dslCats []dslHybridCategory) ([]sdk.HybridCategory, error) {
-	result := make([]sdk.HybridCategory, 0, len(dslCats))
-	for _, c := range dslCats {
-		s, err := c.AdditionalSchema.ToYAML()
-		if err != nil {
-			return nil, fmt.Errorf("marshal category %q additionalSchema: %w", c.ID, err)
-		}
-		result = append(result, sdk.HybridCategory{
-			ID:               c.ID,
-			Title:            c.Title,
-			Description:      c.Description,
-			AdditionalSchema: s,
-		})
-	}
-	return result, nil
-}
-
-// toDynamicCategories converts DSL dynamic categories (with sdk.RootSchema) to sdk.DynamicCategory (with YAML string).
-func toDynamicCategories(dslCats []dslDynamicCategory) ([]sdk.DynamicCategory, error) {
+// toDynamicCategories converts DSL categories (with sdk.RootSchema) to sdk.DynamicCategory (with YAML string).
+func toDynamicCategories(dslCats []dslCategory) ([]sdk.DynamicCategory, error) {
 	result := make([]sdk.DynamicCategory, 0, len(dslCats))
 	for _, c := range dslCats {
 		s, err := c.AdditionalSchema.ToYAML()
@@ -274,87 +206,107 @@ func (c *RegistryCore) buildCategorySchemas(entityID string, cats []sdk.HybridCa
 	return handlerCats, schemas
 }
 
-// buildDSLEntry creates or updates an EndorEntityDictionary from a parsed DSL entity.
-// If existing is non-nil and has a compiled OriginalInstance, the handler is re-configured
-// using the DSL definition. Otherwise a pure-dynamic handler is created.
-// Repositories are always rebuilt to match the resulting handler and session.
-func (c *RegistryCore) buildDSLEntry(session sdk.Session, entity sdk.EntityInterface, existing *EndorEntityDictionary) (EndorEntityDictionary, error) {
-	switch e := entity.(type) {
-	case *sdk.EntityHybrid:
-		return c.buildHybridEntry(session, e, existing)
-	case *sdk.EntityHybridSpecialized:
-		return c.buildHybridSpecializedEntry(session, e, existing)
-	default:
-		return EndorEntityDictionary{}, fmt.Errorf("unsupported entity type %T", entity)
-	}
-}
-
-func (c *RegistryCore) buildHybridEntry(session sdk.Session, e *sdk.EntityHybrid, existing *EndorEntityDictionary) (EndorEntityDictionary, error) {
-	definition, err := e.UnmarshalAdditionalAttributes()
+// buildHybridDSLEntry extends an existing static handler entry with DSL-defined additional schema.
+// For hybrid-specialized handlers, DSL categories are assigned as AdditionalCategories.
+// For plain hybrid handlers, declaring categories in the DSL is forbidden.
+func (c *RegistryCore) buildHybridDSLEntry(entityID, fullID string, def entityDSLFile, existing EndorEntityDictionary) (EndorEntityDictionary, error) {
+	additionalSchema, err := def.AdditionalSchema.ToYAML()
 	if err != nil {
-		return EndorEntityDictionary{}, fmt.Errorf("unmarshal error: %w", err)
+		return EndorEntityDictionary{}, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
-
-	var entry EndorEntityDictionary
-	if existing != nil && existing.OriginalInstance != nil {
-		if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
-			entry = *existing
-			entry.EndorHandler = hybridInst.ToEndorHandler(*definition)
-			if orig, ok := entry.entity.(*sdk.EntityHybrid); ok {
-				cloned := *orig
-				cloned.AdditionalSchema = e.AdditionalSchema
-				entry.entity = &cloned
-			}
+	entry := existing
+	if specInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridSpecializedHandlerInterface); ok {
+		origEntity, ok := existing.entity.(*sdk.EntityHybridSpecialized)
+		if !ok {
+			return EndorEntityDictionary{}, fmt.Errorf("entity type mismatch for hybrid-specialized %q", entityID)
 		}
+		addCats, err := toDynamicCategories(def.Categories)
+		if err != nil {
+			return EndorEntityDictionary{}, err
+		}
+		cats, catsSchema := c.buildCategorySchemas(fullID, origEntity.Categories)
+		entry.EndorHandler = specInst.WithHybridCategories(cats).ToEndorHandler(def.AdditionalSchema, catsSchema, addCats)
+		cloned := *origEntity
+		cloned.AdditionalSchema = additionalSchema
+		cloned.AdditionalCategories = addCats
+		entry.entity = &cloned
+	} else if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
+		if len(def.Categories) > 0 {
+			return EndorEntityDictionary{}, fmt.Errorf("hybrid DSL entity %q must not declare categories: plain hybrid handlers have no categories", entityID)
+		}
+		origEntity, ok := existing.entity.(*sdk.EntityHybrid)
+		if !ok {
+			return EndorEntityDictionary{}, fmt.Errorf("entity type mismatch for hybrid %q", entityID)
+		}
+		entry.EndorHandler = hybridInst.ToEndorHandler(def.AdditionalSchema)
+		cloned := *origEntity
+		cloned.AdditionalSchema = additionalSchema
+		entry.entity = &cloned
 	} else {
-		schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
-		e.Schema = schema
-		handler := NewEndorHybridHandler[*sdk.DynamicEntity](e.ID, e.Title).WithExtendedDescription(e.Description).ToEndorHandler(*definition)
-		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
+		return EndorEntityDictionary{}, fmt.Errorf("static handler for %q does not support hybrid DSL extension", entityID)
 	}
-	entry.repositories = buildRepositoriesFromFactories(session, &entry, entry.EndorHandler.RepositoryFactories)
 	return entry, nil
 }
 
-func (c *RegistryCore) buildHybridSpecializedEntry(session sdk.Session, e *sdk.EntityHybridSpecialized, existing *EndorEntityDictionary) (EndorEntityDictionary, error) {
-	definition, err := e.UnmarshalAdditionalAttributes()
+// buildDynamicDSLEntry creates a new dictionary entry for a pure DSL entity with no static counterpart.
+// If categories are declared, the entity becomes dynamic-specialized; otherwise it is plain dynamic.
+func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (EndorEntityDictionary, error) {
+	additionalSchema, err := def.AdditionalSchema.ToYAML()
 	if err != nil {
-		return EndorEntityDictionary{}, fmt.Errorf("unmarshal error: %w", err)
+		return EndorEntityDictionary{}, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
-	cats, catsSchema := c.buildCategorySchemas(e.ID, e.Categories)
-
 	var entry EndorEntityDictionary
-	if existing != nil && existing.OriginalInstance != nil {
-		if specInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridSpecializedHandlerInterface); ok {
-			entry = *existing
-			entry.EndorHandler = specInst.WithHybridCategories(cats).ToEndorHandler(*definition, catsSchema, e.AdditionalCategories)
-			if orig, ok := entry.entity.(*sdk.EntityHybridSpecialized); ok {
-				cloned := *orig
-				cloned.AdditionalSchema = e.AdditionalSchema
-				cloned.AdditionalCategories = e.AdditionalCategories
-				entry.entity = &cloned
-			}
+	if len(def.Categories) == 0 {
+		schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
+		base := sdk.Entity{
+			ID:          fullID,
+			Title:       def.Title,
+			Description: def.Description,
+			Type:        string(sdk.EntityTypeDynamic),
+			Module:      c.module,
+			Schema:      schema,
 		}
+		e := &sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema}
+		handler := NewEndorHybridHandler[*sdk.DynamicEntity](fullID, def.Title).
+			WithExtendedDescription(def.Description).ToEndorHandler(def.AdditionalSchema)
+		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
 	} else {
+		addCats, err := toDynamicCategories(def.Categories)
+		if err != nil {
+			return EndorEntityDictionary{}, err
+		}
 		schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
-		e.Schema = schema
-		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](e.ID, e.Title).
-			WithExtendedDescription(e.Description).WithHybridCategories(cats).
-			ToEndorHandler(*definition, catsSchema, e.AdditionalCategories)
+		base := sdk.Entity{
+			ID:          fullID,
+			Title:       def.Title,
+			Description: def.Description,
+			Type:        string(sdk.EntityTypeDynamicSpecialized),
+			Module:      c.module,
+			Schema:      schema,
+		}
+		cats, catsSchema := c.buildCategorySchemas(fullID, nil)
+		e := &sdk.EntityHybridSpecialized{
+			EntityHybrid:         sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema},
+			AdditionalCategories: addCats,
+		}
+		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](fullID, def.Title).
+			WithExtendedDescription(def.Description).WithHybridCategories(cats).
+			ToEndorHandler(def.AdditionalSchema, catsSchema, addCats)
 		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
 	}
-	entry.repositories = buildRepositoriesFromFactories(session, &entry, entry.EndorHandler.RepositoryFactories)
 	return entry, nil
 }
 
 // applyDSLOverlay reads entity DSL files from dao and merges them into dict in-place.
-func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO) {
+// Returns the Translator built from the DAO's locales path (always non-nil).
+func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO) *sdk_i18n.Translator {
+	translator := sdk_i18n.NewTranslator(dao.LocalesPath())
 	entityIDs, err := dao.ListAllEntities(c.module)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			c.logger.Warn(fmt.Sprintf("unable to list DSL entities: %s", err.Error()))
 		}
-		return
+		return translator
 	}
 	for _, entityID := range entityIDs {
 		content, err := dao.ReadEntity(c.module, entityID)
@@ -362,23 +314,25 @@ func (c *RegistryCore) applyDSLOverlay(session sdk.Session, dict map[string]Endo
 			c.logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
-		entity, err := c.parseEntityDSL(entityID, content)
-		if err != nil {
+		var def entityDSLFile
+		if err := yaml.Unmarshal([]byte(content), &def); err != nil {
 			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
 		fullID := path.Join(c.module, entityID)
-		var existingPtr *EndorEntityDictionary
-		if existing, ok := dict[fullID]; ok {
-			existingPtr = &existing
+		var entry EndorEntityDictionary
+		if existing, ok := dict[fullID]; ok && existing.OriginalInstance != nil {
+			entry, err = c.buildHybridDSLEntry(entityID, fullID, def, existing)
+		} else {
+			entry, err = c.buildDynamicDSLEntry(fullID, def)
 		}
-		entry, err := c.buildDSLEntry(session, entity, existingPtr)
 		if err != nil {
 			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityID, err.Error()))
 			continue
 		}
 		dict[fullID] = entry
 	}
+	return translator
 }
 
 // buildStaticEntry builds an EndorEntityDictionary from a compiled EndorHandlerInterface.
@@ -421,13 +375,11 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 	}
 
 	hCopy := h
-	entry := EndorEntityDictionary{
+	return EndorEntityDictionary{
 		OriginalInstance: &hCopy,
 		EndorHandler:     handler,
 		entity:           entity,
-	}
-	entry.repositories = buildRepositoriesFromFactories(sdk.Session{}, &entry, handler.RepositoryFactories)
-	return entry, nil
+	}, nil
 }
 
 // dictionaryMap builds (and caches) the production handler dictionary.
@@ -469,57 +421,48 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 		}
 	}
 
-	c.applyDSLOverlay(sdk.Session{}, dict, c.prodDAO)
+	c.applyDSLOverlay(dict, c.prodDAO)
 
-	injectAllRepositories(dict)
+	allRepos := collectAllRepositories(sdk.Session{}, dict)
+	prodTranslator := sdk_i18n.NewTranslator(c.prodDAO.LocalesPath())
 
 	c.cachedDictionary = dict
+	c.cachedDIContainer = &EndorDIContainer{repositories: allRepos, translator: prodTranslator}
 	c.cacheInitialized = true
 	return dict, nil
 }
 
-// buildDevDictionary constructs a development overlay dictionary for the given session.
-// It shallow-clones the production dictionary and applies DSL entities from the user's
-// dev path on top, rebuilding repositories with the dev session for any modified entry.
-func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]EndorEntityDictionary, error) {
+// buildDevDictionary constructs a development overlay dictionary and DI container for the given session.
+func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]EndorEntityDictionary, *EndorDIContainer, error) {
 	mainDict, err := c.dictionaryMap()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	devDict := make(map[string]EndorEntityDictionary, len(mainDict))
 	for k, v := range mainDict {
 		devDict[k] = v
 	}
-	c.applyDSLOverlay(session, devDict, sdk.NewDSLDAO(session.Username, true))
-	injectAllRepositories(devDict)
-	return devDict, nil
+	devDAO := sdk.NewDSLDAO(session.Username, true)
+	devTranslator := c.applyDSLOverlay(devDict, devDAO)
+	allRepos := collectAllRepositories(session, devDict)
+	devContainer := &EndorDIContainer{repositories: allRepos, translator: devTranslator}
+	return devDict, devContainer, nil
 }
 
-// injectAllRepositories collects every repository from every entry in the dictionary
-// and sets the merged map as the repositories of each container, so that any action
-// can reach any registered repository via GetDynamicRepository / GetStaticRepository.
-func injectAllRepositories(dict map[string]EndorEntityDictionary) {
+// collectAllRepositories instantiates all repository factories from the dictionary entries.
+// An empty container is passed during instantiation; the resulting map is used to
+// build the session EndorDIContainer after the dictionary is fully assembled.
+func collectAllRepositories(session sdk.Session, dict map[string]EndorEntityDictionary) map[string]sdk.EndorRepositoryInterface {
 	allRepos := make(map[string]sdk.EndorRepositoryInterface)
+	emptyContainer := &EndorDIContainer{}
 	for _, entry := range dict {
-		for k, v := range entry.repositories {
-			allRepos[k] = v
+		for key, factory := range entry.EndorHandler.RepositoryFactories {
+			if factory != nil {
+				allRepos[key] = factory(session, emptyContainer)
+			}
 		}
 	}
-	for entityID, entry := range dict {
-		entry.repositories = allRepos
-		dict[entityID] = entry
-	}
-}
-
-// buildRepositoriesFromFactories instantiates repositories from handler factories.
-func buildRepositoriesFromFactories(session sdk.Session, container sdk.EndorDIContainerInterface, factories map[string]sdk.RepositoryFactory) map[string]sdk.EndorRepositoryInterface {
-	repos := make(map[string]sdk.EndorRepositoryInterface, len(factories))
-	for key, factory := range factories {
-		if factory != nil {
-			repos[key] = factory(session, container)
-		}
-	}
-	return repos
+	return allRepos
 }
 
 // endorHandlerList returns all registered EndorHandlers; used internally for route config reload.

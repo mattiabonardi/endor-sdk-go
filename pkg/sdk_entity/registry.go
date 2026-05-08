@@ -16,6 +16,7 @@ const (
 // EphemeralRegistryEntry holds a per-user debug overlay registry and its expiry timestamp.
 type EphemeralRegistryEntry struct {
 	dictionary map[string]EndorEntityDictionary
+	container  *EndorDIContainer
 	expiresAt  time.Time
 }
 
@@ -36,24 +37,26 @@ func newEphemeralCacheManager() *EphemeralCacheManager {
 	return mgr
 }
 
-// Get returns the cached dictionary for the given userID if it exists and has not expired.
-// Returns nil on a cache miss or if the TTL has elapsed.
-func (m *EphemeralCacheManager) Get(userID string) map[string]EndorEntityDictionary {
+// Get returns the cached entry for the given userID if it exists and has not expired.
+// Returns nil, nil on a cache miss or if the TTL has elapsed.
+func (m *EphemeralCacheManager) Get(userID string) (map[string]EndorEntityDictionary, *EndorDIContainer) {
 	m.mu.RLock()
 	entry, ok := m.entries[userID]
 	m.mu.RUnlock()
 	if !ok || time.Now().After(entry.expiresAt) {
-		return nil
+		return nil, nil
 	}
-	return entry.dictionary
+	return entry.dictionary, entry.container
 }
 
-// Set stores a dictionary for the given userID, resetting the TTL to ephemeralRegistryTTL.
-func (m *EphemeralCacheManager) Set(userID string, dict map[string]EndorEntityDictionary) {
+// Set stores a dictionary and its unified DI container for the given userID,
+// resetting the TTL to ephemeralRegistryTTL.
+func (m *EphemeralCacheManager) Set(userID string, dict map[string]EndorEntityDictionary, container *EndorDIContainer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.entries[userID] = &EphemeralRegistryEntry{
 		dictionary: dict,
+		container:  container,
 		expiresAt:  time.Now().Add(ephemeralRegistryTTL),
 	}
 }

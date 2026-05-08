@@ -98,6 +98,11 @@ func (dao *DSLDAO) ListAllEntities(msId string) ([]string, error) {
 	return result, nil
 }
 
+// LocalesPath returns the path to the locales directory within the DAO base path.
+func (dao *DSLDAO) LocalesPath() string {
+	return filepath.Join(dao.BasePath, "locales")
+}
+
 // ReadEntity returns the YAML content of the entity DSL file identified by msId and
 // entityName (just the name, without extension or path segments).
 func (dao *DSLDAO) ReadEntity(msId, entityName string) (string, error) {

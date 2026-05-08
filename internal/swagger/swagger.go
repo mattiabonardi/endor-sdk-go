@@ -127,6 +127,7 @@ func CreateSwaggerConfiguration(microServiceId string, module string, microServi
 }
 
 func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
+	translator := sdk_i18n.NewTranslator("")
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
@@ -220,7 +221,7 @@ func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress 
 				OperationID: fmt.Sprintf("%s - %s", service.Entity, methodKey),
 				Tags:        []string{service.Entity},
 				Parameters:  parameters,
-				Summary:     sdk_i18n.ResolveTExpr("en", method.GetOptions().Description),
+				Summary:     translator.ResolveTExpr("en", method.GetOptions().Description),
 				Responses: OpenApiResponses{
 					"default": OpenApiResponse{
 						Description: "Default response",
@@ -292,7 +293,7 @@ func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress 
 		}
 		tag := OpenAPITag{
 			Name:        service.Entity,
-			Description: sdk_i18n.ResolveTExpr("en", service.EntityTitle),
+			Description: translator.ResolveTExpr("en", service.EntityTitle),
 		}
 		swaggerConfiguration.Tags = append(swaggerConfiguration.Tags, tag)
 	}

@@ -61,9 +61,7 @@ func (h *Endor) Init(module string) {
 	}, sdk.LogContext{})
 
 	// load i18n translations
-	if err := sdk_i18n.Init("./locales"); err != nil {
-		logger.Info("i18n: failed to initialize translations: " + err.Error())
-	}
+	translator := sdk_i18n.NewTranslator()
 
 	// create router
 	router := gin.New()
@@ -131,14 +129,14 @@ func (h *Endor) Init(module string) {
 				}
 				dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
 				if err == nil {
-					dict.EndorHandlerAction.CreateHTTPCallback(module, entity, action, category, session, &dict.Container)(c)
+					dict.EndorHandlerAction.CreateHTTPCallback(module, entity, action, category, session, dict.Container)(c)
 					return
 				}
 			}
 		}
 		response := sdk.NewDefaultResponseBuilder()
 		locale := sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language"))
-		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, sdk_i18n.T(locale, "commons.not_found", map[string]any{"uri": c.Request.RequestURI, "method": c.Request.Method})))
+		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, translator.T(locale, "commons.not_found", map[string]any{"uri": c.Request.RequestURI, "method": c.Request.Method})))
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 

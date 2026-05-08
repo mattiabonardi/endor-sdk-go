@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 	"gopkg.in/yaml.v3"
 )
 
@@ -86,35 +85,69 @@ type RootSchema struct {
 
 // ResolveTranslations recursively resolves t(key) tokens in Title and Description
 // for the root schema, all its definitions, and all nested schemas.
-func (rs *RootSchema) ResolveTranslations(locale string) {
-	rs.Schema.resolveTranslations(locale)
+func (rs *RootSchema) ResolveTranslations(resolveExpr func(string) string) {
+	rs.Schema.resolveTranslations(resolveExpr)
 	for key, def := range rs.Definitions {
-		def.resolveTranslations(locale)
+		def.resolveTranslations(resolveExpr)
 		rs.Definitions[key] = def
 	}
 }
 
-func (s *Schema) resolveTranslations(locale string) {
+func (s *Schema) resolveTranslations(resolveExpr func(string) string) {
 	if s.Title != nil {
-		v := sdk_i18n.ResolveTExpr(locale, *s.Title)
+		v := resolveExpr(*s.Title)
 		s.Title = &v
 	}
 	if s.Description != nil {
-		v := sdk_i18n.ResolveTExpr(locale, *s.Description)
+		v := resolveExpr(*s.Description)
 		s.Description = &v
 	}
 	if s.Properties != nil {
 		for key, prop := range *s.Properties {
-			prop.resolveTranslations(locale)
+			prop.resolveTranslations(resolveExpr)
 			(*s.Properties)[key] = prop
 		}
 	}
 	if s.Items != nil {
-		s.Items.resolveTranslations(locale)
+		s.Items.resolveTranslations(resolveExpr)
 	}
 	if s.AdditionalProperties != nil {
-		s.AdditionalProperties.resolveTranslations(locale)
+		s.AdditionalProperties.resolveTranslations(resolveExpr)
 	}
+}
+
+// Clone returns a deep copy of the RootSchema so that ResolveTranslations
+// can mutate the copy without affecting the shared original.
+func (rs *RootSchema) Clone() *RootSchema {
+	cloned := &RootSchema{
+		Schema: rs.Schema.clone(),
+	}
+	if rs.Definitions != nil {
+		cloned.Definitions = make(map[string]Schema, len(rs.Definitions))
+		for k, v := range rs.Definitions {
+			cloned.Definitions[k] = v.clone()
+		}
+	}
+	return cloned
+}
+
+func (s Schema) clone() Schema {
+	if s.Properties != nil {
+		cloned := make(map[string]Schema, len(*s.Properties))
+		for k, v := range *s.Properties {
+			cloned[k] = v.clone()
+		}
+		s.Properties = &cloned
+	}
+	if s.Items != nil {
+		c := s.Items.clone()
+		s.Items = &c
+	}
+	if s.AdditionalProperties != nil {
+		c := s.AdditionalProperties.clone()
+		s.AdditionalProperties = &c
+	}
+	return s
 }
 
 func (h *RootSchema) ToYAML() (string, error) {

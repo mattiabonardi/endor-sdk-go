@@ -28,22 +28,18 @@ func TestNormalizeLocale(t *testing.T) {
 }
 
 func TestT_SDKEmbeddedFallback(t *testing.T) {
-	// Init with empty project path so only SDK embedded translations are used.
-	if err := sdk_i18n.Init(""); err != nil {
-		t.Fatal(err)
-	}
-	got := sdk_i18n.T("en", "sdk.entity.messages.not_found", nil)
+	// NewTranslator with empty project path so only SDK embedded translations are used.
+	tr := sdk_i18n.NewTranslator("")
+	got := tr.T("en", "sdk.entity.messages.not_found", nil)
 	if got == "sdk.entity.messages.not_found" {
 		t.Error("expected SDK embedded translation for sdk.entity.messages.not_found, got the key itself")
 	}
 }
 
 func TestT_LocaleFallbackToDefault(t *testing.T) {
-	if err := sdk_i18n.Init(""); err != nil {
-		t.Fatal(err)
-	}
+	tr := sdk_i18n.NewTranslator("")
 	// "it" locale without project files falls back to "en".
-	got := sdk_i18n.T("it", "sdk.entity.messages.not_found", nil)
+	got := tr.T("it", "sdk.entity.messages.not_found", nil)
 	if got == "sdk.entity.messages.not_found" {
 		t.Error("expected fallback to SDK en translation, got the key itself")
 	}
@@ -57,21 +53,17 @@ func TestT_ProjectOverridesSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := sdk_i18n.Init(dir); err != nil {
-		t.Fatal(err)
-	}
+	tr := sdk_i18n.NewTranslator(dir)
 
-	got := sdk_i18n.T("it", "sdk.entity.messages.not_found", nil)
+	got := tr.T("it", "sdk.entity.messages.not_found", nil)
 	if got != "Risorsa non trovata" {
 		t.Errorf("expected project translation override, got %q", got)
 	}
 }
 
 func TestT_Interpolation(t *testing.T) {
-	if err := sdk_i18n.Init(""); err != nil {
-		t.Fatal(err)
-	}
-	got := sdk_i18n.T("en", "sdk.entity.messages.not_found", map[string]any{"id": "123"})
+	tr := sdk_i18n.NewTranslator("")
+	got := tr.T("en", "sdk.entity.messages.not_found", map[string]any{"id": "123"})
 	if got == "sdk.entity.messages.not_found" {
 		t.Error("expected interpolated translation, got key itself")
 	}
@@ -81,10 +73,8 @@ func TestT_Interpolation(t *testing.T) {
 }
 
 func TestT_UnknownKeyReturnsKey(t *testing.T) {
-	if err := sdk_i18n.Init(""); err != nil {
-		t.Fatal(err)
-	}
-	got := sdk_i18n.T("en", "this.key.does.not.exist", nil)
+	tr := sdk_i18n.NewTranslator("")
+	got := tr.T("en", "this.key.does.not.exist", nil)
 	if got != "this.key.does.not.exist" {
 		t.Errorf("expected key itself for unknown key, got %q", got)
 	}

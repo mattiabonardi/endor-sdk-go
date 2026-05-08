@@ -2,7 +2,6 @@ package sdk_entity
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
-	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_i18n"
 )
 
 func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
@@ -132,38 +131,38 @@ type EntityHandler struct {
 	repository sdk.EntityRepositoryInterface
 }
 
-func resolveEntityTranslations(locale string, entity sdk.EntityInterface) sdk.EntityInterface {
+func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.EntityInterface) sdk.EntityInterface {
 	switch e := entity.(type) {
 	case *sdk.Entity:
 		copy := *e
-		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
-		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		copy.Title = resolveExpr(e.Title)
+		copy.Description = resolveExpr(e.Description)
 		return &copy
 	case *sdk.EntitySpecialized:
 		copy := *e
-		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
-		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		copy.Title = resolveExpr(e.Title)
+		copy.Description = resolveExpr(e.Description)
 		resolvedCats := make([]sdk.Category, len(e.Categories))
 		for i, cat := range e.Categories {
-			cat.Title = sdk_i18n.ResolveTExpr(locale, cat.Title)
-			cat.Description = sdk_i18n.ResolveTExpr(locale, cat.Description)
+			cat.Title = resolveExpr(cat.Title)
+			cat.Description = resolveExpr(cat.Description)
 			resolvedCats[i] = cat
 		}
 		copy.Categories = resolvedCats
 		return &copy
 	case *sdk.EntityHybrid:
 		copy := *e
-		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
-		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		copy.Title = resolveExpr(e.Title)
+		copy.Description = resolveExpr(e.Description)
 		return &copy
 	case *sdk.EntityHybridSpecialized:
 		copy := *e
-		copy.Title = sdk_i18n.ResolveTExpr(locale, e.Title)
-		copy.Description = sdk_i18n.ResolveTExpr(locale, e.Description)
+		copy.Title = resolveExpr(e.Title)
+		copy.Description = resolveExpr(e.Description)
 		resolvedCats := make([]sdk.HybridCategory, len(e.Categories))
 		for i, cat := range e.Categories {
-			cat.Title = sdk_i18n.ResolveTExpr(locale, cat.Title)
-			cat.Description = sdk_i18n.ResolveTExpr(locale, cat.Description)
+			cat.Title = resolveExpr(cat.Title)
+			cat.Description = resolveExpr(cat.Description)
 			resolvedCats[i] = cat
 		}
 		copy.Categories = resolvedCats
@@ -186,7 +185,7 @@ func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) 
 		}
 		resolved := make([]sdk.EntityInterface, len(entities))
 		for i, entity := range entities {
-			resolved[i] = resolveEntityTranslations(c.Locale, entity)
+			resolved[i] = resolveEntityTranslations(c.ResolveTExpr, entity)
 		}
 		return sdk.NewResponseBuilder[[]sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
@@ -200,7 +199,7 @@ func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSche
 		}
 		var resolved sdk.EntityInterface
 		if entity != nil {
-			resolved = resolveEntityTranslations(c.Locale, *entity)
+			resolved = resolveEntityTranslations(c.ResolveTExpr, *entity)
 		}
 		return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
