@@ -86,11 +86,10 @@ func NewTranslator(localesFS fs.FS, paths ...string) *Translator {
 	return t
 }
 
-// loadLocalesFromFS reads all locales/*.yaml files from an fs.FS and returns a locale → flatMap mapping.
-// The conventional directory name "locales" is used; files at other paths are ignored.
+// loadLocalesFromFS reads all *.yaml files from the root of the given fs.FS and returns a locale → flatMap mapping.
 func loadLocalesFromFS(fsys fs.FS) map[string]flatMap {
 	layer := make(map[string]flatMap)
-	entries, err := fs.ReadDir(fsys, "locales")
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return layer
 	}
@@ -99,7 +98,7 @@ func loadLocalesFromFS(fsys fs.FS) map[string]flatMap {
 			continue
 		}
 		locale := strings.TrimSuffix(entry.Name(), ".yaml")
-		data, err := fs.ReadFile(fsys, "locales/"+entry.Name())
+		data, err := fs.ReadFile(fsys, entry.Name())
 		if err != nil {
 			continue
 		}

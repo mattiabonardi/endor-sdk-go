@@ -48,7 +48,11 @@ func (b *EndorInitializer) WithPostInitFunc(f func()) *EndorInitializer {
 }
 
 func (b *EndorInitializer) WithLocalesFS(localesFS fs.FS) *EndorInitializer {
-	b.endor.localesFS = localesFS
+	if sub, err := fs.Sub(localesFS, "locales"); err == nil {
+		b.endor.localesFS = sub
+	} else {
+		b.endor.localesFS = localesFS
+	}
 	return b
 }
 
