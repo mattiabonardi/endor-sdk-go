@@ -115,7 +115,8 @@ func (h *Endor) Init(module string) {
 		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(microServiceId, module, h.endorHandlers, logger))
 	}
 
-	// get all entities (initialize singleton repository)
+	// Initialize the singleton repository after all handlers are registered.
+	// Must be called after all handler appends so the registry is complete.
 	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microServiceId, module, h.endorHandlers, logger, h.localesFS)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {

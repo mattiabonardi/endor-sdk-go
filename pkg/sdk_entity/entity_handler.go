@@ -5,21 +5,21 @@ import (
 )
 
 func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
-	var repo sdk.EntityRepositoryInterface
-	if repository == nil {
-		// Use the singleton repository to ensure cache consistency
-		if singletonRepo := GetEndorHandlerRepository(); singletonRepo != nil {
-			repo = singletonRepo
-		} else {
-			// Fallback: initialize if not yet initialized (should not happen in normal flow)
-			repo = InitEndorHandlerRepository(microServiceId, module, handlers, logger, nil)
+	// Resolve the repository lazily at action-call time so that InitEndorHandlerRepository
+	// (called later in server.Init with the correct projectLocalesFS) is always the first
+	// initializer and the nil-FS fallback path is never triggered.
+	repoAccessor := func() sdk.EntityRepositoryInterface {
+		if repository != nil {
+			return *repository
 		}
-	} else {
-		repo = *repository
+		if r := GetEndorHandlerRepository(); r != nil {
+			return r
+		}
+		return nil
 	}
 	entityService := EntityHandler{
-		handlers:   handlers,
-		repository: repo,
+		handlers:     handlers,
+		repoAccessor: repoAccessor,
 	}
 
 	return NewEndorBaseSpecializedHandler[*sdk.Entity]("entity", "t(sdk.entity.handler.title)").
@@ -127,8 +127,8 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 }
 
 type EntityHandler struct {
-	handlers   *[]sdk.EndorHandlerInterface
-	repository sdk.EntityRepositoryInterface
+	handlers     *[]sdk.EndorHandlerInterface
+	repoAccessor func() sdk.EntityRepositoryInterface
 }
 
 func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.EntityInterface) sdk.EntityInterface {
@@ -188,7 +188,7 @@ func (h *EntityHandler) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[
 
 func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
 	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
-		entities, err := h.repository.List(c.Session, &entityType)
+		entities, err := h.repoAccessor().List(c.Session, &entityType)
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +202,7 @@ func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) 
 
 func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
 	return func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
-		entity, err := h.repository.Instance(c.Session, &entityType, c.Payload)
+		entity, err := h.repoAccessor().Instance(c.Session, &entityType, c.Payload)
 		if err != nil {
 			return nil, err
 		}

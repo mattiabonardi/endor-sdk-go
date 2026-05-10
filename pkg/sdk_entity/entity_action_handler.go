@@ -5,10 +5,14 @@ import (
 )
 
 func NewEntityActionHandler(microServiceId string, module string, services *[]sdk.EndorHandlerInterface, logger *sdk.Logger) sdk.EndorHandlerInterface {
-	actionRepo := NewEndorHandlerActionRepository(InitRegistryCore(microServiceId, module, services, logger, nil))
+	// Use a lazy accessor so the registry core is resolved at action-call time,
+	// after InitEndorHandlerRepository has been called with the correct projectLocalesFS.
+	repoAccessor := func() EndorHandlerActionRepository {
+		return *NewEndorHandlerActionRepository(GetRegistryCore())
+	}
 	entityMethodService := EntityActionHandler{
-		repository: *actionRepo,
-		services:   services,
+		repoAccessor: repoAccessor,
+		services:     services,
 	}
 	return NewEndorBaseHandler[*sdk.EntityAction]("entity-action", "t(sdk.entity_action.handler.title)").
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
@@ -27,8 +31,8 @@ func NewEntityActionHandler(microServiceId string, module string, services *[]sd
 }
 
 type EntityActionHandler struct {
-	repository EndorHandlerActionRepository
-	services   *[]sdk.EndorHandlerInterface
+	repoAccessor func() EndorHandlerActionRepository
+	services     *[]sdk.EndorHandlerInterface
 }
 
 func (h *EntityActionHandler) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
@@ -36,7 +40,8 @@ func (h *EntityActionHandler) schema(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.R
 }
 
 func (h *EntityActionHandler) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityAction], error) {
-	entityMethods, err := h.repository.EntityActionList(c.Session)
+	repo := h.repoAccessor()
+	entityMethods, err := repo.EntityActionList(c.Session)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +52,8 @@ func (h *EntityActionHandler) list(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Res
 }
 
 func (h *EntityActionHandler) instance(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityAction], error) {
-	entityAction, err := h.repository.DictionaryActionInstance(c.Session, c.Payload)
+	repo := h.repoAccessor()
+	entityAction, err := repo.DictionaryActionInstance(c.Session, c.Payload)
 	if err != nil {
 		return nil, err
 	}
