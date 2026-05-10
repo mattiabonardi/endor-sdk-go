@@ -2,6 +2,7 @@ package sdk_server
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -21,6 +22,7 @@ type Endor struct {
 	endorHandlers *[]sdk.EndorHandlerInterface
 	postInitFunc  func()
 	version       string
+	localesFS     fs.FS
 }
 
 type EndorInitializer struct {
@@ -45,6 +47,11 @@ func (b *EndorInitializer) WithPostInitFunc(f func()) *EndorInitializer {
 	return b
 }
 
+func (b *EndorInitializer) WithLocalesFS(localesFS fs.FS) *EndorInitializer {
+	b.endor.localesFS = localesFS
+	return b
+}
+
 func (b *EndorInitializer) Build() *Endor {
 	return b.endor
 }
@@ -61,7 +68,7 @@ func (h *Endor) Init(module string) {
 	}, sdk.LogContext{})
 
 	// load i18n translations
-	translator := sdk_i18n.NewTranslator()
+	translator := sdk_i18n.NewTranslator(h.localesFS)
 
 	// create router
 	router := gin.New()
@@ -105,7 +112,7 @@ func (h *Endor) Init(module string) {
 	}
 
 	// get all entities (initialize singleton repository)
-	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microServiceId, module, h.endorHandlers, logger)
+	EndorHandlerRepository := sdk_entity.InitEndorHandlerRepository(microServiceId, module, h.endorHandlers, logger, h.localesFS)
 	entities, err := EndorHandlerRepository.EndorHandlerList()
 	if err != nil {
 		log.Fatal(err)
@@ -144,7 +151,7 @@ func (h *Endor) Init(module string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	swaggerPath, err := swagger.CreateSwaggerConfiguration(microServiceId, module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	swaggerPath, err := swagger.CreateSwaggerConfiguration(microServiceId, module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api", h.localesFS)
 	if err != nil {
 		log.Fatal(err)
 	}

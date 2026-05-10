@@ -12,7 +12,7 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 			repo = singletonRepo
 		} else {
 			// Fallback: initialize if not yet initialized (should not happen in normal flow)
-			repo = InitEndorHandlerRepository(microServiceId, module, handlers, logger)
+			repo = InitEndorHandlerRepository(microServiceId, module, handlers, logger, nil)
 		}
 	} else {
 		repo = *repository

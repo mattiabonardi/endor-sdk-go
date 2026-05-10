@@ -14,7 +14,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	microServiceId := "endor-sdk-service"
 	module := "sdk"
 	microServiceAddress := "http://localhost:8080"
-	def, err := swagger.CreateSwaggerDefinition(microServiceId, module, microServiceAddress, []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api")
+	def, err := swagger.CreateSwaggerDefinition(microServiceId, module, microServiceAddress, []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api", nil)
 	require.NoError(t, err, "Failed to create swagger definition")
 	assert.Equal(t, "3.1.0", def.OpenAPI, "Expected OpenAPI version '3.1.0'")
 	assert.Equal(t, microServiceId, def.Info.Title, "Expected correct title")

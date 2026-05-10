@@ -2,6 +2,7 @@ package sdk_entity
 
 import (
 	"fmt"
+	"io/fs"
 	"path"
 	"sync"
 
@@ -21,18 +22,12 @@ func GetEndorHandlerRepository() *EndorHandlerRepository {
 
 // InitEndorHandlerRepository initializes the singleton EndorHandlerRepository.
 // It also initializes the underlying RegistryCore engine if not yet done.
-func InitEndorHandlerRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
+func InitEndorHandlerRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *EndorHandlerRepository {
 	endorHandlerRepositoryOnce.Do(func() {
-		core := InitRegistryCore(microServiceId, module, internalEndorHandlers, logger)
+		core := InitRegistryCore(microServiceId, module, internalEndorHandlers, logger, projectLocalesFS)
 		endorHandlerRepositoryInstance = &EndorHandlerRepository{core: core}
 	})
 	return endorHandlerRepositoryInstance
-}
-
-// NewEndorHandlerRepository returns the singleton EndorHandlerRepository instance.
-// Deprecated: Use InitEndorHandlerRepository for explicit initialization or GetEndorHandlerRepository to retrieve it.
-func NewEndorHandlerRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *EndorHandlerRepository {
-	return InitEndorHandlerRepository(microServiceId, module, internalEndorHandlers, logger)
 }
 
 // EndorHandlerRepository provides entity-level access to the handler registry.
@@ -51,6 +46,7 @@ func (h *EndorHandlerRepository) List(session sdk.Session, entityType *sdk.Entit
 	}
 	entityEntityID := path.Join(h.core.module, "entity")
 	entityActionEntityID := path.Join(h.core.module, "entity-action")
+	aggregatonID := path.Join(h.core.module, "aggregation")
 	entityList := make([]sdk.EntityInterface, 0, len(dict))
 	for _, v := range dict {
 		entityList = append(entityList, v.entity)
@@ -58,7 +54,7 @@ func (h *EndorHandlerRepository) List(session sdk.Session, entityType *sdk.Entit
 	// filter by entity type
 	filtered := make([]sdk.EntityInterface, 0, len(dict))
 	for _, r := range entityList {
-		if r.GetID() != entityEntityID && r.GetID() != entityActionEntityID {
+		if r.GetID() != entityEntityID && r.GetID() != entityActionEntityID && r.GetID() != aggregatonID {
 			if r.GetCategoryType() == string(*entityType) {
 				filtered = append(filtered, r)
 			} else {

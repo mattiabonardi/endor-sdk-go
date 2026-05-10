@@ -3,6 +3,7 @@ package sdk_i18n
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,22 +31,20 @@ type Translator struct {
 	sdkTranslations map[string]flatMap
 }
 
-// projectLocalesPath is the conventional path for project-level locale files.
-const projectLocalesPath = "./locales"
-
 // NewTranslator creates a Translator loading, in priority order:
-//  1. Each extra path passed by the caller (index 0 = highest priority)
-//  2. The project's own ./locales directory (always included)
+//  1. localesFS (e.g. an embed.FS) whose locales/*.yaml files are the highest-priority layer
+//  2. Each extra path passed by the caller (filesystem-based, for DSL overlays)
 //  3. SDK embedded translations
 //
+// Pass nil for localesFS to skip the embedded project layer.
 // Empty strings in paths are ignored. Non-existent directories are silently skipped.
-func NewTranslator(paths ...string) *Translator {
+func NewTranslator(localesFS fs.FS, paths ...string) *Translator {
 	t := &Translator{
 		projectLayers:   []map[string]flatMap{},
 		sdkTranslations: make(map[string]flatMap),
 	}
 
-	// Load SDK embedded translations.
+	// Load SDK embedded translations (lowest priority).
 	entries, err := sdkLocalesFS.ReadDir("locales")
 	if err == nil {
 		for _, entry := range entries {
@@ -65,9 +64,8 @@ func NewTranslator(paths ...string) *Translator {
 		}
 	}
 
-	// Load caller-supplied paths first (highest priority), then the project locales.
-	allPaths := append(paths, projectLocalesPath)
-	for _, p := range allPaths {
+	// Load caller-supplied paths (filesystem-based, e.g. DSL overlay locales).
+	for _, p := range paths {
 		if p == "" {
 			continue
 		}
@@ -77,7 +75,41 @@ func NewTranslator(paths ...string) *Translator {
 		}
 	}
 
+	// Load the embedded FS as the top-priority layer (inserted at index 0).
+	if localesFS != nil {
+		layer := loadLocalesFromFS(localesFS)
+		if len(layer) > 0 {
+			t.projectLayers = append([]map[string]flatMap{layer}, t.projectLayers...)
+		}
+	}
+
 	return t
+}
+
+// loadLocalesFromFS reads all locales/*.yaml files from an fs.FS and returns a locale → flatMap mapping.
+// The conventional directory name "locales" is used; files at other paths are ignored.
+func loadLocalesFromFS(fsys fs.FS) map[string]flatMap {
+	layer := make(map[string]flatMap)
+	entries, err := fs.ReadDir(fsys, "locales")
+	if err != nil {
+		return layer
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+		locale := strings.TrimSuffix(entry.Name(), ".yaml")
+		data, err := fs.ReadFile(fsys, "locales/"+entry.Name())
+		if err != nil {
+			continue
+		}
+		flat, err := parseYAML(data)
+		if err != nil {
+			continue
+		}
+		layer[locale] = flat
+	}
+	return layer
 }
 
 // loadLocalesFromPath reads all *.yaml files in dirPath and returns a locale → flatMap mapping.

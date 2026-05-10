@@ -28,8 +28,8 @@ func TestNormalizeLocale(t *testing.T) {
 }
 
 func TestT_SDKEmbeddedFallback(t *testing.T) {
-	// NewTranslator with empty project path so only SDK embedded translations are used.
-	tr := sdk_i18n.NewTranslator("")
+	// NewTranslatorWithFS with nil FS so only SDK embedded translations are used.
+	tr := sdk_i18n.NewTranslator(nil)
 	got := tr.T("en", "sdk.entity.messages.not_found", nil)
 	if got == "sdk.entity.messages.not_found" {
 		t.Error("expected SDK embedded translation for sdk.entity.messages.not_found, got the key itself")
@@ -37,7 +37,7 @@ func TestT_SDKEmbeddedFallback(t *testing.T) {
 }
 
 func TestT_LocaleFallbackToDefault(t *testing.T) {
-	tr := sdk_i18n.NewTranslator("")
+	tr := sdk_i18n.NewTranslator(nil)
 	// "it" locale without project files falls back to "en".
 	got := tr.T("it", "sdk.entity.messages.not_found", nil)
 	if got == "sdk.entity.messages.not_found" {
@@ -53,7 +53,7 @@ func TestT_ProjectOverridesSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tr := sdk_i18n.NewTranslator(dir)
+	tr := sdk_i18n.NewTranslator(nil, dir)
 
 	got := tr.T("it", "sdk.entity.messages.not_found", nil)
 	if got != "Risorsa non trovata" {
@@ -62,7 +62,7 @@ func TestT_ProjectOverridesSDK(t *testing.T) {
 }
 
 func TestT_Interpolation(t *testing.T) {
-	tr := sdk_i18n.NewTranslator("")
+	tr := sdk_i18n.NewTranslator(nil)
 	got := tr.T("en", "sdk.entity.messages.not_found", map[string]any{"id": "123"})
 	if got == "sdk.entity.messages.not_found" {
 		t.Error("expected interpolated translation, got key itself")
@@ -73,7 +73,7 @@ func TestT_Interpolation(t *testing.T) {
 }
 
 func TestT_UnknownKeyReturnsKey(t *testing.T) {
-	tr := sdk_i18n.NewTranslator("")
+	tr := sdk_i18n.NewTranslator(nil)
 	got := tr.T("en", "this.key.does.not.exist", nil)
 	if got != "this.key.does.not.exist" {
 		t.Errorf("expected key itself for unknown key, got %q", got)

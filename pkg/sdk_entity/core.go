@@ -2,6 +2,7 @@ package sdk_entity
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,7 +28,7 @@ func GetRegistryCore() *RegistryCore {
 	return registryCoreInstance
 }
 
-func InitRegistryCore(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger) *RegistryCore {
+func InitRegistryCore(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *RegistryCore {
 	registryCoreOnce.Do(func() {
 		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
@@ -38,6 +39,7 @@ func InitRegistryCore(microServiceId string, module string, internalEndorHandler
 			mu:                    &sync.RWMutex{},
 			prodDAO:               &sdk.DSLDAO{BasePath: absProdRoot},
 			ephemeralCache:        newEphemeralCacheManager(),
+			projectLocalesFS:      projectLocalesFS,
 		}
 		if err := registryCoreInstance.startDslProdWatcher(); err != nil {
 			logger.Warn(fmt.Sprintf("unable to start entity DSL watcher: %s", err.Error()))
@@ -60,6 +62,7 @@ type RegistryCore struct {
 	cachedDIContainer     *EndorDIContainer
 	cacheInitialized      bool
 	ephemeralCache        *EphemeralCacheManager
+	projectLocalesFS      fs.FS
 }
 
 // EndorEntityDictionary is the per-entity descriptor: compiled handler and entity metadata.
@@ -299,8 +302,8 @@ func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (E
 
 // applyDSLOverlay reads entity DSL files from dao and merges them into dict in-place.
 // Returns the Translator built from the DAO's locales path (always non-nil).
-func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO) *sdk_i18n.Translator {
-	translator := sdk_i18n.NewTranslator(dao.LocalesPath())
+func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO, projectLocalesFS fs.FS) *sdk_i18n.Translator {
+	translator := sdk_i18n.NewTranslator(projectLocalesFS, dao.LocalesPath())
 	entityIDs, err := dao.ListAllEntities(c.module)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -421,10 +424,10 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 		}
 	}
 
-	c.applyDSLOverlay(dict, c.prodDAO)
+	c.applyDSLOverlay(dict, c.prodDAO, c.projectLocalesFS)
 
 	allRepos := collectAllRepositories(sdk.Session{}, dict)
-	prodTranslator := sdk_i18n.NewTranslator(c.prodDAO.LocalesPath())
+	prodTranslator := sdk_i18n.NewTranslator(c.projectLocalesFS, c.prodDAO.LocalesPath())
 
 	c.cachedDictionary = dict
 	c.cachedDIContainer = &EndorDIContainer{repositories: allRepos, translator: prodTranslator}
@@ -443,7 +446,7 @@ func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]Endor
 		devDict[k] = v
 	}
 	devDAO := sdk.NewDSLDAO(session.Username, true)
-	devTranslator := c.applyDSLOverlay(devDict, devDAO)
+	devTranslator := c.applyDSLOverlay(devDict, devDAO, c.projectLocalesFS)
 	allRepos := collectAllRepositories(session, devDict)
 	devContainer := &EndorDIContainer{repositories: allRepos, translator: devTranslator}
 	return devDict, devContainer, nil
@@ -487,7 +490,7 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 	if err = api_gateway.InitializeApiGatewayConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://%s:%s", c.microServiceId, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api")
+	_, err = swagger.CreateSwaggerConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api", c.projectLocalesFS)
 	return err
 }
 

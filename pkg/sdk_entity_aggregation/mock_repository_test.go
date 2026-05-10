@@ -20,7 +20,7 @@ func (m *mockDIContainer) GetRepositories() map[string]sdk.EndorRepositoryInterf
 }
 
 func (m *mockDIContainer) GetTranslator() *sdk_i18n.Translator {
-	return sdk_i18n.NewTranslator("")
+	return sdk_i18n.NewTranslator(nil)
 }
 
 // mockRepository implements sdk.DocumentRepositoryInterface with an in-memory

@@ -5,7 +5,7 @@ import (
 )
 
 func NewEntityActionHandler(microServiceId string, module string, services *[]sdk.EndorHandlerInterface, logger *sdk.Logger) sdk.EndorHandlerInterface {
-	actionRepo := NewEndorHandlerActionRepository(InitRegistryCore(microServiceId, module, services, logger))
+	actionRepo := NewEndorHandlerActionRepository(InitRegistryCore(microServiceId, module, services, logger, nil))
 	entityMethodService := EntityActionHandler{
 		repository: *actionRepo,
 		services:   services,

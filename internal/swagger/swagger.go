@@ -89,8 +89,8 @@ type OpenApiResponses map[string]OpenApiResponse
 var baseSwaggerFolder = "etc/endor/endor-api-gateway/swagger/"
 var configurationFileName = "openapi.json"
 
-func CreateSwaggerConfiguration(microServiceId string, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (string, error) {
-	definition, err := CreateSwaggerDefinition(microServiceId, module, microServiceAddress, services, baseApiPath)
+func CreateSwaggerConfiguration(microServiceId string, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string, localesFS fs.FS) (string, error) {
+	definition, err := CreateSwaggerDefinition(microServiceId, module, microServiceAddress, services, baseApiPath, localesFS)
 	if err != nil {
 		return "", err
 	}
@@ -126,8 +126,8 @@ func CreateSwaggerConfiguration(microServiceId string, module string, microServi
 	return swaggerFolder, err
 }
 
-func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string) (OpenAPIConfiguration, error) {
-	translator := sdk_i18n.NewTranslator("")
+func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress string, services []sdk.EndorHandler, baseApiPath string, localesFS fs.FS) (OpenAPIConfiguration, error) {
+	translator := sdk_i18n.NewTranslator(localesFS)
 	swaggerConfiguration := OpenAPIConfiguration{
 		OpenAPI: "3.1.0",
 		Info: OpenAPIInfo{
