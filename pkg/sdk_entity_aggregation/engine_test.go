@@ -32,7 +32,7 @@ func TestGroupBy_ByCustomer(t *testing.T) {
 
 	p := AggregationPipeline{
 		{
-			Entity: "order",
+			Entity: "sdk/order",
 			Pipeline: []StageSpec{
 				{"$group": map[string]interface{}{"id": "$customerId"}},
 			},
@@ -66,7 +66,7 @@ func TestGroupBy_ByCustomer(t *testing.T) {
 // #region accumulation
 
 func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
-	customerEntity := "customer"
+	customerEntity := "sdk/customer"
 	orderSchema := &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type: sdk.SchemaTypeObject,
@@ -89,7 +89,7 @@ func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
 
 	p := AggregationPipeline{
 		{
-			Entity: "order",
+			Entity: "sdk/order",
 			Pipeline: []StageSpec{
 				{"$group": map[string]interface{}{
 					"id":    "$customerId",
@@ -149,7 +149,7 @@ func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
 // #region combination
 
 func TestMergeResults(t *testing.T) {
-	customerEntity := "customer"
+	customerEntity := "sdk/customer"
 	orderSchema := &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type: sdk.SchemaTypeObject,
@@ -193,7 +193,7 @@ func TestMergeResults(t *testing.T) {
 	p := AggregationPipeline{
 		{
 			ID:     "grouped_orders",
-			Entity: "order",
+			Entity: "sdk/order",
 			Pipeline: []StageSpec{
 				{"$group": map[string]interface{}{
 					"id":    "$customerId",
@@ -203,7 +203,7 @@ func TestMergeResults(t *testing.T) {
 		},
 		{
 			ID:       "customers",
-			Entity:   "customer",
+			Entity:   "sdk/customer",
 			Pipeline: []StageSpec{},
 		},
 		{
@@ -325,8 +325,8 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 	}
 
 	p := AggregationPipeline{
-		{ID: "orders", Entity: "order", Pipeline: []StageSpec{}},
-		{ID: "customers", Entity: "customer", Pipeline: []StageSpec{}},
+		{ID: "orders", Entity: "sdk/order", Pipeline: []StageSpec{}},
+		{ID: "customers", Entity: "sdk/customer", Pipeline: []StageSpec{}},
 		{
 			DependsOn: []string{"orders", "customers"},
 			Pipeline:  []StageSpec{{"$mergeResults": map[string]interface{}{"on": "id"}}},
@@ -384,7 +384,7 @@ func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 
 	p := AggregationPipeline{
 		{
-			Entity: "order",
+			Entity: "sdk/order",
 			Pipeline: []StageSpec{
 				{"$group": map[string]interface{}{
 					"id":    "$customerId",
@@ -422,7 +422,7 @@ func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 // "$productId" → "id", the engine resolves the entity references for the
 // output IDs using the "product" repository registered in the global registry.
 func TestExecute_References(t *testing.T) {
-	productEntity := "product"
+	productEntity := "sdk/product"
 	stockSchema := &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type: sdk.SchemaTypeObject,
@@ -460,7 +460,7 @@ func TestExecute_References(t *testing.T) {
 
 	p := AggregationPipeline{
 		{
-			Entity: "stock",
+			Entity: "sdk/stock",
 			Pipeline: []StageSpec{
 				{"$group": map[string]interface{}{
 					"id":            "$productId",

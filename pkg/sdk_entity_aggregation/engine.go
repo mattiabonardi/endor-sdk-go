@@ -68,6 +68,14 @@ func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPip
 		if stage.ID == "" {
 			stage.ID = generateStageID(stage.Entity)
 		}
+		if stage.Entity != "" {
+			_, entity, err := sdk.ParseEntityID(stage.Entity)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("wrong syntax for entity %q", stage.Entity)
+			}
+			// define internal entity
+			stage.Entity = entity
+		}
 		docs, schema, refs, err := e.executeEntityStage(ctx, stage, stageResults, stageSchemas)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("stage %q: %w", stage.ID, err)

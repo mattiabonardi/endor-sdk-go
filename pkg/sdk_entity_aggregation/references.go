@@ -51,7 +51,12 @@ func resolveReferences(ctx context.Context, entityIDs map[string][]string, di sd
 	}
 	refs := make(sdk.EntityRefererenceGroup)
 	for entityName, ids := range entityIDs {
-		repo, ok := di.GetRepositories()[entityName]
+		// UISchema.Entity may be a qualified "domain/entity" ID; strip the domain.
+		lookupName := entityName
+		if _, parsed, err := sdk.ParseEntityID(entityName); err == nil {
+			lookupName = parsed
+		}
+		repo, ok := di.GetRepositories()[lookupName]
 		if !ok {
 			continue
 		}
@@ -60,7 +65,7 @@ func resolveReferences(ctx context.Context, entityIDs map[string][]string, di sd
 			return nil, fmt.Errorf("references for entity %q: %w", entityName, err)
 		}
 		if len(descriptions) > 0 {
-			refs[entityName] = descriptions
+			refs[lookupName] = descriptions
 		}
 	}
 	if len(refs) == 0 {

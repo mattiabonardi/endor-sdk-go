@@ -12,13 +12,6 @@ type Category struct {
 	Schema      string `json:"schema" schema:"title=t(sdk.entity.fields.category.schema),format=yaml,readOnly=true"`
 }
 
-type EntityInterface interface {
-	GetID() any
-	GetCategoryType() string
-	SetCategoryType(entityType string)
-	GetModule() string
-}
-
 type EntityType string
 
 const (
@@ -46,18 +39,6 @@ func (h *Entity) GetID() any {
 	return h.ID
 }
 
-func (h *Entity) GetCategoryType() string {
-	return h.Type
-}
-
-func (h *Entity) SetCategoryType(t string) {
-	h.Type = t
-}
-
-func (h *Entity) GetModule() string {
-	return h.Module
-}
-
 // #endregion
 
 type EntityAction struct {
@@ -73,7 +54,7 @@ func (h *EntityAction) GetID() any {
 }
 
 type DynamicEntity struct {
-	Id string `json:"id" bson:"_id" schema:"title=t(entities.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
+	Id string `json:"id" bson:"_id" schema:"title=t(sdk.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
 }
 
 func (h *DynamicEntity) GetID() any {
@@ -81,8 +62,8 @@ func (h *DynamicEntity) GetID() any {
 }
 
 type DynamicEntitySpecialized struct {
-	Id   string `json:"id" bson:"_id" schema:"title=t(entities.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
-	Type string `json:"type" bson:"type" schema:"title=t(entities.dynamic_entity.fields.type),readOnly=true"`
+	Id   string `json:"id" bson:"_id" schema:"title=t(sdk.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
+	Type string `json:"type" bson:"type" schema:"title=t(sdk.dynamic_entity.fields.type),readOnly=true"`
 }
 
 func (h *DynamicEntitySpecialized) GetID() any {
@@ -98,8 +79,8 @@ func (h *DynamicEntitySpecialized) SetCategoryType(categoryType string) {
 }
 
 type EntityRepositoryInterface interface {
-	List(session Session, entityType *EntityType) ([]EntityInterface, error)
-	Instance(session Session, entityType *EntityType, dto ReadInstanceDTO) (*EntityInterface, error)
+	List(entityType *EntityType) ([]Entity, error)
+	Instance(entityType *EntityType, dto ReadInstanceDTO) (*Entity, error)
 }
 
 // Parse entity ID <domain>/<entity>

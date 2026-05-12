@@ -1,30 +1,22 @@
 package sdk_entity
 
 import (
+	"fmt"
+
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 )
 
-func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.EndorHandlerInterface, repository *sdk.EntityRepositoryInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
-	// Resolve the repository lazily at action-call time so that InitEndorHandlerRepository
-	// (called later in server.Init with the correct projectLocalesFS) is always the first
-	// initializer and the nil-FS fallback path is never triggered.
-	repoAccessor := func() sdk.EntityRepositoryInterface {
-		if repository != nil {
-			return *repository
-		}
-		if r := GetEndorHandlerRepository(); r != nil {
-			return r
-		}
-		return nil
-	}
+func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, priority int) sdk.EndorHandlerInterface {
 	entityService := EntityHandler{
-		handlers:     handlers,
-		repoAccessor: repoAccessor,
+		handlers: handlers,
 	}
 
 	schema := sdk.NewSchema(&sdk.Entity{})
 	return NewEndorBaseHandler[*sdk.Entity]("entity", "t(sdk.entity.handler.title)").
 		WithPriority(priority).
+		WithRepository(func(session sdk.Session, container sdk.EndorDIContainerInterface) sdk.EndorRepositoryInterface {
+			return &EndorHandlerRepository{session: session}
+		}).
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"schema": sdk.NewAction(
 				entityService.schema(schema),
@@ -42,16 +34,11 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 }
 
 type EntityHandler struct {
-	handlers     *[]sdk.EndorHandlerInterface
-	repoAccessor func() sdk.EntityRepositoryInterface
+	handlers *[]sdk.EndorHandlerInterface
 }
 
-func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.EntityInterface) sdk.EntityInterface {
-	e, ok := entity.(*sdk.Entity)
-	if !ok {
-		return entity
-	}
-	copy := *e
+func resolveEntityTranslations(resolveExpr func(string) string, e sdk.Entity) sdk.Entity {
+	copy := e
 	copy.Title = resolveExpr(e.Title)
 	copy.Description = resolveExpr(e.Description)
 	copy.Schema = resolveExpr(e.Schema)
@@ -63,7 +50,7 @@ func resolveEntityTranslations(resolveExpr func(string) string, entity sdk.Entit
 		resolvedCats[i] = cat
 	}
 	copy.Categories = resolvedCats
-	return &copy
+	return copy
 }
 
 func (h *EntityHandler) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
@@ -72,30 +59,38 @@ func (h *EntityHandler) schema(schema *sdk.RootSchema) func(c *sdk.EndorContext[
 	}
 }
 
-func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
-	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.EntityInterface], error) {
-		entities, err := h.repoAccessor().List(c.Session, &entityType)
+func (h *EntityHandler) list(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.Entity], error) {
+	return func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[[]sdk.Entity], error) {
+		repo, ok := c.DIContainer.GetRepositories()["entity"].(sdk.EntityRepositoryInterface)
+		if !ok {
+			return nil, sdk.NewInternalServerError(fmt.Errorf("entity repository not available"))
+		}
+		entities, err := repo.List(&entityType)
 		if err != nil {
 			return nil, err
 		}
-		resolved := make([]sdk.EntityInterface, len(entities))
+		resolved := make([]sdk.Entity, len(entities))
 		for i, entity := range entities {
 			resolved[i] = resolveEntityTranslations(c.ResolveTExpr, entity)
 		}
-		return sdk.NewResponseBuilder[[]sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
+		return sdk.NewResponseBuilder[[]sdk.Entity]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
 }
 
-func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
-	return func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.EntityInterface], error) {
-		entity, err := h.repoAccessor().Instance(c.Session, &entityType, c.Payload)
+func (h *EntityHandler) instance(entityType sdk.EntityType, schema *sdk.RootSchema) func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Entity], error) {
+	return func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[sdk.Entity], error) {
+		repo, ok := c.DIContainer.GetRepositories()["entity"].(sdk.EntityRepositoryInterface)
+		if !ok {
+			return nil, sdk.NewInternalServerError(fmt.Errorf("entity repository not available"))
+		}
+		entity, err := repo.Instance(&entityType, c.Payload)
 		if err != nil {
 			return nil, err
 		}
-		var resolved sdk.EntityInterface
+		var resolved sdk.Entity
 		if entity != nil {
 			resolved = resolveEntityTranslations(c.ResolveTExpr, *entity)
 		}
-		return sdk.NewResponseBuilder[sdk.EntityInterface]().AddData(&resolved).AddSchema(schema).Build(), nil
+		return sdk.NewResponseBuilder[sdk.Entity]().AddData(&resolved).AddSchema(schema).Build(), nil
 	}
 }

@@ -50,7 +50,7 @@ func (r *EndorHandlerActionRepository) DictionaryActionInstance(session sdk.Sess
 	if action, ok := actions[dto.Id]; ok {
 		return &action, nil
 	}
-	return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found")).WithTranslation("entities.entity.action_not_found", nil)
+	return nil, sdk.NewNotFoundError(fmt.Errorf("entity action not found")).WithTranslation("sdk.entity.action_not_found", nil)
 }
 
 func (r *EndorHandlerActionRepository) EntityActionList(session sdk.Session) ([]sdk.EntityAction, error) {
