@@ -158,6 +158,43 @@ func (h *RootSchema) ToYAML() (string, error) {
 	return string(yamlData), nil
 }
 
+// MergeSchemas merges an additional YAML schema into a base YAML schema.
+// Properties and definitions from additional override or extend those in base.
+// If additional is empty or either schema cannot be parsed, base is returned unchanged.
+func MergeSchemas(base, additional string) string {
+	if strings.TrimSpace(additional) == "" {
+		return base
+	}
+	var baseSchema, addSchema RootSchema
+	if err := yaml.Unmarshal([]byte(base), &baseSchema); err != nil {
+		return base
+	}
+	if err := yaml.Unmarshal([]byte(additional), &addSchema); err != nil {
+		return base
+	}
+	if addSchema.Properties != nil {
+		if baseSchema.Properties == nil {
+			baseSchema.Properties = addSchema.Properties
+		} else {
+			for k, v := range *addSchema.Properties {
+				(*baseSchema.Properties)[k] = v
+			}
+		}
+	}
+	baseSchema.Required = append(baseSchema.Required, addSchema.Required...)
+	for k, v := range addSchema.Definitions {
+		if baseSchema.Definitions == nil {
+			baseSchema.Definitions = make(map[string]Schema)
+		}
+		baseSchema.Definitions[k] = v
+	}
+	result, err := baseSchema.ToYAML()
+	if err != nil {
+		return base
+	}
+	return result
+}
+
 func NewSchema(model any) *RootSchema {
 	t := reflect.TypeOf(model)
 	return NewSchemaByType(t)

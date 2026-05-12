@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
+	"gopkg.in/yaml.v3"
 )
 
 type EndorHybridSpecializedHandlerCategory[T sdk.EntityInstanceSpecializedInterface] struct {
@@ -144,10 +145,10 @@ func (h EndorHybridSpecializedHandler[T]) WithHybridCategories(categories []sdk.
 	return h
 }
 
-func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCategory {
-	staticCategories := []sdk.HybridCategory{}
+func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.Category {
+	staticCategories := []sdk.Category{}
 	for _, categoryID := range h.staticCategories {
-		staticCategories = append(staticCategories, sdk.HybridCategory{
+		staticCategories = append(staticCategories, sdk.Category{
 			ID:          h.categories[categoryID].GetID(),
 			Title:       h.categories[categoryID].GetTitle(),
 			Description: h.categories[categoryID].GetDescription(),
@@ -158,7 +159,7 @@ func (h EndorHybridSpecializedHandler[T]) GetHybridCategories() []sdk.HybridCate
 }
 
 // create endor service instance
-func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.DynamicCategory) sdk.EndorHandler {
+func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.RootSchema, categoriesMetadataSchema map[string]sdk.RootSchema, additionalCategories []sdk.Category) sdk.EndorHandler {
 	var methods = make(map[string]sdk.EndorHandlerActionInterface)
 
 	if h.repositoryFactories == nil {
@@ -169,8 +170,9 @@ func (h EndorHybridSpecializedHandler[T]) ToEndorHandler(metadataSchema sdk.Root
 	for _, additionalCategory := range additionalCategories {
 		h.categories[additionalCategory.ID] = NewEndorHybridSpecializedHandlerCategory[T](additionalCategory.ID, additionalCategory.Title).
 			WithExtendedDescription(additionalCategory.Description)
-		additionalCategorySchema, _ := additionalCategory.UnmarshalAdditionalAttributes()
-		categoriesMetadataSchema[additionalCategory.ID] = *additionalCategorySchema
+		var additionalCategorySchema sdk.RootSchema
+		_ = yaml.Unmarshal([]byte(additionalCategory.Schema), &additionalCategorySchema)
+		categoriesMetadataSchema[additionalCategory.ID] = additionalCategorySchema
 	}
 
 	// schema

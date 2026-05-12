@@ -5,29 +5,23 @@ import (
 
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewEntityDefinitionFromYAML(t *testing.T) {
-	yamlInput := `type: object
+func TestMergeSchemas(t *testing.T) {
+	baseYAML := `type: object
+properties:
+  id:
+    type: string`
+	additionalYAML := `type: object
 properties:
   name:
     type: string
   surname:
     type: string`
-	entity := sdk.EntityHybrid{
-		Entity: sdk.Entity{
-			ID:          "customer",
-			Description: "Customers",
-			Module:      "",
-		},
-		AdditionalSchema: yamlInput,
-	}
-	def, err := entity.UnmarshalAdditionalAttributes()
-	require.NoError(t, err, "Error parsing definition")
 
-	assert.Equal(t, sdk.SchemaTypeObject, def.Type, "Expected schema type 'object'")
+	merged := sdk.MergeSchemas(baseYAML, additionalYAML)
 
-	properties := *def.Properties
-	assert.Contains(t, properties, "name", "Schema properties missing 'name'")
+	assert.Contains(t, merged, "id", "merged schema should retain 'id' property")
+	assert.Contains(t, merged, "name", "merged schema should contain 'name' property")
+	assert.Contains(t, merged, "surname", "merged schema should contain 'surname' property")
 }

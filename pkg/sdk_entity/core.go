@@ -82,19 +82,19 @@ type EndorHandlerActionDictionary struct {
 // AdditionalSchema is parsed directly as a sdk.RootSchema, unlike sdk.DynamicCategory
 // which stores it as a raw YAML string.
 type dslCategory struct {
-	ID               string         `yaml:"id"`
-	Title            string         `yaml:"title"`
-	Description      string         `yaml:"description"`
-	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
+	ID          string         `yaml:"id"`
+	Title       string         `yaml:"title"`
+	Description string         `yaml:"description"`
+	Schema      sdk.RootSchema `yaml:"schema"`
 }
 
 // entityDSLFile is the YAML structure for entity definition files.
 // The entity type is inferred: no categories → dynamic, with categories → dynamic-specialized.
 type entityDSLFile struct {
-	Title            string         `yaml:"title"`
-	Description      string         `yaml:"description"`
-	AdditionalSchema sdk.RootSchema `yaml:"additionalSchema"`
-	Categories       []dslCategory  `yaml:"categories"`
+	Title       string         `yaml:"title"`
+	Description string         `yaml:"description"`
+	Schema      sdk.RootSchema `yaml:"schema"`
+	Categories  []dslCategory  `yaml:"categories"`
 }
 
 // #region Public API
@@ -174,37 +174,32 @@ func (c *RegistryCore) Sync() {
 
 // #region Internal machinery
 
-// toDynamicCategories converts DSL categories (with sdk.RootSchema) to sdk.DynamicCategory (with YAML string).
-func toDynamicCategories(dslCats []dslCategory) ([]sdk.DynamicCategory, error) {
-	result := make([]sdk.DynamicCategory, 0, len(dslCats))
+// toDSLCategories converts DSL categories (with sdk.RootSchema) to sdk.Category (with YAML string Schema).
+func toDSLCategories(dslCats []dslCategory) ([]sdk.Category, error) {
+	result := make([]sdk.Category, 0, len(dslCats))
 	for _, c := range dslCats {
-		s, err := c.AdditionalSchema.ToYAML()
+		s, err := c.Schema.ToYAML()
 		if err != nil {
 			return nil, fmt.Errorf("marshal additional category %q additionalSchema: %w", c.ID, err)
 		}
-		result = append(result, sdk.DynamicCategory{
-			ID:               c.ID,
-			Title:            c.Title,
-			Description:      c.Description,
-			AdditionalSchema: s,
+		result = append(result, sdk.Category{
+			ID:          c.ID,
+			Title:       c.Title,
+			Description: c.Description,
+			Schema:      s,
 		})
 	}
 	return result, nil
 }
 
-// buildCategorySchemas converts the HybridCategory slice of a specialized entity into the
+// buildCategorySchemas converts the Category slice of a specialized entity into the
 // handler category list and per-category schema map.
-func (c *RegistryCore) buildCategorySchemas(entityID string, cats []sdk.HybridCategory) ([]sdk.EndorHybridSpecializedHandlerCategoryInterface, map[string]sdk.RootSchema) {
+func (c *RegistryCore) buildCategorySchemas(cats []sdk.Category) ([]sdk.EndorHybridSpecializedHandlerCategoryInterface, map[string]sdk.RootSchema) {
 	handlerCats := make([]sdk.EndorHybridSpecializedHandlerCategoryInterface, 0, len(cats))
 	schemas := make(map[string]sdk.RootSchema, len(cats))
 	for _, cat := range cats {
 		handlerCats = append(handlerCats, NewEndorHybridSpecializedHandlerCategory[*sdk.DynamicEntitySpecialized](cat.ID, cat.Description))
-		catSchema, err := cat.UnmarshalAdditionalAttributes()
-		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to unmarshal category schema %s/%s: %s", entityID, cat.ID, err.Error()))
-			continue
-		}
-		schemas[cat.ID] = *catSchema
+		schemas[cat.ID] = sdk.RootSchema{}
 	}
 	return handlerCats, schemas
 }
@@ -212,38 +207,34 @@ func (c *RegistryCore) buildCategorySchemas(entityID string, cats []sdk.HybridCa
 // buildHybridDSLEntry extends an existing static handler entry with DSL-defined additional schema.
 // For hybrid-specialized handlers, DSL categories are assigned as AdditionalCategories.
 // For plain hybrid handlers, declaring categories in the DSL is forbidden.
-func (c *RegistryCore) buildHybridDSLEntry(entityID, fullID string, def entityDSLFile, existing EndorEntityDictionary) (EndorEntityDictionary, error) {
-	additionalSchema, err := def.AdditionalSchema.ToYAML()
+func (c *RegistryCore) buildHybridDSLEntry(entityID string, def entityDSLFile, existing EndorEntityDictionary) (EndorEntityDictionary, error) {
+	additionalSchema, err := def.Schema.ToYAML()
 	if err != nil {
 		return EndorEntityDictionary{}, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
 	entry := existing
+	origEntity, ok := existing.entity.(*sdk.Entity)
+	if !ok {
+		return EndorEntityDictionary{}, fmt.Errorf("entity type mismatch for %q", entityID)
+	}
 	if specInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridSpecializedHandlerInterface); ok {
-		origEntity, ok := existing.entity.(*sdk.EntityHybridSpecialized)
-		if !ok {
-			return EndorEntityDictionary{}, fmt.Errorf("entity type mismatch for hybrid-specialized %q", entityID)
-		}
-		addCats, err := toDynamicCategories(def.Categories)
+		addCats, err := toDSLCategories(def.Categories)
 		if err != nil {
 			return EndorEntityDictionary{}, err
 		}
-		cats, catsSchema := c.buildCategorySchemas(fullID, origEntity.Categories)
-		entry.EndorHandler = specInst.WithHybridCategories(cats).ToEndorHandler(def.AdditionalSchema, catsSchema, addCats)
+		cats, catsSchema := c.buildCategorySchemas(origEntity.Categories)
+		entry.EndorHandler = specInst.WithHybridCategories(cats).ToEndorHandler(def.Schema, catsSchema, addCats)
 		cloned := *origEntity
-		cloned.AdditionalSchema = additionalSchema
-		cloned.AdditionalCategories = addCats
+		cloned.Schema = sdk.MergeSchemas(cloned.Schema, additionalSchema)
+		cloned.Categories = append(cloned.Categories, addCats...)
 		entry.entity = &cloned
 	} else if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
 		if len(def.Categories) > 0 {
 			return EndorEntityDictionary{}, fmt.Errorf("hybrid DSL entity %q must not declare categories: plain hybrid handlers have no categories", entityID)
 		}
-		origEntity, ok := existing.entity.(*sdk.EntityHybrid)
-		if !ok {
-			return EndorEntityDictionary{}, fmt.Errorf("entity type mismatch for hybrid %q", entityID)
-		}
-		entry.EndorHandler = hybridInst.ToEndorHandler(def.AdditionalSchema)
+		entry.EndorHandler = hybridInst.ToEndorHandler(def.Schema)
 		cloned := *origEntity
-		cloned.AdditionalSchema = additionalSchema
+		cloned.Schema = sdk.MergeSchemas(cloned.Schema, additionalSchema)
 		entry.entity = &cloned
 	} else {
 		return EndorEntityDictionary{}, fmt.Errorf("static handler for %q does not support hybrid DSL extension", entityID)
@@ -254,47 +245,43 @@ func (c *RegistryCore) buildHybridDSLEntry(entityID, fullID string, def entityDS
 // buildDynamicDSLEntry creates a new dictionary entry for a pure DSL entity with no static counterpart.
 // If categories are declared, the entity becomes dynamic-specialized; otherwise it is plain dynamic.
 func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (EndorEntityDictionary, error) {
-	additionalSchema, err := def.AdditionalSchema.ToYAML()
+	additionalSchema, err := def.Schema.ToYAML()
 	if err != nil {
 		return EndorEntityDictionary{}, fmt.Errorf("marshal additionalSchema: %w", err)
 	}
 	var entry EndorEntityDictionary
 	if len(def.Categories) == 0 {
 		schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
-		base := sdk.Entity{
+		e := &sdk.Entity{
 			ID:          fullID,
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamic),
 			Module:      c.module,
-			Schema:      schema,
+			Schema:      sdk.MergeSchemas(schema, additionalSchema),
 		}
-		e := &sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema}
 		handler := NewEndorHybridHandler[*sdk.DynamicEntity](fullID, def.Title).
-			WithExtendedDescription(def.Description).ToEndorHandler(def.AdditionalSchema)
+			WithExtendedDescription(def.Description).ToEndorHandler(def.Schema)
 		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
 	} else {
-		addCats, err := toDynamicCategories(def.Categories)
+		addCats, err := toDSLCategories(def.Categories)
 		if err != nil {
 			return EndorEntityDictionary{}, err
 		}
 		schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
-		base := sdk.Entity{
+		cats, catsSchema := c.buildCategorySchemas(nil)
+		e := &sdk.Entity{
 			ID:          fullID,
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamicSpecialized),
 			Module:      c.module,
-			Schema:      schema,
-		}
-		cats, catsSchema := c.buildCategorySchemas(fullID, nil)
-		e := &sdk.EntityHybridSpecialized{
-			EntityHybrid:         sdk.EntityHybrid{Entity: base, AdditionalSchema: additionalSchema},
-			AdditionalCategories: addCats,
+			Schema:      sdk.MergeSchemas(schema, additionalSchema),
+			Categories:  addCats,
 		}
 		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](fullID, def.Title).
 			WithExtendedDescription(def.Description).WithHybridCategories(cats).
-			ToEndorHandler(def.AdditionalSchema, catsSchema, addCats)
+			ToEndorHandler(def.Schema, catsSchema, addCats)
 		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
 	}
 	return entry, nil
@@ -325,7 +312,7 @@ func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, da
 		fullID := path.Join(c.module, entityID)
 		var entry EndorEntityDictionary
 		if existing, ok := dict[fullID]; ok && existing.OriginalInstance != nil {
-			entry, err = c.buildHybridDSLEntry(entityID, fullID, def, existing)
+			entry, err = c.buildHybridDSLEntry(entityID, def, existing)
 		} else {
 			entry, err = c.buildDynamicDSLEntry(fullID, def)
 		}
@@ -344,34 +331,36 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 	if err != nil {
 		c.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
 	}
-	base := sdk.Entity{
+
+	entity := &sdk.Entity{
 		ID:          path.Join(c.module, h.GetEntity()),
 		Title:       h.GetEntityTitle(),
 		Description: h.GetEntityDescription(),
 		Module:      c.module,
-		Type:        string(sdk.EntityTypeBase),
 		Schema:      schema,
 	}
-
 	var handler sdk.EndorHandler
-	var entity sdk.EntityInterface = &base
 
 	if hs, ok := h.(sdk.EndorHybridSpecializedHandlerInterface); ok {
-		base.Type = string(sdk.EntityTypeHybridSpecialized)
-		entity = &sdk.EntityHybridSpecialized{
-			EntityHybrid: sdk.EntityHybrid{Entity: base},
-			Categories:   hs.GetHybridCategories(),
-		}
-		handler = hs.ToEndorHandler(sdk.RootSchema{}, map[string]sdk.RootSchema{}, []sdk.DynamicCategory{})
+		entity.Type = string(sdk.EntityTypeHybridSpecialized)
+		entity.Categories = hs.GetHybridCategories()
+		handler = hs.ToEndorHandler(sdk.RootSchema{}, map[string]sdk.RootSchema{}, []sdk.Category{})
 	} else if hh, ok := h.(sdk.EndorHybridHandlerInterface); ok {
-		base.Type = string(sdk.EntityTypeHybrid)
-		entity = &sdk.EntityHybrid{Entity: base}
+		entity.Type = string(sdk.EntityTypeHybrid)
 		handler = hh.ToEndorHandler(sdk.RootSchema{})
 	} else if bs, ok := h.(sdk.EndorBaseSpecializedHandlerInterface); ok {
-		base.Type = string(sdk.EntityTypeBaseSpecialized)
-		entity = &sdk.EntitySpecialized{Entity: base, Categories: bs.GetCategories()}
+		entity.Type = string(sdk.EntityTypeBaseSpecialized)
+		for _, cat := range bs.GetCategories() {
+			entity.Categories = append(entity.Categories, sdk.Category{
+				ID:          cat.ID,
+				Title:       cat.Title,
+				Description: cat.Description,
+				Schema:      cat.Schema,
+			})
+		}
 		handler = bs.ToEndorHandler()
 	} else if b, ok := h.(sdk.EndorBaseHandlerInterface); ok {
+		entity.Type = string(sdk.EntityTypeBase)
 		handler = b.ToEndorHandler()
 	} else {
 		return EndorEntityDictionary{}, fmt.Errorf("unknown handler type for entity %s", h.GetEntity())

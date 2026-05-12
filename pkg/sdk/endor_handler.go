@@ -194,8 +194,8 @@ type EndorHybridSpecializedHandlerInterface interface {
 	WithPriority(priority int) EndorHybridSpecializedHandlerInterface
 	WithActions(fn func(getSchema func() RootSchema) map[string]EndorHandlerActionInterface) EndorHybridSpecializedHandlerInterface
 	WithHybridCategories(categories []EndorHybridSpecializedHandlerCategoryInterface) EndorHybridSpecializedHandlerInterface
-	GetHybridCategories() []HybridCategory
-	ToEndorHandler(metadataSchema RootSchema, categoryMetadataSchemas map[string]RootSchema, additionalCategories []DynamicCategory) EndorHandler
+	GetHybridCategories() []Category
+	ToEndorHandler(metadataSchema RootSchema, categoryMetadataSchemas map[string]RootSchema, additionalCategories []Category) EndorHandler
 }
 
 type EndorHybridSpecializedHandlerCategoryInterface interface {

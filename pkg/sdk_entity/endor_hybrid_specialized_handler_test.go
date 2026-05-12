@@ -27,10 +27,10 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 
 	yaml, _ := category3AdditionalSchema.ToYAML()
 
-	additionalCategory1 := sdk.DynamicCategory{
-		ID:               "cat-3",
-		Description:      "category 3",
-		AdditionalSchema: yaml,
+	additionalCategory1 := sdk.Category{
+		ID:          "cat-3",
+		Description: "category 3",
+		Schema:      yaml,
 	}
 
 	hybridHandler := test_utils_handlers.NewHybridSpecializedHandler()
@@ -40,7 +40,7 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 			"cat-1": *category1AdditionalSchema,
 			"cat-2": *category2AdditionalSchema,
 		},
-		[]sdk.DynamicCategory{additionalCategory1},
+		[]sdk.Category{additionalCategory1},
 	)
 
 	// check default methods

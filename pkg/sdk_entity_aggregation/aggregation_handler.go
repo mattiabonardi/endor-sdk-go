@@ -28,7 +28,7 @@ func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.En
 				engine := NewAggregationEngine(c.DIContainer, opts...)
 				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {
-					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err)).WithTranslation("entities.aggregation.failed", nil)
+					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err)).WithTranslation("sdk.aggregation.messages.failed", nil)
 				}
 				return sdk.NewResponseBuilder[[]map[string]interface{}]().AddData(&result).
 					AddReferences(refs).AddSchema(schema).Build(), nil
@@ -45,7 +45,7 @@ func (a aggregationEntity_) GetID() any { return nil }
 
 // buildPipelineSchema returns a descriptive JSON Schema for the AggregationPipeline payload.
 func buildPipelineSchema() *sdk.RootSchema {
-	description := "t(entities.aggregation.fields.pipeline_description)"
+	description := "t(sdk.aggregation.fields.pipeline_description)"
 	return &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type:        sdk.SchemaTypeArray,
