@@ -39,14 +39,13 @@ type EntityPipelineStage struct {
 // Supported operators: $match, $group, $mergeResults.
 type StageSpec map[string]interface{}
 
-// EntityStageHandler is an optional callback that, when provided to
-// AggregationEngine, fully replaces the built-in repository-fetch + in-memory
-// pipeline execution for every EntityPipelineStage whose Entity field is
-// non-empty. The callback is responsible for returning the complete result
-// for that stage (including any pipeline operators it chooses to apply),
-// the derived output schema, and the resolved entity reference group.
-// Use WithEntityStageHandler to attach it to an engine.
-type EntityStageHandler func(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error)
+// EntityStageHandler is an optional function that, when provided to
+// AggregationEngine via WithEntityStageHandler, fully replaces the built-in
+// repository-fetch + in-memory pipeline execution for every EntityPipelineStage
+// whose Entity field is non-empty. The engine itself is passed so the handler
+// can call engine.ExecuteEntityStage to fall back to the default behaviour for
+// entities it owns locally, while delegating others elsewhere.
+type EntityStageHandler func(ctx context.Context, engine *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error)
 
 // MergeResultsOptions configures the $mergeResults operator, which joins the
 // results of the stages listed in the enclosing EntityPipelineStage.DependsOn.

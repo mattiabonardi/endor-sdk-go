@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -79,8 +80,12 @@ func (h *DynamicEntitySpecialized) SetCategoryType(categoryType string) {
 }
 
 type EntityRepositoryInterface interface {
-	List(entityType *EntityType) ([]Entity, error)
-	Instance(entityType *EntityType, dto ReadInstanceDTO) (*Entity, error)
+	List() ([]Entity, error)
+	Instance(dto ReadInstanceDTO) (*Entity, error)
+	FindReferences(ctx context.Context, ids ReadInstancesDTO) (EntityReferenceGroupDescriptions, error)
+	GetEntity() string
+	RawList(ctx context.Context, dto ReadDTO) ([]map[string]interface{}, error)
+	GetSchema() *RootSchema
 }
 
 // Parse entity ID <domain>/<entity>

@@ -12,7 +12,13 @@ const aggregationEntity = "aggregation"
 // NewAggregationHandler builds an EndorBaseHandlerInterface for the "aggregation"
 // entity and registers the "execute" action, which runs an AggregationPipeline
 // against the local RepositoryRegistry.
-func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
+// Pass a non-nil EntityStageHandler to override the default entity-stage
+// execution (e.g. to route stages to remote microservices in a core service).
+// Additional AggregationEngineOption values are applied after the handler.
+func NewAggregationHandler(priority int, handler EntityStageHandler, opts ...AggregationEngineOption) sdk.EndorBaseHandlerInterface {
+	if handler != nil {
+		opts = append([]AggregationEngineOption{WithEntityStageHandler(handler)}, opts...)
+	}
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
 		"t(sdk.aggregation.handler.title)",
@@ -25,6 +31,8 @@ func NewAggregationHandler(priority int, opts ...AggregationEngineOption) sdk.En
 				InputSchema:           buildPipelineSchema(),
 			},
 			func(c *sdk.EndorContext[AggregationPipeline]) (*sdk.Response[[]map[string]interface{}], error) {
+				// opts is captured from the outer scope and already includes the
+				// executor option when a non-nil executor was provided.
 				engine := NewAggregationEngine(c.DIContainer, opts...)
 				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {

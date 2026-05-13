@@ -296,27 +296,27 @@ func TestMergeResults(t *testing.T) {
 // #region entity_stage_handler
 
 // TestEntityStageHandler_ReplacesBuiltinLogic verifies that, when an
-// EntityStageHandler is provided via WithEntityStageHandler, the engine calls
-// the callback for every entity stage and uses its returned docs instead of
-// hitting the repository registry. The callback here computes a result from the
+// EntityStageExecutor is provided via WithEntityStageExecutor, the engine calls
+// the executor for every entity stage and uses its returned docs instead of
+// hitting the repository registry. The executor here computes a result from the
 // stage metadata so the test is self-contained and does not need a mock repo.
 func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 	// computedByEntity simulates what a master query layer would do: it returns
 	// a synthetic document set whose content depends on the entity name.
 	computedByEntity := map[string][]map[string]interface{}{
-		"order": {
+		"sdk/order": {
 			{"id": "c1", "total": float64(300)},
 			{"id": "c2", "total": float64(200)},
 			{"id": "c3", "total": float64(300)},
 		},
-		"customer": {
+		"sdk/customer": {
 			{"id": "c1", "name": "Alice"},
 			{"id": "c2", "name": "Bob"},
 			{"id": "c3", "name": "Carol"},
 		},
 	}
 
-	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		docs, ok := computedByEntity[stage.Entity]
 		if !ok {
 			return []map[string]interface{}{}, nil, nil, nil
@@ -370,7 +370,7 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 	// The handler simulates a child microservice that has already executed the
 	// $group+$sum locally and returns the aggregated result directly.
-	handler := func(_ context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		// Assert that the full pipeline is forwarded to the handler.
 		if len(stage.Pipeline) != 1 {
 			return nil, nil, nil, fmt.Errorf("expected 1 pipeline stage forwarded, got %d", len(stage.Pipeline))

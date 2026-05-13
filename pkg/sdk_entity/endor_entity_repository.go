@@ -12,25 +12,26 @@ import (
 
 // InitEndorEntityRepository initializes the RegistryCore singleton and returns
 // a production-scoped EndorHandlerRepository (empty session).
-func InitEndorEntityRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *EndorHandlerRepository {
+func InitEndorEntityRepository(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *EndorEntityRepository {
 	InitRegistryCore(microServiceId, module, internalEndorHandlers, logger, projectLocalesFS)
-	return &EndorHandlerRepository{}
+	return NewEndorEntityRepository(sdk.Session{})
 }
 
-// GetEndorHandlerRepository returns a production-scoped EndorHandlerRepository (empty session).
-func GetEndorHandlerRepository() *EndorHandlerRepository {
-	return &EndorHandlerRepository{}
+func NewEndorEntityRepository(session sdk.Session) *EndorEntityRepository {
+	return &EndorEntityRepository{
+		session: session,
+	}
 }
 
-// EndorHandlerRepository is a lightweight per-request struct.
+// EndorEntityRepository is a lightweight per-request struct.
 // session is baked in at construction; all methods access the RegistryCore singleton via GetRegistryCore().
-type EndorHandlerRepository struct {
+type EndorEntityRepository struct {
 	session sdk.Session
 }
 
 // #region Entity CRUD
 
-func (h *EndorHandlerRepository) List(entityType *sdk.EntityType) ([]sdk.Entity, error) {
+func (h *EndorEntityRepository) List() ([]sdk.Entity, error) {
 	core := GetRegistryCore()
 	dict, err := core.Dictionary(h.session)
 	if err != nil {
@@ -43,46 +44,37 @@ func (h *EndorHandlerRepository) List(entityType *sdk.EntityType) ([]sdk.Entity,
 	for _, v := range dict {
 		entityList = append(entityList, v.entity)
 	}
-	// filter by entity type
+	// excluded core entities
 	filtered := make([]sdk.Entity, 0, len(dict))
 	for _, r := range entityList {
 		if r.ID != entityEntityID && r.ID != entityActionEntityID && r.ID != aggregatonID {
-			if r.Type == string(*entityType) {
-				filtered = append(filtered, r)
-			} else {
-				if entityType == nil || *entityType == "" {
-					filtered = append(filtered, r)
-				}
-			}
+			filtered = append(filtered, r)
 		}
 	}
 	return filtered, nil
 }
 
-func (h *EndorHandlerRepository) Instance(entityType *sdk.EntityType, dto sdk.ReadInstanceDTO) (*sdk.Entity, error) {
+func (h *EndorEntityRepository) Instance(dto sdk.ReadInstanceDTO) (*sdk.Entity, error) {
 	core := GetRegistryCore()
 	entry, err := core.DictionaryInstance(h.session, dto)
 	if err != nil {
 		return nil, err
 	}
-	if entityType == nil || *entityType == "" {
-		return &entry.entity, nil
-	}
-	if entry.entity.Type == string(*entityType) {
+	if entry != nil {
 		return &entry.entity, nil
 	}
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("sdk.entity.messages.not_found", map[string]any{"id": dto.Id})
 }
 
-func (h *EndorHandlerRepository) GetEntity() string {
+func (h *EndorEntityRepository) GetEntity() string {
 	return "entity"
 }
 
-func (h *EndorHandlerRepository) GetSchema() *sdk.RootSchema {
+func (h *EndorEntityRepository) GetSchema() *sdk.RootSchema {
 	return sdk.NewSchema(&sdk.Entity{})
 }
 
-func (h *EndorHandlerRepository) FindReferences(_ context.Context, ids sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
+func (h *EndorEntityRepository) FindReferences(_ context.Context, ids sdk.ReadInstancesDTO) (sdk.EntityReferenceGroupDescriptions, error) {
 	core := GetRegistryCore()
 	result := make(sdk.EntityReferenceGroupDescriptions, len(ids.Ids))
 	for _, id := range ids.Ids {
@@ -94,7 +86,7 @@ func (h *EndorHandlerRepository) FindReferences(_ context.Context, ids sdk.ReadI
 	return result, nil
 }
 
-func (h *EndorHandlerRepository) RawList(_ context.Context, _ sdk.ReadDTO) ([]map[string]interface{}, error) {
+func (h *EndorEntityRepository) RawList(_ context.Context, _ sdk.ReadDTO) ([]map[string]interface{}, error) {
 	core := GetRegistryCore()
 	dict, err := core.Dictionary(h.session)
 	if err != nil {
@@ -117,12 +109,12 @@ func (h *EndorHandlerRepository) RawList(_ context.Context, _ sdk.ReadDTO) ([]ma
 
 // EndorHandlerList returns all registered EndorHandlers.
 // Used by the server to register routes and swagger configuration.
-func (h *EndorHandlerRepository) EndorHandlerList() ([]sdk.EndorHandler, error) {
+func (h *EndorEntityRepository) EndorHandlerList() ([]sdk.EndorHandler, error) {
 	return GetRegistryCore().endorHandlerList()
 }
 
 // ActionRepository returns an EndorHandlerActionRepository backed by the same core.
-func (h *EndorHandlerRepository) ActionRepository() *EndorHandlerActionRepository {
+func (h *EndorEntityRepository) ActionRepository() *EndorHandlerActionRepository {
 	return NewEndorHandlerActionRepository(GetRegistryCore())
 }
 

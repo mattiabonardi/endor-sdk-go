@@ -18,11 +18,16 @@ type AggregationEngine struct {
 // AggregationEngineOption is a functional option for AggregationEngine.
 type AggregationEngineOption func(*AggregationEngine)
 
-// WithEntityStageHandler attaches a custom handler that is invoked instead of
-// the default repository-fetch logic whenever an EntityPipelineStage carries a
-// non-empty Entity. Passing nil is a no-op.
+// WithEntityStageHandler attaches a handler that is invoked instead of the
+// default repository-fetch logic whenever an EntityPipelineStage carries a
+// non-empty Entity. The engine is passed to the handler so it can call
+// ExecuteEntityStage to fall back to the default behaviour when needed.
+// Passing nil is a no-op.
 func WithEntityStageHandler(h EntityStageHandler) AggregationEngineOption {
 	return func(e *AggregationEngine) {
+		if h == nil {
+			return
+		}
 		e.entityStageHandler = h
 	}
 }
@@ -68,14 +73,6 @@ func (e *AggregationEngine) Execute(ctx context.Context, pipeline AggregationPip
 		if stage.ID == "" {
 			stage.ID = generateStageID(stage.Entity)
 		}
-		if stage.Entity != "" {
-			_, entity, err := sdk.ParseEntityID(stage.Entity)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("wrong syntax for entity %q", stage.Entity)
-			}
-			// define internal entity
-			stage.Entity = entity
-		}
 		docs, schema, refs, err := e.executeEntityStage(ctx, stage, stageResults, stageSchemas)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("stage %q: %w", stage.ID, err)
@@ -109,18 +106,27 @@ func (e *AggregationEngine) executeEntityStage(
 	docs := []map[string]interface{}{}
 	pipeline := stage.Pipeline
 
+	var entity string
+	if stage.Entity != "" {
+		_, e, err := sdk.ParseEntityID(stage.Entity)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("wrong syntax for entity %q", stage.Entity)
+		}
+		entity = e
+	}
+
 	if stage.Entity != "" {
 		if e.entityStageHandler != nil {
 			// The handler takes full ownership of the stage — it receives the
 			// complete EntityPipelineStage (including Pipeline) and is
 			// responsible for executing it entirely (e.g. by forwarding it to
 			// a child microservice). In-memory operators are NOT re-applied.
-			return e.entityStageHandler(ctx, stage)
+			return e.entityStageHandler(ctx, e, stage)
 		}
 
-		repo, ok := e.di.GetRepositories()[stage.Entity]
+		repo, ok := e.di.GetRepositories()[entity]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("entity %q not found in repository registry", stage.Entity)
+			return nil, nil, nil, fmt.Errorf("entity %q not found in repository registry", entity)
 		}
 
 		// Push down a leading $match to the repository filter for efficiency.
@@ -156,6 +162,8 @@ func (e *AggregationEngine) executeEntityStage(
 
 	if stage.Entity != "" {
 		// Derive output schema and resolve entity references.
+		// define internal entity
+		stage.Entity = entity
 		schema, refs, err := e.computeStageSchemaAndReferences(ctx, stage, docs)
 		if err != nil {
 			return nil, nil, nil, err
@@ -183,6 +191,20 @@ func (e *AggregationEngine) computeStageSchemaAndReferences(ctx context.Context,
 	entityIDs := extractReferenceIDsFromFlatDocs(&finalSchema, docs)
 	refs, err := resolveReferences(ctx, entityIDs, e.di)
 	return &finalSchema, refs, err
+}
+
+// ExecuteEntityStage runs the default repository-fetch + in-memory pipeline
+// execution for a single EntityPipelineStage, bypassing any custom
+// EntityStageHandler. Useful when a handler needs to fall back to the built-in
+// behaviour for certain entities (e.g. those owned by the local service).
+// Note: stageResults is empty, so $mergeResults inside this stage will not see
+// outputs from previously executed stages in a parent pipeline.
+func (e *AggregationEngine) ExecuteEntityStage(ctx context.Context, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	handler := e.entityStageHandler
+	e.entityStageHandler = nil
+	docs, schema, refs, err := e.executeEntityStage(ctx, stage, map[string][]map[string]interface{}{}, map[string]*sdk.Schema{})
+	e.entityStageHandler = handler
+	return docs, schema, refs, err
 }
 
 // applyStage applies a single StageSpec operator to the working document set.

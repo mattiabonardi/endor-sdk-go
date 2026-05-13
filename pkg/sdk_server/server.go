@@ -97,7 +97,7 @@ func (h *Endor) Init(module string) {
 		}
 	}
 	if !aggregationServiceExists {
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity_aggregation.NewAggregationHandler(0))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity_aggregation.NewAggregationHandler(0, nil))
 	}
 
 	// Check if an EndorHandler with entity == "entity" is already defined
@@ -111,7 +111,7 @@ func (h *Endor) Init(module string) {
 		}
 	}
 	if !entityServiceExists {
-		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(microServiceId, module, h.endorHandlers, logger, 0))
+		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityHandler(microServiceId, module, h.endorHandlers, logger, 0, nil))
 		*h.endorHandlers = append(*h.endorHandlers, sdk_entity.NewEntityActionHandler(microServiceId, module, h.endorHandlers, logger))
 	}
 
