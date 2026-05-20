@@ -18,7 +18,7 @@ var sdkLocalesFS embed.FS
 
 const DefaultLocale = "en"
 
-var i18nTokenRegexp = regexp.MustCompile(`t\(([^)]+)\)`)
+var i18nTokenRegexp = regexp.MustCompile(`\$\{t\.([^}]+)\}`)
 
 // flatMap is a map of dot-separated keys to translated strings.
 type flatMap map[string]string
@@ -189,10 +189,11 @@ func (t *Translator) T(locale, key string, args map[string]any) string {
 	return key
 }
 
-// ResolveTExpr resolves t(<token>) expressions in value using the given locale.
+// ResolveTExpr resolves ${t.<token>} expressions in value using the given locale.
+// Example: "${t.commons.save}" → translated value for key "commons.save".
 func (t *Translator) ResolveTExpr(locale, value string) string {
 	return i18nTokenRegexp.ReplaceAllStringFunc(value, func(match string) string {
-		key := match[2 : len(match)-1] // strip leading "t(" and trailing ")"
+		key := match[4 : len(match)-1] // strip leading "${t." (4 chars) and trailing "}"
 		return t.T(locale, key, nil)
 	})
 }

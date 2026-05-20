@@ -119,23 +119,23 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
-			"t(sdk.handler.actions.schema) "+entity,
+			"${t.sdk.handler.actions.schema} "+entity,
 		),
 		"instance": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
 				return defaultInstance[T](c, schema, entity)
 			},
-			"t(sdk.handler.actions.instance) "+entity,
+			"${t.sdk.handler.actions.instance} "+entity,
 		),
 		"list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 				return defaultList[T](c, schema, entity)
 			},
-			"t(sdk.handler.actions.list) "+entity,
+			"${t.sdk.handler.actions.list} "+entity,
 		),
 		"create": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: "t(sdk.handler.actions.create) " + entity,
+				Description: "${t.sdk.handler.actions.create} " + entity,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -151,7 +151,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 		),
 		"update": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: "t(sdk.handler.actions.update) " + entity,
+				Description: "${t.sdk.handler.actions.update} " + entity,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -172,7 +172,7 @@ func getDefaultActions[T sdk.EntityInstanceInterface](entity string, schema sdk.
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[any], error) {
 				return defaultDelete[T](c, entity)
 			},
-			"t(sdk.handler.actions.delete) "+entity,
+			"${t.sdk.handler.actions.delete} "+entity,
 		),
 	}
 }

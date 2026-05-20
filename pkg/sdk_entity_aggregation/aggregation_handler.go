@@ -21,11 +21,11 @@ func NewAggregationHandler(priority int, handler EntityStageHandler, opts ...Agg
 	}
 	return sdk_entity.NewEndorBaseHandler[aggregationEntity_](
 		aggregationEntity,
-		"t(sdk.aggregation.handler.title)",
+		"${t.sdk.aggregation.handler.title}",
 	).WithPriority(priority).WithActions(map[string]sdk.EndorHandlerActionInterface{
 		"execute": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description:           "t(sdk.aggregation.handler.actions.execute)",
+				Description:           "${t.sdk.aggregation.handler.actions.execute}",
 				Public:                false,
 				SkipPayloadValidation: false,
 				InputSchema:           buildPipelineSchema(),
@@ -53,7 +53,7 @@ func (a aggregationEntity_) GetID() any { return nil }
 
 // buildPipelineSchema returns a descriptive JSON Schema for the AggregationPipeline payload.
 func buildPipelineSchema() *sdk.RootSchema {
-	description := "t(sdk.aggregation.fields.pipeline_description)"
+	description := "${t.sdk.aggregation.fields.pipeline_description}"
 	return &sdk.RootSchema{
 		Schema: sdk.Schema{
 			Type:        sdk.SchemaTypeArray,

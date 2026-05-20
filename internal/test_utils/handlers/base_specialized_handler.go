@@ -62,22 +62,22 @@ func (h *BaseSpecializedHandler) category2Action1(c *sdk.EndorContext[BaseSpecia
 func NewBaseSpecializedHandler() sdk.EndorBaseSpecializedHandlerInterface {
 	baseSpecializedHandler := BaseSpecializedHandler{}
 
-	return sdk_entity.NewEndorBaseSpecializedHandler[*BaseSpecializedModel]("base-specialized-handler", "t(examples.base-specialized-handler.handler.title)").
+	return sdk_entity.NewEndorBaseSpecializedHandler[*BaseSpecializedModel]("base-specialized-handler", "${t.examples.base-specialized-handler.handler.title}").
 		WithCategories(
 			[]sdk.EndorBaseSpecializedHandlerCategoryInterface{
-				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory1]("cat-1", "t(examples.base-specialized-handler.categories.cat-1.title)").
-					WithExtendedDescription("t(examples.base-specialized-handler.categories.cat-1.description)").
+				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory1]("cat-1", "${t.examples.base-specialized-handler.categories.cat-1.title}").
+					WithExtendedDescription("${t.examples.base-specialized-handler.categories.cat-1.description}").
 					WithActions(map[string]sdk.EndorHandlerActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedHandler.category1Action1,
-							"t(examples.base-specialized-handler.categories.cat-1.action1)",
+							"${t.examples.base-specialized-handler.categories.cat-1.action1}",
 						),
 					}),
-				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory2]("cat-2", "t(examples.base-specialized-handler.categories.cat-2.title)").
+				sdk_entity.NewEndorBaseSpecializedHandlerCategory[*BaseSpecializedModelCategory2]("cat-2", "${t.examples.base-specialized-handler.categories.cat-2.title}").
 					WithActions(map[string]sdk.EndorHandlerActionInterface{
 						"action-1": sdk.NewAction(
 							baseSpecializedHandler.category2Action1,
-							"t(examples.base-specialized-handler.categories.cat-2.action1)",
+							"${t.examples.base-specialized-handler.categories.cat-2.action1}",
 						),
 					}),
 			},
@@ -85,7 +85,7 @@ func NewBaseSpecializedHandler() sdk.EndorBaseSpecializedHandlerInterface {
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"action-1": sdk.NewAction(
 				baseSpecializedHandler.action1,
-				"t(examples.base-specialized-handler.handler.action1)",
+				"${t.examples.base-specialized-handler.handler.action1}",
 			),
 		},
 		)

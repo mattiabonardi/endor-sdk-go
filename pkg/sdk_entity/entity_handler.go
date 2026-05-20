@@ -11,7 +11,7 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 		handlers: handlers,
 	}
 
-	return NewEndorBaseHandler[*sdk.Entity]("entity", "t(sdk.entity.handler.title)").
+	return NewEndorBaseHandler[*sdk.Entity]("entity", "${t.sdk.entity.handler.title}").
 		WithPriority(priority).
 		WithRepository(func(session sdk.Session, container sdk.EndorDIContainerInterface) sdk.EndorRepositoryInterface {
 			if repository != nil {
@@ -22,15 +22,15 @@ func NewEntityHandler(microServiceId string, module string, handlers *[]sdk.Endo
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"schema": sdk.NewAction(
 				entityService.schema,
-				"t(sdk.entity.handler.actions.schema)",
+				"${t.sdk.entity.handler.actions.schema}",
 			),
 			"instance": sdk.NewAction(
 				entityService.instance,
-				"t(sdk.entity.handler.actions.instance)",
+				"${t.sdk.entity.handler.actions.instance}",
 			),
 			"list": sdk.NewAction(
 				entityService.list,
-				"t(sdk.entity.handler.actions.list)",
+				"${t.sdk.entity.handler.actions.list}",
 			),
 		})
 }

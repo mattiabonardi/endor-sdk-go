@@ -14,19 +14,19 @@ func NewEntityActionHandler(microServiceId string, module string, services *[]sd
 		repoAccessor: repoAccessor,
 		services:     services,
 	}
-	return NewEndorBaseHandler[*sdk.EntityAction]("entity-action", "t(sdk.entity_action.handler.title)").
+	return NewEndorBaseHandler[*sdk.EntityAction]("entity-action", "${t.sdk.entity_action.handler.title}").
 		WithActions(map[string]sdk.EndorHandlerActionInterface{
 			"schema": sdk.NewAction(
 				entityMethodService.schema,
-				"t(sdk.entity_action.handler.actions.schema)",
+				"${t.sdk.entity_action.handler.actions.schema}",
 			),
 			"list": sdk.NewAction(
 				entityMethodService.list,
-				"t(sdk.entity_action.handler.actions.list)",
+				"${t.sdk.entity_action.handler.actions.list}",
 			),
 			"instance": sdk.NewAction(
 				entityMethodService.instance,
-				"t(sdk.entity_action.handler.actions.instance)",
+				"${t.sdk.entity_action.handler.actions.instance}",
 			)})
 }
 

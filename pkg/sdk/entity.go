@@ -7,10 +7,10 @@ import (
 )
 
 type Category struct {
-	ID          string `json:"id" schema:"title=t(sdk.entity.fields.category.id),readOnly=true"`
-	Title       string `json:"title" schema:"title=t(sdk.entity.fields.category.title),readOnly=true"`
-	Description string `json:"description" schema:"title=t(sdk.entity.fields.category.description),readOnly=true"`
-	Schema      string `json:"schema" schema:"title=t(sdk.entity.fields.category.schema),format=yaml,readOnly=true"`
+	ID          string `json:"id" schema:"title=${t.sdk.entity.fields.category.id},readOnly=true"`
+	Title       string `json:"title" schema:"title=${t.sdk.entity.fields.category.title},readOnly=true"`
+	Description string `json:"description" schema:"title=${t.sdk.entity.fields.category.description},readOnly=true"`
+	Schema      string `json:"schema" schema:"title=${t.sdk.entity.fields.category.schema},format=yaml,readOnly=true"`
 }
 
 type EntityType string
@@ -27,13 +27,13 @@ const (
 // #region Entity
 
 type Entity struct {
-	ID          string     `json:"id" schema:"title=t(sdk.entity.fields.id),readOnly=true"`
-	Title       string     `json:"title" schema:"title=t(sdk.entity.fields.title),readOnly=true"`
-	Description string     `json:"description" schema:"title=t(sdk.entity.fields.description),readOnly=true"`
-	Type        string     `json:"type" schema:"title=t(sdk.entity.fields.type),readOnly=true"`
-	Module      string     `json:"module" schema:"title=t(sdk.entity.fields.module),readOnly=true" ui-schema:"entity=core/module"`
-	Schema      string     `json:"schema" schema:"title=t(sdk.entity.fields.schema),format=yaml,readOnly=true"`
-	Categories  []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=t(sdk.entity.fields.categories),readOnly=true"`
+	ID          string     `json:"id" schema:"title=${t.sdk.entity.fields.id},readOnly=true"`
+	Title       string     `json:"title" schema:"title=${t.sdk.entity.fields.title},readOnly=true"`
+	Description string     `json:"description" schema:"title=${t.sdk.entity.fields.description},readOnly=true"`
+	Type        string     `json:"type" schema:"title=${t.sdk.entity.fields.type},readOnly=true"`
+	Module      string     `json:"module" schema:"title=${t.sdk.entity.fields.module},readOnly=true" ui-schema:"entity=core/module"`
+	Schema      string     `json:"schema" schema:"title=${t.sdk.entity.fields.schema},format=yaml,readOnly=true"`
+	Categories  []Category `json:"categories,omitempty" bson:"categories,omitempty" schema:"title=${t.sdk.entity.fields.categories},readOnly=true"`
 }
 
 func (h *Entity) GetID() any {
@@ -44,10 +44,10 @@ func (h *Entity) GetID() any {
 
 type EntityAction struct {
 	// module/version/entity/action
-	ID          string `json:"id" schema:"title=t(sdk.entity_action.fields.id)"`
-	Entity      string `json:"entity" schema:"title=t(sdk.entity_action.fields.entity)" ui-schema:"core/entity"`
-	Description string `json:"description" schema:"title=t(sdk.entity_action.fields.description)"`
-	InputSchema string `json:"inputSchema" schema:"title=t(sdk.entity_action.fields.input_schema),format=yaml"`
+	ID          string `json:"id" schema:"title=${t.sdk.entity_action.fields.id}"`
+	Entity      string `json:"entity" schema:"title=${t.sdk.entity_action.fields.entity}" ui-schema:"core/entity"`
+	Description string `json:"description" schema:"title=${t.sdk.entity_action.fields.description}"`
+	InputSchema string `json:"inputSchema" schema:"title=${t.sdk.entity_action.fields.input_schema},format=yaml"`
 }
 
 func (h *EntityAction) GetID() any {
@@ -55,7 +55,7 @@ func (h *EntityAction) GetID() any {
 }
 
 type DynamicEntity struct {
-	Id string `json:"id" bson:"_id" schema:"title=t(sdk.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
+	Id string `json:"id" bson:"_id" schema:"title=${t.sdk.dynamic_entity.fields.id},readOnly=true" ui-schema:"hidden=true"`
 }
 
 func (h *DynamicEntity) GetID() any {
@@ -63,8 +63,8 @@ func (h *DynamicEntity) GetID() any {
 }
 
 type DynamicEntitySpecialized struct {
-	Id   string `json:"id" bson:"_id" schema:"title=t(sdk.dynamic_entity.fields.id),readOnly=true" ui-schema:"hidden=true"`
-	Type string `json:"type" bson:"type" schema:"title=t(sdk.dynamic_entity.fields.type),readOnly=true"`
+	Id   string `json:"id" bson:"_id" schema:"title=${t.sdk.dynamic_entity.fields.id},readOnly=true" ui-schema:"hidden=true"`
+	Type string `json:"type" bson:"type" schema:"title=${t.sdk.dynamic_entity.fields.type},readOnly=true"`
 }
 
 func (h *DynamicEntitySpecialized) GetID() any {

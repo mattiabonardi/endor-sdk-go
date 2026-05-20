@@ -248,17 +248,17 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			func(c *sdk.EndorContext[sdk.NoPayload]) (*sdk.Response[any], error) {
 				return defaultSchema[T](c, schema)
 			},
-			"t(sdk.handler.actions.schema) "+entityPath,
+			"${t.sdk.handler.actions.schema} "+entityPath,
 		),
 		categoryID + "/list": sdk.NewAction(
 			func(c *sdk.EndorContext[sdk.ReadDTO]) (*sdk.Response[[]sdk.EntityInstance[T]], error) {
 				return defaultListSpecialized[T](c, schema, entityPath)
 			},
-			"t(sdk.handler.actions.list) "+entityPath,
+			"${t.sdk.handler.actions.list} "+entityPath,
 		),
 		categoryID + "/create": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: "t(sdk.handler.actions.create) " + entityPath,
+				Description: "${t.sdk.handler.actions.create} " + entityPath,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,
@@ -276,11 +276,11 @@ func getDefaultActionsForCategory[T sdk.EntityInstanceSpecializedInterface](enti
 			func(c *sdk.EndorContext[sdk.ReadInstanceDTO]) (*sdk.Response[*sdk.EntityInstance[T]], error) {
 				return defaultInstanceSpecialized[T](c, schema, entityPath)
 			},
-			"t(sdk.handler.actions.instance) "+entityPath,
+			"${t.sdk.handler.actions.instance} "+entityPath,
 		),
 		categoryID + "/update": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: "t(sdk.handler.actions.update) " + entityPath,
+				Description: "${t.sdk.handler.actions.update} " + entityPath,
 				InputSchema: &sdk.RootSchema{
 					Schema: sdk.Schema{
 						Type: sdk.SchemaTypeObject,

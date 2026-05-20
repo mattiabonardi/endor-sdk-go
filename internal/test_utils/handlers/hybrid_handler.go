@@ -30,12 +30,12 @@ func (h *HybridHandler) action1(c *sdk.EndorContext[HybridHandlerModelAction1Pay
 
 func NewHybridHandler() sdk.EndorHybridHandlerInterface {
 	hybridHandler := HybridHandler{}
-	return sdk_entity.NewEndorHybridHandler[*HybridHandlerModel]("hybrid-handler", "t(examples.hybrid-handler.handler.title)").
+	return sdk_entity.NewEndorHybridHandler[*HybridHandlerModel]("hybrid-handler", "${t.examples.hybrid-handler.handler.title}").
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 			return map[string]sdk.EndorHandlerActionInterface{
 				"action-1": sdk.NewAction(
 					hybridHandler.action1,
-					"t(examples.hybrid-handler.handler.action1)",
+					"${t.examples.hybrid-handler.handler.action1}",
 				),
 			}
 		})

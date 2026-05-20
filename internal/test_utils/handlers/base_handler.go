@@ -7,7 +7,7 @@ import (
 
 type BaseHandlerModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
-	Attribute string `json:"attribute" schema:"title=t(examples.base-handler.fields.attribute)"`
+	Attribute string `json:"attribute" schema:"title=${t.examples.base-handler.fields.attribute}"`
 }
 
 func (h BaseHandlerModel) GetID() any {
@@ -36,15 +36,15 @@ func (h *BaseHandler) publicAction(c *sdk.EndorContext[BaseHandlerAction1Payload
 
 func NewBaseHandlerHandler() sdk.EndorBaseHandlerInterface {
 	baseHandler := BaseHandler{}
-	return sdk_entity.NewEndorBaseHandler[*BaseHandlerModel]("base-handler", "t(examples.base-handler.handler.title)").
-		WithExtendedDescription("t(examples.base-handler.handler.description)").WithActions(map[string]sdk.EndorHandlerActionInterface{
+	return sdk_entity.NewEndorBaseHandler[*BaseHandlerModel]("base-handler", "${t.examples.base-handler.handler.title}").
+		WithExtendedDescription("${t.examples.base-handler.handler.description}").WithActions(map[string]sdk.EndorHandlerActionInterface{
 		"action1": sdk.NewAction(
 			baseHandler.action1,
-			"t(examples.base-handler.handler.action1)",
+			"${t.examples.base-handler.handler.action1}",
 		),
 		"public-action": sdk.NewConfigurableAction(
 			sdk.EndorHandlerActionOptions{
-				Description: "t(examples.base-handler.handler.public-actions)",
+				Description: "${t.examples.base-handler.handler.public-actions}",
 				Public:      true,
 			},
 			baseHandler.publicAction,
