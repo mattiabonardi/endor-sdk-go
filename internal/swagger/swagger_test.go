@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
+	examples_handlers "github.com/mattiabonardi/endor-sdk-go/internal/examples/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/internal/swagger"
-	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,7 @@ func TestCreateSwaggerDefinition(t *testing.T) {
 	microServiceAddress := "http://localhost:8080"
 	// Go test runs with cwd = package directory; ../../locales is the project locales dir.
 	localesFS := os.DirFS("../../locales")
-	def, err := swagger.CreateSwaggerDefinition(microServiceId, module, microServiceAddress, []sdk.EndorHandler{test_utils_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api", localesFS)
+	def, err := swagger.CreateSwaggerDefinition(microServiceId, module, microServiceAddress, []sdk.EndorHandler{examples_handlers.NewBaseHandlerHandler().ToEndorHandler()}, "/api", localesFS)
 	require.NoError(t, err, "Failed to create swagger definition")
 	assert.Equal(t, "3.1.0", def.OpenAPI, "Expected OpenAPI version '3.1.0'")
 	assert.Equal(t, microServiceId, def.Info.Title, "Expected correct title")

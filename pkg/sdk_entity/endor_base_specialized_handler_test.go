@@ -3,12 +3,12 @@ package sdk_entity_test
 import (
 	"testing"
 
-	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
+	examples_handlers "github.com/mattiabonardi/endor-sdk-go/internal/examples/handlers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEndorBaseSpecializedHandler(t *testing.T) {
-	baseSpecializedHandler := test_utils_handlers.NewBaseSpecializedHandler()
+	baseSpecializedHandler := examples_handlers.NewBaseSpecializedHandler()
 	endorHandler := baseSpecializedHandler.ToEndorHandler()
 
 	// check attribute

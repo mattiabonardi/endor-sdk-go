@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mattiabonardi/endor-sdk-go/internal/api_gateway"
-	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
+	examples_handlers "github.com/mattiabonardi/endor-sdk-go/internal/examples/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"gopkg.in/yaml.v3"
 )
@@ -19,7 +19,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	microHandlerAddress := "http://localhost:8080"
 
 	// Use BaseHandler as test EndorHandler
-	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
+	baseHandler := examples_handlers.NewBaseHandlerHandler()
 	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
@@ -147,7 +147,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	microHandlerAddress := "http://localhost:8082"
 
-	baseHandler := test_utils_handlers.NewBaseHandlerHandler()
+	baseHandler := examples_handlers.NewBaseHandlerHandler()
 	endorHandler := baseHandler.ToEndorHandler()
 	priority := 100
 	endorHandler.Priority = &priority

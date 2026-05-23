@@ -3,7 +3,7 @@ package sdk_entity_test
 import (
 	"testing"
 
-	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
+	examples_handlers "github.com/mattiabonardi/endor-sdk-go/internal/examples/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +33,7 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 		Schema:      yaml,
 	}
 
-	hybridHandler := test_utils_handlers.NewHybridSpecializedHandler()
+	hybridHandler := examples_handlers.NewHybridSpecializedHandler()
 	endorHandler := hybridHandler.ToEndorHandler(
 		*sdk.NewSchema(AdditionalAttributesMock{}),
 		map[string]sdk.RootSchema{

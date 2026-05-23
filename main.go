@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 
-	test_utils_handlers "github.com/mattiabonardi/endor-sdk-go/internal/test_utils/handlers"
+	examples_handlers "github.com/mattiabonardi/endor-sdk-go/internal/examples/handlers"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_server"
 )
@@ -19,9 +19,9 @@ var locales embed.FS
 
 func main() {
 	sdk_server.NewEndorInitializer().WithEndorHandlers(&[]sdk.EndorHandlerInterface{
-		test_utils_handlers.NewBaseHandlerHandler(),
-		test_utils_handlers.NewBaseSpecializedHandler(),
-		test_utils_handlers.NewHybridHandler(),
-		test_utils_handlers.NewHybridSpecializedHandler(),
+		examples_handlers.NewBaseHandlerHandler(),
+		examples_handlers.NewBaseSpecializedHandler(),
+		examples_handlers.NewHybridHandler(),
+		examples_handlers.NewHybridSpecializedHandler(),
 	}).WithLocalesFS(locales).Build().Init("sdk")
 }

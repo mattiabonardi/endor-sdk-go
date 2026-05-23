@@ -1,4 +1,4 @@
-package test_utils_handlers
+package examples_handlers
 
 import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk"
