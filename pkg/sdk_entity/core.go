@@ -239,7 +239,7 @@ func (c *RegistryCore) buildHybridDSLEntry(entityID string, def entityDSLFile, e
 
 // buildDynamicDSLEntry creates a new dictionary entry for a pure DSL entity with no static counterpart.
 // If categories are declared, the entity becomes dynamic-specialized; otherwise it is plain dynamic.
-func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (EndorEntityDictionary, error) {
+func (c *RegistryCore) buildDynamicDSLEntry(entityID string, entityName string, def entityDSLFile) (EndorEntityDictionary, error) {
 	additionalSchema, err := def.Schema.ToYAML()
 	if err != nil {
 		return EndorEntityDictionary{}, fmt.Errorf("marshal additionalSchema: %w", err)
@@ -248,14 +248,14 @@ func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (E
 	if len(def.Categories) == 0 {
 		schema, _ := sdk.NewSchema(sdk.DynamicEntity{}).ToYAML()
 		e := sdk.Entity{
-			ID:          fullID,
+			ID:          entityID,
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamic),
 			Module:      c.module,
 			Schema:      sdk.MergeSchemas(schema, additionalSchema),
 		}
-		handler := NewEndorHybridHandler[*sdk.DynamicEntity](fullID, def.Title).
+		handler := NewEndorHybridHandler[*sdk.DynamicEntity](entityName, def.Title).
 			WithExtendedDescription(def.Description).ToEndorHandler(def.Schema)
 		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
 	} else {
@@ -266,7 +266,7 @@ func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (E
 		schema, _ := sdk.NewSchema(sdk.DynamicEntitySpecialized{}).ToYAML()
 		cats, catsSchema := c.buildCategorySchemas(nil)
 		e := sdk.Entity{
-			ID:          fullID,
+			ID:          entityID,
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamicSpecialized),
@@ -274,7 +274,7 @@ func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (E
 			Schema:      sdk.MergeSchemas(schema, additionalSchema),
 			Categories:  addCats,
 		}
-		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](fullID, def.Title).
+		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](entityName, def.Title).
 			WithExtendedDescription(def.Description).WithHybridCategories(cats).
 			ToEndorHandler(def.Schema, catsSchema, addCats)
 		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
@@ -286,36 +286,36 @@ func (c *RegistryCore) buildDynamicDSLEntry(fullID string, def entityDSLFile) (E
 // Returns the Translator built from the DAO's locales path (always non-nil).
 func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO, projectLocalesFS fs.FS) *sdk_i18n.Translator {
 	translator := sdk_i18n.NewTranslator(projectLocalesFS, dao.LocalesPath())
-	entityIDs, err := dao.ListAllEntities(c.module)
+	entityNames, err := dao.ListAllEntities(c.module)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			c.logger.Warn(fmt.Sprintf("unable to list DSL entities: %s", err.Error()))
 		}
 		return translator
 	}
-	for _, entityID := range entityIDs {
-		content, err := dao.ReadEntity(c.module, entityID)
+	for _, entityName := range entityNames {
+		content, err := dao.ReadEntity(c.module, entityName)
 		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityID, err.Error()))
+			c.logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
 		var def entityDSLFile
 		if err := yaml.Unmarshal([]byte(content), &def); err != nil {
-			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityID, err.Error()))
+			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
-		fullID := path.Join(c.module, entityID)
+		entityID := path.Join(c.module, entityName)
 		var entry EndorEntityDictionary
-		if existing, ok := dict[fullID]; ok && existing.OriginalInstance != nil {
-			entry, err = c.buildHybridDSLEntry(entityID, def, existing)
+		if existing, ok := dict[entityID]; ok && existing.OriginalInstance != nil {
+			entry, err = c.buildHybridDSLEntry(entityName, def, existing)
 		} else {
-			entry, err = c.buildDynamicDSLEntry(entityID, def)
+			entry, err = c.buildDynamicDSLEntry(entityID, entityName, def)
 		}
 		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityID, err.Error()))
+			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
-		dict[fullID] = entry
+		dict[entityID] = entry
 	}
 	return translator
 }
@@ -369,9 +369,26 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 	}, nil
 }
 
+// buildStaticDictionary builds a dictionary containing only the compiled (static) handler entries,
+// with no DSL overlay applied. Used as the base for both prod and dev dictionary construction.
+func (c *RegistryCore) buildStaticDictionary() map[string]EndorEntityDictionary {
+	dict := map[string]EndorEntityDictionary{}
+	if c.internalEndorHandlers != nil {
+		for _, h := range *c.internalEndorHandlers {
+			entry, err := c.buildStaticEntry(h)
+			if err != nil {
+				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
+				continue
+			}
+			dict[path.Join(c.module, h.GetEntity())] = entry
+		}
+	}
+	return dict
+}
+
 // dictionaryMap builds (and caches) the production handler dictionary.
 // Step 1: build entries for all compiled (static) handlers.
-// Step 2: apply DSL overlay for hybrid/dynamic entities if enabled.
+// Step 2: apply prod DSL overlay.
 func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error) {
 	c.mu.RLock()
 	if c.cacheInitialized {
@@ -395,18 +412,7 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 		return result, nil
 	}
 
-	dict := map[string]EndorEntityDictionary{}
-
-	if c.internalEndorHandlers != nil {
-		for _, h := range *c.internalEndorHandlers {
-			entry, err := c.buildStaticEntry(h)
-			if err != nil {
-				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
-				continue
-			}
-			dict[path.Join(c.module, h.GetEntity())] = entry
-		}
-	}
+	dict := c.buildStaticDictionary()
 
 	c.applyDSLOverlay(dict, c.prodDAO, c.projectLocalesFS)
 
@@ -422,15 +428,10 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 }
 
 // buildDevDictionary constructs a development overlay dictionary and DI container for the given session.
+// Starts from static entries only (no prod DSL) so that the dev DSL is the sole overlay,
+// avoiding double-application of conflicting prod+dev DSL definitions.
 func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]EndorEntityDictionary, *EndorDIContainer, error) {
-	mainDict, err := c.dictionaryMap()
-	if err != nil {
-		return nil, nil, err
-	}
-	devDict := make(map[string]EndorEntityDictionary, len(mainDict))
-	for k, v := range mainDict {
-		devDict[k] = v
-	}
+	devDict := c.buildStaticDictionary()
 	devDAO := sdk.NewDSLDAO(session.Username, true)
 	devTranslator := c.applyDSLOverlay(devDict, devDAO, c.projectLocalesFS)
 	devContainer := &EndorDIContainer{}
