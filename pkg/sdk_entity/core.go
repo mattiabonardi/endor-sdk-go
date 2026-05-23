@@ -410,11 +410,13 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 
 	c.applyDSLOverlay(dict, c.prodDAO, c.projectLocalesFS)
 
-	allRepos := collectAllRepositories(sdk.Session{}, dict)
-	prodTranslator := sdk_i18n.NewTranslator(c.projectLocalesFS, c.prodDAO.LocalesPath())
+	prodContainer := &EndorDIContainer{}
+	allRepos := collectAllRepositories(sdk.Session{}, dict, prodContainer)
+	prodContainer.repositories = allRepos
+	prodContainer.translator = sdk_i18n.NewTranslator(c.projectLocalesFS, c.prodDAO.LocalesPath())
 
 	c.cachedDictionary = dict
-	c.cachedDIContainer = &EndorDIContainer{repositories: allRepos, translator: prodTranslator}
+	c.cachedDIContainer = prodContainer
 	c.cacheInitialized = true
 	return dict, nil
 }
@@ -431,21 +433,22 @@ func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]Endor
 	}
 	devDAO := sdk.NewDSLDAO(session.Username, true)
 	devTranslator := c.applyDSLOverlay(devDict, devDAO, c.projectLocalesFS)
-	allRepos := collectAllRepositories(session, devDict)
-	devContainer := &EndorDIContainer{repositories: allRepos, translator: devTranslator}
+	devContainer := &EndorDIContainer{}
+	allRepos := collectAllRepositories(session, devDict, devContainer)
+	devContainer.repositories = allRepos
+	devContainer.translator = devTranslator
 	return devDict, devContainer, nil
 }
 
 // collectAllRepositories instantiates all repository factories from the dictionary entries.
-// An empty container is passed during instantiation; the resulting map is used to
-// build the session EndorDIContainer after the dictionary is fully assembled.
-func collectAllRepositories(session sdk.Session, dict map[string]EndorEntityDictionary) map[string]sdk.EndorRepositoryInterface {
+// container is the EndorDIContainer pointer that will be populated with the resulting
+// repositories after this function returns, so that all repos share the same container reference.
+func collectAllRepositories(session sdk.Session, dict map[string]EndorEntityDictionary, container *EndorDIContainer) map[string]sdk.EndorRepositoryInterface {
 	allRepos := make(map[string]sdk.EndorRepositoryInterface)
-	emptyContainer := &EndorDIContainer{}
 	for _, entry := range dict {
 		for key, factory := range entry.EndorHandler.RepositoryFactories {
 			if factory != nil {
-				allRepos[key] = factory(session, emptyContainer)
+				allRepos[key] = factory(session, container)
 			}
 		}
 	}
