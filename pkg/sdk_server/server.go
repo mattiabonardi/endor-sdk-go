@@ -148,7 +148,7 @@ func (h *Endor) Init(module string) {
 		}
 		response := sdk.NewDefaultResponseBuilder()
 		locale := sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language"))
-		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, translator.T(locale, "commons.not_found", map[string]any{"uri": c.Request.RequestURI, "method": c.Request.Method})))
+		response.AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityFatal, translator.T(locale, "sdk.commons.not_found", map[string]any{"uri": c.Request.RequestURI, "method": c.Request.Method})))
 		c.JSON(http.StatusNotFound, response.Build())
 	})
 

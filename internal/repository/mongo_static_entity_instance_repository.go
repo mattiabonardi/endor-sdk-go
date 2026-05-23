@@ -95,10 +95,6 @@ func (r *MongoStaticEntityInstanceRepository[T]) List(ctx context.Context, dto s
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	results := make([]T, 0, len(rawDocs))
 	for _, rawDoc := range rawDocs {
 		model, err := r.toModel(rawDoc)

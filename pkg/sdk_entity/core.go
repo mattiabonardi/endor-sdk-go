@@ -30,14 +30,13 @@ func GetRegistryCore() *RegistryCore {
 
 func InitRegistryCore(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *RegistryCore {
 	registryCoreOnce.Do(func() {
-		absProdRoot, _ := filepath.Abs("prod")
 		registryCoreInstance = &RegistryCore{
 			microServiceId:        microServiceId,
 			module:                module,
 			internalEndorHandlers: internalEndorHandlers,
 			logger:                logger,
 			mu:                    &sync.RWMutex{},
-			prodDAO:               &sdk.DSLDAO{BasePath: absProdRoot},
+			prodDAO:               sdk.NewDSLDAO("", false),
 			ephemeralCache:        newEphemeralCacheManager(),
 			projectLocalesFS:      projectLocalesFS,
 		}
@@ -223,7 +222,7 @@ func (c *RegistryCore) buildHybridDSLEntry(entityID string, def entityDSLFile, e
 		cloned := existing.entity
 		cloned.Schema = sdk.MergeSchemas(cloned.Schema, additionalSchema)
 		cloned.Categories = append(cloned.Categories, addCats...)
-		entry.entity = existing.entity
+		entry.entity = cloned
 	} else if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
 		if len(def.Categories) > 0 {
 			return EndorEntityDictionary{}, fmt.Errorf("hybrid DSL entity %q must not declare categories: plain hybrid handlers have no categories", entityID)
@@ -310,7 +309,7 @@ func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, da
 		if existing, ok := dict[fullID]; ok && existing.OriginalInstance != nil {
 			entry, err = c.buildHybridDSLEntry(entityID, def, existing)
 		} else {
-			entry, err = c.buildDynamicDSLEntry(fullID, def)
+			entry, err = c.buildDynamicDSLEntry(entityID, def)
 		}
 		if err != nil {
 			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityID, err.Error()))

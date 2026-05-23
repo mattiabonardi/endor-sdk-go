@@ -901,7 +901,11 @@ func (r *mongoBaseRepository[T]) FindReferences(ctx context.Context, dto sdk.Rea
 func resolveEntityReferences(ctx context.Context, di sdk.EndorDIContainerInterface, entityIDs map[string][]string) (sdk.EntityRefererenceGroup, error) {
 	references := make(sdk.EntityRefererenceGroup)
 	for entityName, ids := range entityIDs {
-		repo, found := di.GetRepositories()[entityName]
+		_, e, err := sdk.ParseEntityID(entityName)
+		if err != nil {
+			return references, err
+		}
+		repo, found := di.GetRepositories()[e]
 		if !found {
 			continue
 		}
