@@ -27,9 +27,9 @@ type EphemeralCacheManager struct {
 	entries map[string]*EphemeralRegistryEntry
 }
 
-// newEphemeralCacheManager creates a new EphemeralCacheManager and starts the background
+// NewEphemeralCacheManager creates a new EphemeralCacheManager and starts the background
 // cleanup goroutine that prevents memory leaks from stale entries.
-func newEphemeralCacheManager() *EphemeralCacheManager {
+func NewEphemeralCacheManager() *EphemeralCacheManager {
 	mgr := &EphemeralCacheManager{
 		entries: make(map[string]*EphemeralRegistryEntry),
 	}

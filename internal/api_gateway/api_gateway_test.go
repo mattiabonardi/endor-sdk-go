@@ -19,7 +19,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	microHandlerAddress := "http://localhost:8080"
 
 	// Use BaseHandler as test EndorHandler
-	baseHandler := examples_handlers.NewBaseHandlerHandler()
+	baseHandler := examples_handlers.NewBaseEntityHandler()
 	services := []sdk.EndorHandler{baseHandler.ToEndorHandler()}
 
 	// Test the function
@@ -58,7 +58,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 		// Expect: one wildcard router for the microservice + one router per public action
 		expectedRouters := []string{
 			fmt.Sprintf("%s-router", microServiceId),
-			fmt.Sprintf("%s-router-base-handler-public-action", microServiceId),
+			fmt.Sprintf("%s-router-base-entity-public-action", microServiceId),
 		}
 
 		for _, routerName := range expectedRouters {
@@ -83,7 +83,7 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 				if router.Middlewares == nil || len(*router.Middlewares) != 1 || (*router.Middlewares)[0] != "authMiddleware" {
 					t.Errorf("Wildcard router %s should have authMiddleware, got %v", routerName, router.Middlewares)
 				}
-			case fmt.Sprintf("%s-router-base-handler-public-action", microServiceId):
+			case fmt.Sprintf("%s-router-base-entity-public-action", microServiceId):
 				// Public action router must not have auth middleware
 				if router.Middlewares != nil {
 					t.Errorf("Public router %s should not have middlewares, but has: %v", routerName, *router.Middlewares)
@@ -115,8 +115,8 @@ func TestInitializeApiGatewayConfiguration(t *testing.T) {
 	t.Run("VerifyRulePaths", func(t *testing.T) {
 		// Verify that rules have correct path patterns
 		expectedPaths := map[string]string{
-			fmt.Sprintf("%s-router", microServiceId):                            fmt.Sprintf("PathPrefix(`/api/v1/%s`)", module),
-			fmt.Sprintf("%s-router-base-handler-public-action", microServiceId): fmt.Sprintf("PathPrefix(`/api/v1/%s/base-handler/public-action`)", module),
+			fmt.Sprintf("%s-router", microServiceId):                           fmt.Sprintf("PathPrefix(`/api/v1/%s`)", module),
+			fmt.Sprintf("%s-router-base-entity-public-action", microServiceId): fmt.Sprintf("PathPrefix(`/api/v1/%s/base-entity/public-action`)", module),
 		}
 
 		for routerName, expectedRule := range expectedPaths {
@@ -147,7 +147,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	microServiceId := fmt.Sprintf("endor-%s-service", module)
 	microHandlerAddress := "http://localhost:8082"
 
-	baseHandler := examples_handlers.NewBaseHandlerHandler()
+	baseHandler := examples_handlers.NewBaseEntityHandler()
 	endorHandler := baseHandler.ToEndorHandler()
 	priority := 100
 	endorHandler.Priority = &priority
@@ -177,7 +177,7 @@ func TestInitializeApiGatewayConfigurationWithPriority(t *testing.T) {
 	}
 
 	// The wildcard router has no per-service priority; public action routers inherit it
-	publicRouterName := fmt.Sprintf("%s-router-base-handler-public-action", microServiceId)
+	publicRouterName := fmt.Sprintf("%s-router-base-entity-public-action", microServiceId)
 	publicRouter, exists := config.HTTP.Routers[publicRouterName]
 	if !exists {
 		t.Errorf("Expected public action router %s not found", publicRouterName)

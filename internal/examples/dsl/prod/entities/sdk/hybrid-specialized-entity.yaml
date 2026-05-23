@@ -1,0 +1,5 @@
+title: "Hybrid Specialized Handler"
+categories:
+  - id: dsl-cat
+    title: "DSL Category"
+    description: "A category added via prod DSL"

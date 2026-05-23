@@ -1,0 +1,13 @@
+title: "Prod Dynamic Specialized Entity"
+description: "A pure DSL entity with categories (no static handler)"
+schema:
+  properties:
+    prodSpecializedField:
+      type: string
+categories:
+  - id: cat-a
+    title: "Category A"
+    description: "First DSL category"
+  - id: cat-b
+    title: "Category B"
+    description: "Second DSL category"

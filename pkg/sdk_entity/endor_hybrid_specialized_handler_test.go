@@ -33,7 +33,7 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 		Schema:      yaml,
 	}
 
-	hybridHandler := examples_handlers.NewHybridSpecializedHandler()
+	hybridHandler := examples_handlers.NewHybridSpecializedEntityHandler()
 	endorHandler := hybridHandler.ToEndorHandler(
 		*sdk.NewSchema(AdditionalAttributesMock{}),
 		map[string]sdk.RootSchema{

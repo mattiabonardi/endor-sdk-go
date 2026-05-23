@@ -37,12 +37,12 @@ func (h *EndorEntityRepository) List() ([]sdk.Entity, error) {
 	if err != nil {
 		return []sdk.Entity{}, err
 	}
-	entityEntityID := path.Join(core.module, "entity")
-	entityActionEntityID := path.Join(core.module, "entity-action")
-	aggregatonID := path.Join(core.module, "aggregation")
+	entityEntityID := path.Join(core.Module, "entity")
+	entityActionEntityID := path.Join(core.Module, "entity-action")
+	aggregatonID := path.Join(core.Module, "aggregation")
 	entityList := make([]sdk.Entity, 0, len(dict))
 	for _, v := range dict {
-		entityList = append(entityList, v.entity)
+		entityList = append(entityList, v.Entity)
 	}
 	// excluded core entities
 	filtered := make([]sdk.Entity, 0, len(dict))
@@ -61,7 +61,7 @@ func (h *EndorEntityRepository) Instance(dto sdk.ReadInstanceDTO) (*sdk.Entity, 
 		return nil, err
 	}
 	if entry != nil {
-		return &entry.entity, nil
+		return &entry.Entity, nil
 	}
 	return nil, sdk.NewNotFoundError(fmt.Errorf("entity %s not found", dto.Id)).WithTranslation("sdk.entity.messages.not_found", map[string]any{"id": dto.Id})
 }
@@ -80,7 +80,7 @@ func (h *EndorEntityRepository) FindReferences(_ context.Context, ids sdk.ReadIn
 	for _, id := range ids.Ids {
 		entry, err := core.DictionaryInstance(h.session, sdk.ReadInstanceDTO{Id: id})
 		if err == nil {
-			result[id] = entry.entity.Title
+			result[id] = entry.Entity.Title
 		}
 	}
 	return result, nil
@@ -94,7 +94,7 @@ func (h *EndorEntityRepository) RawList(_ context.Context, _ sdk.ReadDTO) ([]map
 	}
 	result := make([]map[string]interface{}, 0, len(dict))
 	for _, entry := range dict {
-		data, err := json.Marshal(entry.entity)
+		data, err := json.Marshal(entry.Entity)
 		if err != nil {
 			return nil, err
 		}

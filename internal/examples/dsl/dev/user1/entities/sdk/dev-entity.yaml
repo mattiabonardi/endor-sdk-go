@@ -1,0 +1,6 @@
+title: "User1 Dev Entity"
+description: "An entity defined only in user1 dev DSL"
+schema:
+  properties:
+    user1DevField:
+      type: string

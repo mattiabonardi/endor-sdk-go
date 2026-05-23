@@ -13,14 +13,14 @@ type AdditionalAttributesMock struct {
 }
 
 func TestEndorHybridHandler(t *testing.T) {
-	hybridHandler := examples_handlers.NewHybridHandler()
+	hybridHandler := examples_handlers.NewHybridEntityHandler()
 	endorHandler := hybridHandler.ToEndorHandler(
 		*sdk.NewSchema(AdditionalAttributesMock{}),
 	)
 
 	// check attribute
-	assert.Equal(t, endorHandler.Entity, "hybrid-handler")
-	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.hybrid-handler.handler.title}")
+	assert.Equal(t, endorHandler.Entity, "hybrid-entity")
+	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.hybrid-entity.handler.title}")
 	// check schema
 	assert.Equal(t, len(*endorHandler.EntitySchema.Properties), 3)
 

@@ -8,12 +8,12 @@ import (
 )
 
 func TestEndorBaseHandler(t *testing.T) {
-	baseHandler := examples_handlers.NewBaseHandlerHandler()
+	baseHandler := examples_handlers.NewBaseEntityHandler()
 	endorHandler := baseHandler.ToEndorHandler()
 
 	// check attribute
-	assert.Equal(t, endorHandler.Entity, "base-handler")
-	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.base-handler.handler.title}")
+	assert.Equal(t, endorHandler.Entity, "base-entity")
+	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.base-entity.handler.title}")
 	// check schema
 	assert.Equal(t, len(*endorHandler.EntitySchema.Properties), 2)
 

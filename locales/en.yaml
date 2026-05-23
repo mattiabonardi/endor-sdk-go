@@ -1,18 +1,18 @@
 examples:
-  base-handler:
+  base-entity:
     fields:
       attribute: Attribute
     handler:
-      title: Base Handler (EndorBaseHandler)
+      title: Base entity
       description: Extended description
       action1: Action 1
       public-actions: Public action
     messages:
       hello: Hello from Base Handler
       hello-public: Hello from public action
-  base-specialized-handler:
+  base-specialized-entity:
     handler:
-      title: Base Specialized Handler (EndorBaseSpecializedHandler)
+      title: Base specialized entity
       action1: Action 1
     categories:
       cat-1:
@@ -26,15 +26,15 @@ examples:
       hello: Hello from Base Specialized Handler
       hello-cat1: Hello from category 1 action 1
       hello-cat2: Hello from category 2 action 1
-  hybrid-handler:
+  hybrid-entity:
     handler:
-      title: Hybrid Handler (EndorHybridHandler)
+      title: Hybrid entity
       action1: Test hybrid action
     messages:
       hello: Hello from Hybrid Handler
-  hybrid-specialized-handler:
+  hybrid-specialized-entity:
     handler:
-      title: Hybrid Specialized Handler (EndorHybridSpecializedHandler)
+      title: Hybrid specialized entity
       action1: Test hybrid action
     categories:
       cat-1:

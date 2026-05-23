@@ -5,12 +5,12 @@ import (
 	"github.com/mattiabonardi/endor-sdk-go/pkg/sdk_entity"
 )
 
-type HybridHandlerModel struct {
+type HybridEntityModel struct {
 	ID        string `json:"id" bson:"_id" schema:"title=Id,readOnly=true"`
 	Attribute string `json:"attribute"`
 }
 
-func (h HybridHandlerModel) GetID() any {
+func (h HybridEntityModel) GetID() any {
 	return h.ID
 }
 
@@ -19,23 +19,23 @@ type HybridHandlerModelAction1Payload struct {
 	Age  int    `json:"age"`
 }
 
-type HybridHandler struct {
+type HybridEntityHandler struct {
 }
 
-func (h *HybridHandler) action1(c *sdk.EndorContext[HybridHandlerModelAction1Payload]) (*sdk.Response[any], error) {
+func (h *HybridEntityHandler) action1(c *sdk.EndorContext[HybridHandlerModelAction1Payload]) (*sdk.Response[any], error) {
 	return sdk.NewResponseBuilder[any]().
-		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("examples.hybrid-handler.messages.hello", nil))).
+		AddMessage(sdk.NewMessage(sdk.ResponseMessageGravityInfo, c.T("examples.hybrid-entity.messages.hello", nil))).
 		Build(), nil
 }
 
-func NewHybridHandler() sdk.EndorHybridHandlerInterface {
-	hybridHandler := HybridHandler{}
-	return sdk_entity.NewEndorHybridHandler[*HybridHandlerModel]("hybrid-handler", "${t.examples.hybrid-handler.handler.title}").
+func NewHybridEntityHandler() sdk.EndorHybridHandlerInterface {
+	hybridHandler := HybridEntityHandler{}
+	return sdk_entity.NewEndorHybridHandler[*HybridEntityModel]("hybrid-entity", "${t.examples.hybrid-entity.handler.title}").
 		WithActions(func(getSchema func() sdk.RootSchema) map[string]sdk.EndorHandlerActionInterface {
 			return map[string]sdk.EndorHandlerActionInterface{
 				"action-1": sdk.NewAction(
 					hybridHandler.action1,
-					"${t.examples.hybrid-handler.handler.action1}",
+					"${t.examples.hybrid-entity.handler.action1}",
 				),
 			}
 		})

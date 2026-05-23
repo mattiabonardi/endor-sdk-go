@@ -19,9 +19,9 @@ var locales embed.FS
 
 func main() {
 	sdk_server.NewEndorInitializer().WithEndorHandlers(&[]sdk.EndorHandlerInterface{
-		examples_handlers.NewBaseHandlerHandler(),
-		examples_handlers.NewBaseSpecializedHandler(),
-		examples_handlers.NewHybridHandler(),
-		examples_handlers.NewHybridSpecializedHandler(),
+		examples_handlers.NewBaseEntityHandler(),
+		examples_handlers.NewBaseSpecializedEntityHandler(),
+		examples_handlers.NewHybridEntityHandler(),
+		examples_handlers.NewHybridSpecializedEntityHandler(),
 	}).WithLocalesFS(locales).Build().Init("sdk")
 }

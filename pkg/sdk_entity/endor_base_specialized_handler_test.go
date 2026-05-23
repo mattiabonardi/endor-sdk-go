@@ -8,12 +8,12 @@ import (
 )
 
 func TestEndorBaseSpecializedHandler(t *testing.T) {
-	baseSpecializedHandler := examples_handlers.NewBaseSpecializedHandler()
+	baseSpecializedHandler := examples_handlers.NewBaseSpecializedEntityHandler()
 	endorHandler := baseSpecializedHandler.ToEndorHandler()
 
 	// check attribute
-	assert.Equal(t, endorHandler.Entity, "base-specialized-handler")
-	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.base-specialized-handler.handler.title}")
+	assert.Equal(t, endorHandler.Entity, "base-specialized-entity")
+	assert.Equal(t, endorHandler.EntityTitle, "${t.examples.base-specialized-entity.handler.title}")
 	// check schema
 	assert.Equal(t, 3, len(*endorHandler.EntitySchema.Properties))
 

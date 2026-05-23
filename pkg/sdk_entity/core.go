@@ -31,13 +31,13 @@ func GetRegistryCore() *RegistryCore {
 func InitRegistryCore(microServiceId string, module string, internalEndorHandlers *[]sdk.EndorHandlerInterface, logger *sdk.Logger, projectLocalesFS fs.FS) *RegistryCore {
 	registryCoreOnce.Do(func() {
 		registryCoreInstance = &RegistryCore{
-			microServiceId:        microServiceId,
-			module:                module,
-			internalEndorHandlers: internalEndorHandlers,
-			logger:                logger,
-			mu:                    &sync.RWMutex{},
-			prodDAO:               sdk.NewDSLDAO("", false),
-			ephemeralCache:        newEphemeralCacheManager(),
+			MicroServiceId:        microServiceId,
+			Module:                module,
+			InternalEndorHandlers: internalEndorHandlers,
+			Logger:                logger,
+			Mu:                    &sync.RWMutex{},
+			ProdDAO:               sdk.NewDSLDAO("", false),
+			EphemeralCache:        NewEphemeralCacheManager(),
 			projectLocalesFS:      projectLocalesFS,
 		}
 		if err := registryCoreInstance.startDslProdWatcher(); err != nil {
@@ -51,24 +51,28 @@ func InitRegistryCore(microServiceId string, module string, internalEndorHandler
 // Production requests use a cached dictionary; development requests (x-development: true)
 // get a per-user ephemeral overlay built on top of the production dictionary.
 type RegistryCore struct {
-	module                string
-	microServiceId        string
-	internalEndorHandlers *[]sdk.EndorHandlerInterface
-	prodDAO               *sdk.DSLDAO
-	logger                *sdk.Logger
-	mu                    *sync.RWMutex
-	cachedDictionary      map[string]EndorEntityDictionary
-	cachedDIContainer     *EndorDIContainer
-	cacheInitialized      bool
-	ephemeralCache        *EphemeralCacheManager
-	projectLocalesFS      fs.FS
+	Module                string
+	MicroServiceId        string
+	InternalEndorHandlers *[]sdk.EndorHandlerInterface
+	ProdDAO               *sdk.DSLDAO
+	Logger                *sdk.Logger
+	Mu                    *sync.RWMutex
+	EphemeralCache        *EphemeralCacheManager
+	// DevDAOFactory, if non-nil, is called instead of sdk.NewDSLDAO when building
+	// a development overlay. Used in tests to inject a custom DAO path.
+	DevDAOFactory func(username string) *sdk.DSLDAO
+
+	CachedDictionary  map[string]EndorEntityDictionary
+	CachedDIContainer *EndorDIContainer
+	CacheInitialized  bool
+	projectLocalesFS  fs.FS
 }
 
 // EndorEntityDictionary is the per-entity descriptor: compiled handler and entity metadata.
 type EndorEntityDictionary struct {
 	OriginalInstance *sdk.EndorHandlerInterface
 	EndorHandler     sdk.EndorHandler
-	entity           sdk.Entity
+	Entity           sdk.Entity
 }
 
 type EndorHandlerActionDictionary struct {
@@ -105,15 +109,15 @@ func (c *RegistryCore) Dictionary(session sdk.Session) (map[string]EndorEntityDi
 	if !session.Development || session.Username == "" {
 		return c.dictionaryMap()
 	}
-	if cached, _ := c.ephemeralCache.Get(session.Username); cached != nil {
+	if cached, _ := c.EphemeralCache.Get(session.Username); cached != nil {
 		return cached, nil
 	}
 	devDict, devContainer, err := c.buildDevDictionary(session)
 	if err != nil {
-		c.logger.Warn(fmt.Sprintf("failed to build ephemeral registry, falling back to prod: %s", err.Error()))
+		c.Logger.Warn(fmt.Sprintf("failed to build ephemeral registry, falling back to prod: %s", err.Error()))
 		return c.dictionaryMap()
 	}
-	c.ephemeralCache.Set(session.Username, devDict, devContainer)
+	c.EphemeralCache.Set(session.Username, devDict, devContainer)
 	return devDict, nil
 }
 
@@ -125,12 +129,12 @@ func (c *RegistryCore) Container(session sdk.Session) (*EndorDIContainer, error)
 		if err != nil {
 			return nil, err
 		}
-		c.mu.RLock()
-		container := c.cachedDIContainer
-		c.mu.RUnlock()
+		c.Mu.RLock()
+		container := c.CachedDIContainer
+		c.Mu.RUnlock()
 		return container, nil
 	}
-	if _, container := c.ephemeralCache.Get(session.Username); container != nil {
+	if _, container := c.EphemeralCache.Get(session.Username); container != nil {
 		return container, nil
 	}
 	// Trigger rebuild which also caches the container
@@ -138,7 +142,7 @@ func (c *RegistryCore) Container(session sdk.Session) (*EndorDIContainer, error)
 	if err != nil {
 		return nil, err
 	}
-	_, container := c.ephemeralCache.Get(session.Username)
+	_, container := c.EphemeralCache.Get(session.Username)
 	if container != nil {
 		return container, nil
 	}
@@ -161,12 +165,12 @@ func (c *RegistryCore) DictionaryInstance(session sdk.Session, dto sdk.ReadInsta
 // Sync invalidates the production cache and all per-user ephemeral overlays,
 // forcing a full rebuild on the next access.
 func (c *RegistryCore) Sync() {
-	c.mu.Lock()
-	c.cacheInitialized = false
-	c.cachedDictionary = nil
-	c.cachedDIContainer = nil
-	c.mu.Unlock()
-	c.ephemeralCache.InvalidateAll()
+	c.Mu.Lock()
+	c.CacheInitialized = false
+	c.CachedDictionary = nil
+	c.CachedDIContainer = nil
+	c.Mu.Unlock()
+	c.EphemeralCache.InvalidateAll()
 }
 
 // #endregion
@@ -217,20 +221,20 @@ func (c *RegistryCore) buildHybridDSLEntry(entityID string, def entityDSLFile, e
 		if err != nil {
 			return EndorEntityDictionary{}, err
 		}
-		cats, catsSchema := c.buildCategorySchemas(existing.entity.Categories)
+		cats, catsSchema := c.buildCategorySchemas(existing.Entity.Categories)
 		entry.EndorHandler = specInst.WithHybridCategories(cats).ToEndorHandler(def.Schema, catsSchema, addCats)
-		cloned := existing.entity
+		cloned := existing.Entity
 		cloned.Schema = sdk.MergeSchemas(cloned.Schema, additionalSchema)
 		cloned.Categories = append(cloned.Categories, addCats...)
-		entry.entity = cloned
+		entry.Entity = cloned
 	} else if hybridInst, ok := (*existing.OriginalInstance).(sdk.EndorHybridHandlerInterface); ok {
 		if len(def.Categories) > 0 {
 			return EndorEntityDictionary{}, fmt.Errorf("hybrid DSL entity %q must not declare categories: plain hybrid handlers have no categories", entityID)
 		}
 		entry.EndorHandler = hybridInst.ToEndorHandler(def.Schema)
-		cloned := existing.entity
+		cloned := existing.Entity
 		cloned.Schema = sdk.MergeSchemas(cloned.Schema, additionalSchema)
-		entry.entity = cloned
+		entry.Entity = cloned
 	} else {
 		return EndorEntityDictionary{}, fmt.Errorf("static handler for %q does not support hybrid DSL extension", entityID)
 	}
@@ -252,12 +256,12 @@ func (c *RegistryCore) buildDynamicDSLEntry(entityID string, entityName string, 
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamic),
-			Module:      c.module,
+			Module:      c.Module,
 			Schema:      sdk.MergeSchemas(schema, additionalSchema),
 		}
 		handler := NewEndorHybridHandler[*sdk.DynamicEntity](entityName, def.Title).
 			WithExtendedDescription(def.Description).ToEndorHandler(def.Schema)
-		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
+		entry = EndorEntityDictionary{EndorHandler: handler, Entity: e}
 	} else {
 		addCats, err := toDSLCategories(def.Categories)
 		if err != nil {
@@ -270,14 +274,14 @@ func (c *RegistryCore) buildDynamicDSLEntry(entityID string, entityName string, 
 			Title:       def.Title,
 			Description: def.Description,
 			Type:        string(sdk.EntityTypeDynamicSpecialized),
-			Module:      c.module,
+			Module:      c.Module,
 			Schema:      sdk.MergeSchemas(schema, additionalSchema),
 			Categories:  addCats,
 		}
 		handler := NewEndorHybridSpecializedHandler[*sdk.DynamicEntitySpecialized](entityName, def.Title).
 			WithExtendedDescription(def.Description).WithHybridCategories(cats).
 			ToEndorHandler(def.Schema, catsSchema, addCats)
-		entry = EndorEntityDictionary{EndorHandler: handler, entity: e}
+		entry = EndorEntityDictionary{EndorHandler: handler, Entity: e}
 	}
 	return entry, nil
 }
@@ -286,25 +290,25 @@ func (c *RegistryCore) buildDynamicDSLEntry(entityID string, entityName string, 
 // Returns the Translator built from the DAO's locales path (always non-nil).
 func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, dao *sdk.DSLDAO, projectLocalesFS fs.FS) *sdk_i18n.Translator {
 	translator := sdk_i18n.NewTranslator(projectLocalesFS, dao.LocalesPath())
-	entityNames, err := dao.ListAllEntities(c.module)
+	entityNames, err := dao.ListAllEntities(c.Module)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.logger.Warn(fmt.Sprintf("unable to list DSL entities: %s", err.Error()))
+			c.Logger.Warn(fmt.Sprintf("unable to list DSL entities: %s", err.Error()))
 		}
 		return translator
 	}
 	for _, entityName := range entityNames {
-		content, err := dao.ReadEntity(c.module, entityName)
+		content, err := dao.ReadEntity(c.Module, entityName)
 		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityName, err.Error()))
+			c.Logger.Warn(fmt.Sprintf("unable to read DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
 		var def entityDSLFile
 		if err := yaml.Unmarshal([]byte(content), &def); err != nil {
-			c.logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityName, err.Error()))
+			c.Logger.Warn(fmt.Sprintf("invalid DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
-		entityID := path.Join(c.module, entityName)
+		entityID := path.Join(c.Module, entityName)
 		var entry EndorEntityDictionary
 		if existing, ok := dict[entityID]; ok && existing.OriginalInstance != nil {
 			entry, err = c.buildHybridDSLEntry(entityName, def, existing)
@@ -312,7 +316,7 @@ func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, da
 			entry, err = c.buildDynamicDSLEntry(entityID, entityName, def)
 		}
 		if err != nil {
-			c.logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityName, err.Error()))
+			c.Logger.Warn(fmt.Sprintf("unable to build entry for DSL entity %s: %s", entityName, err.Error()))
 			continue
 		}
 		dict[entityID] = entry
@@ -324,14 +328,14 @@ func (c *RegistryCore) applyDSLOverlay(dict map[string]EndorEntityDictionary, da
 func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntityDictionary, error) {
 	schema, err := h.GetSchema().ToYAML()
 	if err != nil {
-		c.logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
+		c.Logger.Warn(fmt.Sprintf("unable to read entity schema from %s", h.GetEntity()))
 	}
 
 	entity := sdk.Entity{
-		ID:          path.Join(c.module, h.GetEntity()),
+		ID:          path.Join(c.Module, h.GetEntity()),
 		Title:       h.GetEntityTitle(),
 		Description: h.GetEntityDescription(),
-		Module:      c.module,
+		Module:      c.Module,
 		Schema:      schema,
 	}
 	var handler sdk.EndorHandler
@@ -365,7 +369,7 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 	return EndorEntityDictionary{
 		OriginalInstance: &hCopy,
 		EndorHandler:     handler,
-		entity:           entity,
+		Entity:           entity,
 	}, nil
 }
 
@@ -373,14 +377,14 @@ func (c *RegistryCore) buildStaticEntry(h sdk.EndorHandlerInterface) (EndorEntit
 // with no DSL overlay applied. Used as the base for both prod and dev dictionary construction.
 func (c *RegistryCore) buildStaticDictionary() map[string]EndorEntityDictionary {
 	dict := map[string]EndorEntityDictionary{}
-	if c.internalEndorHandlers != nil {
-		for _, h := range *c.internalEndorHandlers {
+	if c.InternalEndorHandlers != nil {
+		for _, h := range *c.InternalEndorHandlers {
 			entry, err := c.buildStaticEntry(h)
 			if err != nil {
-				c.logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
+				c.Logger.Warn(fmt.Sprintf("unable to build static entry for %s: %s", h.GetEntity(), err.Error()))
 				continue
 			}
-			dict[path.Join(c.module, h.GetEntity())] = entry
+			dict[path.Join(c.Module, h.GetEntity())] = entry
 		}
 	}
 	return dict
@@ -390,23 +394,23 @@ func (c *RegistryCore) buildStaticDictionary() map[string]EndorEntityDictionary 
 // Step 1: build entries for all compiled (static) handlers.
 // Step 2: apply prod DSL overlay.
 func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error) {
-	c.mu.RLock()
-	if c.cacheInitialized {
-		result := make(map[string]EndorEntityDictionary, len(c.cachedDictionary))
-		for k, v := range c.cachedDictionary {
+	c.Mu.RLock()
+	if c.CacheInitialized {
+		result := make(map[string]EndorEntityDictionary, len(c.CachedDictionary))
+		for k, v := range c.CachedDictionary {
 			result[k] = v
 		}
-		c.mu.RUnlock()
+		c.Mu.RUnlock()
 		return result, nil
 	}
-	c.mu.RUnlock()
+	c.Mu.RUnlock()
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
-	if c.cacheInitialized {
-		result := make(map[string]EndorEntityDictionary, len(c.cachedDictionary))
-		for k, v := range c.cachedDictionary {
+	if c.CacheInitialized {
+		result := make(map[string]EndorEntityDictionary, len(c.CachedDictionary))
+		for k, v := range c.CachedDictionary {
 			result[k] = v
 		}
 		return result, nil
@@ -414,16 +418,16 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 
 	dict := c.buildStaticDictionary()
 
-	c.applyDSLOverlay(dict, c.prodDAO, c.projectLocalesFS)
+	c.applyDSLOverlay(dict, c.ProdDAO, c.projectLocalesFS)
 
 	prodContainer := &EndorDIContainer{}
 	allRepos := collectAllRepositories(sdk.Session{}, dict, prodContainer)
 	prodContainer.repositories = allRepos
-	prodContainer.translator = sdk_i18n.NewTranslator(c.projectLocalesFS, c.prodDAO.LocalesPath())
+	prodContainer.translator = sdk_i18n.NewTranslator(c.projectLocalesFS, c.ProdDAO.LocalesPath())
 
-	c.cachedDictionary = dict
-	c.cachedDIContainer = prodContainer
-	c.cacheInitialized = true
+	c.CachedDictionary = dict
+	c.CachedDIContainer = prodContainer
+	c.CacheInitialized = true
 	return dict, nil
 }
 
@@ -432,7 +436,12 @@ func (c *RegistryCore) dictionaryMap() (map[string]EndorEntityDictionary, error)
 // avoiding double-application of conflicting prod+dev DSL definitions.
 func (c *RegistryCore) buildDevDictionary(session sdk.Session) (map[string]EndorEntityDictionary, *EndorDIContainer, error) {
 	devDict := c.buildStaticDictionary()
-	devDAO := sdk.NewDSLDAO(session.Username, true)
+	var devDAO *sdk.DSLDAO
+	if c.DevDAOFactory != nil {
+		devDAO = c.DevDAOFactory(session.Username)
+	} else {
+		devDAO = sdk.NewDSLDAO(session.Username, true)
+	}
 	devTranslator := c.applyDSLOverlay(devDict, devDAO, c.projectLocalesFS)
 	devContainer := &EndorDIContainer{}
 	allRepos := collectAllRepositories(session, devDict, devContainer)
@@ -475,10 +484,10 @@ func (c *RegistryCore) reloadRouteConfiguration() error {
 	if err != nil {
 		return err
 	}
-	if err = api_gateway.InitializeApiGatewayConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://%s:%s", c.microServiceId, config.ServerPort), entities); err != nil {
+	if err = api_gateway.InitializeApiGatewayConfiguration(c.MicroServiceId, c.Module, fmt.Sprintf("http://%s:%s", c.MicroServiceId, config.ServerPort), entities); err != nil {
 		return err
 	}
-	_, err = swagger.CreateSwaggerConfiguration(c.microServiceId, c.module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api", c.projectLocalesFS)
+	_, err = swagger.CreateSwaggerConfiguration(c.MicroServiceId, c.Module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api", c.projectLocalesFS)
 	return err
 }
 
@@ -511,7 +520,7 @@ func (c *RegistryCore) startDslProdWatcher() error {
 		return err
 	}
 
-	watchRoot := c.prodDAO.BasePath
+	watchRoot := c.ProdDAO.BasePath
 	for {
 		if _, err := os.Stat(watchRoot); err == nil {
 			break
@@ -519,7 +528,7 @@ func (c *RegistryCore) startDslProdWatcher() error {
 		parent := filepath.Dir(watchRoot)
 		if parent == watchRoot {
 			watcher.Close()
-			return fmt.Errorf("no existing ancestor directory found for %s", c.prodDAO.BasePath)
+			return fmt.Errorf("no existing ancestor directory found for %s", c.ProdDAO.BasePath)
 		}
 		watchRoot = parent
 	}
@@ -530,7 +539,7 @@ func (c *RegistryCore) startDslProdWatcher() error {
 	}
 
 	// If prod/ already exists, also register locales/ immediately if present.
-	localesPath := c.prodDAO.LocalesPath()
+	localesPath := c.ProdDAO.LocalesPath()
 	if info, statErr := os.Stat(localesPath); statErr == nil && info.IsDir() {
 		_ = watcher.Add(localesPath)
 	}
@@ -551,12 +560,12 @@ func (c *RegistryCore) startDslProdWatcher() error {
 				if event.Has(fsnotify.Create) {
 					if info, statErr := os.Stat(event.Name); statErr == nil && info.IsDir() {
 						// Register any new directory created under prod/ (covers locales/ created later).
-						if isAncestorOrEqual(c.prodDAO.BasePath, event.Name) {
+						if isAncestorOrEqual(c.ProdDAO.BasePath, event.Name) {
 							_ = watcher.Add(event.Name)
 						}
 					}
 				}
-				if !isAncestorOrEqual(c.prodDAO.BasePath, event.Name) {
+				if !isAncestorOrEqual(c.ProdDAO.BasePath, event.Name) {
 					continue
 				}
 				capturedName := event.Name
@@ -565,10 +574,10 @@ func (c *RegistryCore) startDslProdWatcher() error {
 					debounceTimer.Stop()
 				}
 				debounceTimer = time.AfterFunc(1*time.Second, func() {
-					c.logger.Info(fmt.Sprintf("prod DSL change detected (%s), syncing registry", capturedName))
+					c.Logger.Info(fmt.Sprintf("prod DSL change detected (%s), syncing registry", capturedName))
 					c.Sync()
 					if reloadErr := c.reloadRouteConfiguration(); reloadErr != nil {
-						c.logger.Warn(fmt.Sprintf("unable to reload route configuration after DSL change: %s", reloadErr.Error()))
+						c.Logger.Warn(fmt.Sprintf("unable to reload route configuration after DSL change: %s", reloadErr.Error()))
 					}
 				})
 				debounceMu.Unlock()
@@ -577,7 +586,7 @@ func (c *RegistryCore) startDslProdWatcher() error {
 				if !ok {
 					return
 				}
-				c.logger.Warn(fmt.Sprintf("entity DSL watcher error: %s", watchErr.Error()))
+				c.Logger.Warn(fmt.Sprintf("entity DSL watcher error: %s", watchErr.Error()))
 			}
 		}
 	}()

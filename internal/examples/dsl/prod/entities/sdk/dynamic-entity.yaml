@@ -1,0 +1,6 @@
+title: "Prod Dynamic Entity"
+description: "An entity defined only in the prod DSL (no static handler)"
+schema:
+  properties:
+    prodDynamicField:
+      type: string

@@ -1,0 +1,5 @@
+title: "Hybrid Entity"
+schema:
+  properties:
+    additionalDevField:
+      type: string
