@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 
@@ -15,6 +16,7 @@ type EndorHandlerFunc[T any, R any] func(*EndorContext[T]) (*Response[R], error)
 type EndorHandlerActionInterface interface {
 	CreateHTTPCallback(microserviceId string, entity string, action string, category string, session Session, container EndorDIContainerInterface) func(c *gin.Context)
 	GetOptions() EndorHandlerActionOptions
+	Invoke(ctx any) (any, error)
 }
 
 type EndorHandlerActionOptions struct {
@@ -133,6 +135,14 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 
 func (m *endorHandlerActionImpl[T, R]) GetOptions() EndorHandlerActionOptions {
 	return m.options
+}
+
+func (m *endorHandlerActionImpl[T, R]) Invoke(ctx any) (any, error) {
+	ec, ok := ctx.(*EndorContext[T])
+	if !ok {
+		return nil, fmt.Errorf("invoke: incompatible context type %T", ctx)
+	}
+	return m.handler(ec)
 }
 
 // generic

@@ -27,6 +27,19 @@ func TestEndorHybridHandler(t *testing.T) {
 	// check default methods
 	_, schemaExists := endorHandler.Actions["schema"]
 	assert.True(t, schemaExists, "method 'schema' not found in endorHandler methods map")
+	// check schema action output
+	schemaResult, err := endorHandler.Actions["schema"].Invoke(&sdk.EndorContext[sdk.NoPayload]{})
+	assert.NoError(t, err)
+	schemaResponse, ok := schemaResult.(*sdk.Response[any])
+	assert.True(t, ok, "schema action did not return *sdk.Response[any]")
+	assert.NotNil(t, schemaResponse.Schema)
+	assert.Len(t, *schemaResponse.Schema.Properties, 3)
+	_, schemaPropIdExists := (*schemaResponse.Schema.Properties)["id"]
+	assert.True(t, schemaPropIdExists, "'id' property not found in schema action output")
+	_, schemaPropAttributeExists := (*schemaResponse.Schema.Properties)["attribute"]
+	assert.True(t, schemaPropAttributeExists, "'attribute' property not found in schema action output")
+	_, schemaPropAdditionalExists := (*schemaResponse.Schema.Properties)["additionalAttribute"]
+	assert.True(t, schemaPropAdditionalExists, "'additionalAttribute' property not found in schema action output")
 	_, instanceExists := endorHandler.Actions["instance"]
 	assert.True(t, instanceExists, "method 'instance' not found in endorHandler methods map")
 	_, idPropertyExists := (*endorHandler.Actions["instance"].GetOptions().InputSchema.Properties)["id"]

@@ -46,6 +46,21 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 	// check default methods
 	_, schemaExists := endorHandler.Actions["schema"]
 	assert.True(t, schemaExists, "method 'schema' not found in endorHandler methods map")
+	// check schema action output
+	schemaResult, err := endorHandler.Actions["schema"].Invoke(&sdk.EndorContext[sdk.NoPayload]{})
+	assert.NoError(t, err)
+	schemaResponse, ok := schemaResult.(*sdk.Response[any])
+	assert.True(t, ok, "schema action did not return *sdk.Response[any]")
+	assert.NotNil(t, schemaResponse.Schema)
+	assert.Len(t, *schemaResponse.Schema.Properties, 4)
+	_, schemaPropIdExists := (*schemaResponse.Schema.Properties)["id"]
+	assert.True(t, schemaPropIdExists, "'id' property not found in schema action output")
+	_, schemaPropTypeExists := (*schemaResponse.Schema.Properties)["type"]
+	assert.True(t, schemaPropTypeExists, "'type' property not found in schema action output")
+	_, schemaPropAttributeExists := (*schemaResponse.Schema.Properties)["attribute"]
+	assert.True(t, schemaPropAttributeExists, "'attribute' property not found in schema action output")
+	_, schemaPropAdditionalExists := (*schemaResponse.Schema.Properties)["additionalAttribute"]
+	assert.True(t, schemaPropAdditionalExists, "'additionalAttribute' property not found in schema action output")
 	_, instanceExists := endorHandler.Actions["instance"]
 	assert.True(t, instanceExists, "method 'instance' not found in endorHandler methods map")
 	_, idPropertyExists := (*endorHandler.Actions["instance"].GetOptions().InputSchema.Properties)["id"]
@@ -62,6 +77,25 @@ func TestEndorHybridSpecializedHandler(t *testing.T) {
 	// check categories default methods (cat-1)
 	_, cat1SchemaExists := endorHandler.Actions["cat-1/schema"]
 	assert.True(t, cat1SchemaExists, "method 'cat-1/schema' not found in endorHandler methods map")
+	// check cat-1/schema action output
+	cat1SchemaResult, err := endorHandler.Actions["cat-1/schema"].Invoke(&sdk.EndorContext[sdk.NoPayload]{})
+	assert.NoError(t, err)
+	cat1SchemaResponse, ok := cat1SchemaResult.(*sdk.Response[any])
+	assert.True(t, ok, "cat-1/schema action did not return *sdk.Response[any]")
+	assert.NotNil(t, cat1SchemaResponse.Schema)
+	assert.Len(t, *cat1SchemaResponse.Schema.Properties, 6)
+	_, cat1SchemaPropIdExists := (*cat1SchemaResponse.Schema.Properties)["id"]
+	assert.True(t, cat1SchemaPropIdExists, "'id' property not found in cat-1/schema action output")
+	_, cat1SchemaPropTypeExists := (*cat1SchemaResponse.Schema.Properties)["type"]
+	assert.True(t, cat1SchemaPropTypeExists, "'type' property not found in cat-1/schema action output")
+	_, cat1SchemaPropAttributeExists := (*cat1SchemaResponse.Schema.Properties)["attribute"]
+	assert.True(t, cat1SchemaPropAttributeExists, "'attribute' property not found in cat-1/schema action output")
+	_, cat1SchemaPropAttributeCat1Exists := (*cat1SchemaResponse.Schema.Properties)["attributeCat1"]
+	assert.True(t, cat1SchemaPropAttributeCat1Exists, "'attributeCat1' property not found in cat-1/schema action output")
+	_, cat1SchemaPropAdditionalExists := (*cat1SchemaResponse.Schema.Properties)["additionalAttribute"]
+	assert.True(t, cat1SchemaPropAdditionalExists, "'additionalAttribute' property not found in cat-1/schema action output")
+	_, cat1SchemaPropAdditionalCat1Exists := (*cat1SchemaResponse.Schema.Properties)["additionalAttributeCat1"]
+	assert.True(t, cat1SchemaPropAdditionalCat1Exists, "'additionalAttributeCat1' property not found in cat-1/schema action output")
 	_, cat1InstanceExists := endorHandler.Actions["cat-1/instance"]
 	assert.True(t, cat1InstanceExists, "method 'cat-1/instance' not found in endorHandler methods map")
 	_, cat1InstanceIdExists := (*endorHandler.Actions["cat-1/instance"].GetOptions().InputSchema.Properties)["id"]
