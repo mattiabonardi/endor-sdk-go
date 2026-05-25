@@ -8,6 +8,7 @@ type Session struct {
 	Id          string `json:"id"`
 	Username    string `json:"username"`
 	Development bool   `json:"development"`
+	Locale      string `json:"locale"`
 }
 
 type EndorContext[T any] struct {
@@ -15,7 +16,6 @@ type EndorContext[T any] struct {
 	Session        Session
 	Payload        T
 	CategoryType   string
-	Locale         string
 
 	// DIContainer gives handler code access to all registered handlers and repositories
 	// for the current session (production or per-user development overlay).
@@ -27,12 +27,12 @@ type EndorContext[T any] struct {
 
 // T translates the given key using named placeholder interpolation {{key}}.
 func (ec *EndorContext[T]) T(key string, args map[string]any) string {
-	return ec.DIContainer.GetTranslator().T(ec.Locale, key, args)
+	return ec.DIContainer.GetTranslator().T(ec.Session.Locale, key, args)
 }
 
 // ResolveTExpr resolves t(<token>) expressions in value using the request locale.
 func (ec *EndorContext[T]) ResolveTExpr(value string) string {
-	return ec.DIContainer.GetTranslator().ResolveTExpr(ec.Locale, value)
+	return ec.DIContainer.GetTranslator().ResolveTExpr(ec.Session.Locale, value)
 }
 
 type NoPayload struct{}

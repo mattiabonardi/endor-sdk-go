@@ -138,6 +138,7 @@ func (h *Endor) Init(module string) {
 					Id:          c.GetHeader("x-user-session"),
 					Username:    c.GetHeader("x-user-id"),
 					Development: c.GetHeader("x-development") == "true",
+					Locale:      sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language")),
 				}
 				dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
 				if err == nil {

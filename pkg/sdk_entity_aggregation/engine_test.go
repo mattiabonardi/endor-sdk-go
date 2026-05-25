@@ -24,6 +24,8 @@ var customerDocs = []map[string]interface{}{
 	{"id": "c3", "name": "Carol", "country": "FR"},
 }
 
+var session = sdk.Session{}
+
 // #region selection
 
 func TestGroupBy_ByCustomer(t *testing.T) {
@@ -39,7 +41,7 @@ func TestGroupBy_ByCustomer(t *testing.T) {
 		},
 	}
 
-	result, _, _, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
+	result, _, _, err := NewAggregationEngine(session, testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +101,7 @@ func TestGroupBy_ByCustomer_WithSum(t *testing.T) {
 		},
 	}
 
-	result, schema, _, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
+	result, schema, _, err := NewAggregationEngine(session, testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -214,7 +216,7 @@ func TestMergeResults(t *testing.T) {
 		},
 	}
 
-	result, schema, refs, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
+	result, schema, refs, err := NewAggregationEngine(session, testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -316,7 +318,7 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 		},
 	}
 
-	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage, _ sdk.Session) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		docs, ok := computedByEntity[stage.Entity]
 		if !ok {
 			return []map[string]interface{}{}, nil, nil, nil
@@ -333,7 +335,7 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 		},
 	}
 
-	engine := NewAggregationEngine(testDI, WithEntityStageHandler(handler))
+	engine := NewAggregationEngine(session, testDI, WithEntityStageHandler(handler))
 	result, _, _, err := engine.Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -370,7 +372,7 @@ func TestEntityStageHandler_ReplacesBuiltinLogic(t *testing.T) {
 func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 	// The handler simulates a child microservice that has already executed the
 	// $group+$sum locally and returns the aggregated result directly.
-	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
+	handler := func(_ context.Context, _ *AggregationEngine, stage EntityPipelineStage, _ sdk.Session) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error) {
 		// Assert that the full pipeline is forwarded to the handler.
 		if len(stage.Pipeline) != 1 {
 			return nil, nil, nil, fmt.Errorf("expected 1 pipeline stage forwarded, got %d", len(stage.Pipeline))
@@ -394,7 +396,7 @@ func TestEntityStageHandler_OwnsFullStage(t *testing.T) {
 		},
 	}
 
-	engine := NewAggregationEngine(testDI, WithEntityStageHandler(handler))
+	engine := NewAggregationEngine(session, testDI, WithEntityStageHandler(handler))
 	result, _, _, err := engine.Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -470,7 +472,7 @@ func TestExecute_References(t *testing.T) {
 		},
 	}
 
-	result, schema, refs, err := NewAggregationEngine(testDI).Execute(context.Background(), p)
+	result, schema, refs, err := NewAggregationEngine(session, testDI).Execute(context.Background(), p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -45,7 +45,7 @@ type StageSpec map[string]interface{}
 // whose Entity field is non-empty. The engine itself is passed so the handler
 // can call engine.ExecuteEntityStage to fall back to the default behaviour for
 // entities it owns locally, while delegating others elsewhere.
-type EntityStageHandler func(ctx context.Context, engine *AggregationEngine, stage EntityPipelineStage) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error)
+type EntityStageHandler func(ctx context.Context, engine *AggregationEngine, stage EntityPipelineStage, session sdk.Session) ([]map[string]interface{}, *sdk.Schema, sdk.EntityRefererenceGroup, error)
 
 // MergeResultsOptions configures the $mergeResults operator, which joins the
 // results of the stages listed in the enclosing EntityPipelineStage.DependsOn.

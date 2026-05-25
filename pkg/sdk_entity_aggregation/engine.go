@@ -13,6 +13,7 @@ import (
 type AggregationEngine struct {
 	di                 sdk.EndorDIContainerInterface
 	entityStageHandler EntityStageHandler
+	session            sdk.Session
 }
 
 // AggregationEngineOption is a functional option for AggregationEngine.
@@ -34,9 +35,10 @@ func WithEntityStageHandler(h EntityStageHandler) AggregationEngineOption {
 
 // NewAggregationEngine returns a ready-to-use AggregationEngine.
 // Pass AggregationEngineOption values to customise behaviour (e.g. WithEntityStageHandler).
-func NewAggregationEngine(di sdk.EndorDIContainerInterface, opts ...AggregationEngineOption) *AggregationEngine {
+func NewAggregationEngine(session sdk.Session, di sdk.EndorDIContainerInterface, opts ...AggregationEngineOption) *AggregationEngine {
 	e := &AggregationEngine{
-		di: di,
+		session: session,
+		di:      di,
 	}
 	for _, o := range opts {
 		o(e)
@@ -121,7 +123,7 @@ func (e *AggregationEngine) executeEntityStage(
 			// complete EntityPipelineStage (including Pipeline) and is
 			// responsible for executing it entirely (e.g. by forwarding it to
 			// a child microservice). In-memory operators are NOT re-applied.
-			return e.entityStageHandler(ctx, e, stage)
+			return e.entityStageHandler(ctx, e, stage, e.session)
 		}
 
 		repo, ok := e.di.GetRepositories()[entity]

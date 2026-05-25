@@ -33,7 +33,7 @@ func NewAggregationHandler(priority int, handler EntityStageHandler, opts ...Agg
 			func(c *sdk.EndorContext[AggregationPipeline]) (*sdk.Response[[]map[string]interface{}], error) {
 				// opts is captured from the outer scope and already includes the
 				// executor option when a non-nil executor was provided.
-				engine := NewAggregationEngine(c.DIContainer, opts...)
+				engine := NewAggregationEngine(c.Session, c.DIContainer, opts...)
 				result, schema, refs, err := engine.Execute(c.GinContext.Request.Context(), c.Payload)
 				if err != nil {
 					return nil, sdk.NewBadRequestError(fmt.Errorf("aggregation failed: %w", err)).WithTranslation("sdk.aggregation.messages.failed", nil)
