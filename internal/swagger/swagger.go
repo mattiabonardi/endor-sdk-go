@@ -189,25 +189,34 @@ func CreateSwaggerDefinition(microServiceId, module string, microServiceAddress 
 			if !method.GetOptions().Public {
 				parameters = append(parameters, []OpenAPIParameter{
 					{
-						Name: "X-User-ID",
+						Name: sdk.X_ENDOR_SESSION_ID,
 						In:   "header",
 						Schema: sdk.Schema{
 							Type: sdk.SchemaTypeString,
 						},
-						Description: "User id",
+						Description: "Session id",
 						Required:    false,
 					},
 					{
-						Name: "X-User-Session",
+						Name: sdk.X_ENDOR_USER_ID,
 						In:   "header",
 						Schema: sdk.Schema{
 							Type: sdk.SchemaTypeString,
 						},
-						Description: "User session",
+						Description: "User id (sub)",
 						Required:    false,
 					},
 					{
-						Name: "X-Development",
+						Name: sdk.X_ENDOR_USERNAME,
+						In:   "header",
+						Schema: sdk.Schema{
+							Type: sdk.SchemaTypeString,
+						},
+						Description: "User id (sub)",
+						Required:    false,
+					},
+					{
+						Name: sdk.X_ENDOR_DEVELOPMENT,
 						In:   "header",
 						Schema: sdk.Schema{
 							Type: sdk.SchemaTypeBoolean,

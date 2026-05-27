@@ -6,9 +6,11 @@ import (
 
 type Session struct {
 	Id          string `json:"id"`
+	UserId      string `json:"userId"`
 	Username    string `json:"username"`
 	Development bool   `json:"development"`
 	Locale      string `json:"locale"`
+	AccessToken string `json:"accessToken"`
 }
 
 type EndorContext[T any] struct {

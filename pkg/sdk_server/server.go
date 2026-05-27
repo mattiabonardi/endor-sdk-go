@@ -18,8 +18,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type EndorHTTPRoute struct {
+	Method  string
+	Path    string
+	Handler gin.HandlerFunc
+}
+
 type Endor struct {
 	endorHandlers *[]sdk.EndorHandlerInterface
+	customRoutes  []EndorHTTPRoute
 	postInitFunc  func()
 	version       string
 	localesFS     fs.FS
@@ -39,6 +46,11 @@ func NewEndorInitializer() *EndorInitializer {
 
 func (b *EndorInitializer) WithEndorHandlers(handlers *[]sdk.EndorHandlerInterface) *EndorInitializer {
 	b.endor.endorHandlers = handlers
+	return b
+}
+
+func (b *EndorInitializer) WithCustomRoutes(routes []EndorHTTPRoute) *EndorInitializer {
+	b.endor.customRoutes = routes
 	return b
 }
 
@@ -135,10 +147,12 @@ func (h *Endor) Init(module string) {
 				// Build the session here: single point of header parsing.
 				// Development=true activates the per-user ephemeral registry overlay.
 				session := sdk.Session{
-					Id:          c.GetHeader("x-user-session"),
-					Username:    c.GetHeader("x-user-id"),
-					Development: c.GetHeader("x-development") == "true",
+					Id:          c.GetHeader(sdk.X_ENDOR_SESSION_ID),
+					UserId:      c.GetHeader(sdk.X_ENDOR_USER_ID),
+					Username:    c.GetHeader(sdk.X_ENDOR_USERNAME),
+					Development: c.GetHeader(sdk.X_ENDOR_DEVELOPMENT) == "true",
 					Locale:      sdk_i18n.NormalizeLocale(c.GetHeader("Accept-Language")),
+					AccessToken: c.GetHeader("Authorization"),
 				}
 				dict, err := actionRepo.DictionaryActionInstance(session, sdk.ReadInstanceDTO{Id: actionId})
 				if err == nil {
@@ -160,6 +174,11 @@ func (h *Endor) Init(module string) {
 	swaggerPath, err := swagger.CreateSwaggerConfiguration(microServiceId, module, fmt.Sprintf("http://localhost:%s", config.ServerPort), entities, "/api", h.localesFS)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// custom routes
+	for _, route := range h.customRoutes {
+		router.Handle(route.Method, route.Path, route.Handler)
 	}
 
 	// swagger
