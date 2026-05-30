@@ -89,7 +89,7 @@ func (id *ObjectID) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 // ErrInvalidBSONType is returned when unmarshaling ObjectID from an invalid BSON type
 var ErrInvalidBSONType = fmt.Errorf("invalid BSON type for ObjectID")
 
-const X_ENDOR_SESSION_ID = "x-endor-session-id"
-const X_ENDOR_USER_ID = "x-endor-user-id"
-const X_ENDOR_USERNAME = "x-endor-username"
-const X_ENDOR_DEVELOPMENT = "x-endor-development"
+const X_ENDOR_SESSION_ID = "X-Endor-Session-Id"
+const X_ENDOR_USER_ID = "X-Endor-User-Id"
+const X_ENDOR_USERNAME = "X-Endor-Username"
+const X_ENDOR_DEVELOPMENT = "X-Endor-Development"

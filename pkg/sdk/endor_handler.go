@@ -125,7 +125,7 @@ func (m *endorHandlerActionImpl[T, R]) CreateHTTPCallback(microserviceId string,
 			}
 		} else {
 			response.ResolveTranslations(ec.ResolveTExpr)
-			c.Header("x-endor-microservice", microserviceId)
+			c.Header("X-Endor-Microservice", microserviceId)
 			c.JSON(http.StatusOK, response)
 		}
 	}
